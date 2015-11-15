@@ -7,7 +7,7 @@
 
  
 #### Getting Started
-Check out Amza over at [the wiki](https://github.com/jivesoftware/leaps-n-bounds/wiki).
+Check out L.A.B over at [the wiki](https://github.com/jivesoftware/leaps-n-bounds/wiki).
 
 #### Licensing
-Amza is licensed under the Apache License, Version 2.0. See LICENSE for full license text.
+Leaps & Bounds is licensed under the Apache License, Version 2.0. See LICENSE for full license text.
