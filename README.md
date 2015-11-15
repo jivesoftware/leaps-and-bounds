@@ -2,7 +2,7 @@
 =========
 
 #### What It Is
- Leaps and bounds (L.A.B) is an append only datastruture designed to support the log merge sort paradigm.
+ Leaps and bounds (L.A.B) is an append only datastruture designed to support the log sort merge paradigm.
 
 
  
