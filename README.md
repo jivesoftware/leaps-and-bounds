@@ -1,4 +1,4 @@
-![L.A.B](https://github.com/jivesoftware/amza/wiki/images/lab-logo.png)
+![L.A.B](https://github.com/jivesoftware/leaps-n-bounds/wiki/images/lab-logo.png)
 =========
 
 #### What It Is
