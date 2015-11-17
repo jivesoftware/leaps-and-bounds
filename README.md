@@ -1,8 +1,11 @@
 ![L.A.B](https://github.com/jivesoftware/leaps-n-bounds/wiki/images/lab-logo.png)
 =========
 
+[![][license img]][license]
+
+
 #### What It Is
- Leaps and bounds (L.A.B) is an append only datastruture designed to support the log sort merge paradigm.
+ Leaps and bounds (L.A.B) is an append only datastruture designed to support the log merge sort paradigm.
 
 
  
@@ -11,3 +14,7 @@ Check out L.A.B over at [the wiki](https://github.com/jivesoftware/leaps-n-bound
 
 #### Licensing
 Leaps & Bounds is licensed under the Apache License, Version 2.0. See LICENSE for full license text.
+
+
+[license]:LICENSE-2.0.txt
+[license img]:https://img.shields.io/badge/License-Apache%202-blue.svg
