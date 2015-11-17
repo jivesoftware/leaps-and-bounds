@@ -16,5 +16,5 @@ Check out L.A.B over at [the wiki](https://github.com/jivesoftware/leaps-n-bound
 Leaps & Bounds is licensed under the Apache License, Version 2.0. See LICENSE for full license text.
 
 
-[license]:LICENSE-2.0.txt
+[license]:LICENSE.txt
 [license img]:https://img.shields.io/badge/License-Apache%202-blue.svg
