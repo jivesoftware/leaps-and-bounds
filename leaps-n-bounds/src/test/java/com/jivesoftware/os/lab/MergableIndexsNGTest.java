@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
  */
 public class MergableIndexsNGTest {
 
-    @Test(enabled = true)
+    @Test(enabled = false)
     public void testConcurrentMerges() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
@@ -89,7 +89,8 @@ public class MergableIndexsNGTest {
         Random rand = new Random(1446914103456L);
         for (int wi = 0; wi < indexes; wi++) {
 
-            File indexFiler = File.createTempFile("a-index-" + wi, ".tmp");
+            File indexFiler = File.createTempFile("MergableIndexsNGTest" + File.separator + "MergableIndexsNGTest-testTx" + File.separator + "a-index-" + wi,
+                ".tmp");
             IndexFile indexFile = new IndexFile(indexFiler.getAbsolutePath(), "rw", false);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi);
 
@@ -134,6 +135,7 @@ public class MergableIndexsNGTest {
             return true;
         };
         while (rowScan.next(stream));
+        Assert.assertEquals(index[0], keys.size());
         reader.release();
         System.out.println("rowScan PASSED");
 
@@ -143,6 +145,7 @@ public class MergableIndexsNGTest {
             GetRaw getPointer = IndexUtil.get(acquired);
             byte[] key = UIO.longBytes(k);
             stream = (rawEntry, offset, length) -> {
+                System.out.println("->" + SimpleRawEntry.key(rawEntry) + " " + SimpleRawEntry.value(rawEntry) + " " + offset + " " + length);
                 if (rawEntry != null) {
                     System.out.println("Got: " + SimpleRawEntry.toString(rawEntry));
                     byte[] rawKey = UIO.longBytes(SimpleRawEntry.key(rawEntry));
@@ -154,16 +157,15 @@ public class MergableIndexsNGTest {
                         Assert.assertEquals(SimpleRawEntry.value(rawEntry), SimpleRawEntry.value(d));
                     }
                 } else {
-                    Assert.assertFalse(desired.containsKey(key));
+                    Assert.assertFalse(desired.containsKey(key), "Desired doesn't contain:" + UIO.bytesLong(key));
                 }
                 return rawEntry != null;
             };
-
             getPointer.get(key, stream);
         }
         reader.release();
-
         System.out.println("getPointer PASSED");
+
         acquired = reader.acquire(1024);
         for (int i = 0; i < keys.size() - 3; i++) {
             int _i = i;
@@ -184,8 +186,8 @@ public class MergableIndexsNGTest {
 
         }
         reader.release();
-
         System.out.println("rangeScan PASSED");
+
         acquired = reader.acquire(1024);
         for (int i = 0; i < keys.size() - 3; i++) {
             int _i = i;

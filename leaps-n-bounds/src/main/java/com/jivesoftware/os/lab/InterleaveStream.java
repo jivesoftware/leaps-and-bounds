@@ -19,7 +19,6 @@ class InterleaveStream implements NextRawEntry {
     private final byte[][] nextRawEntry;
     private final int[] nextOffset;
     private final int[] nextLength;*/
-
     public InterleaveStream(NextRawEntry[] nextRawEntries) throws Exception {
         for (int i = 0; i < nextRawEntries.length; i++) {
             Feed feed = new Feed(i, nextRawEntries[i]);
@@ -30,14 +29,12 @@ class InterleaveStream implements NextRawEntry {
 
     /*private int streamed = -1;
     private int until = -1;*/
-
     @Override
     public boolean next(RawEntryStream stream) throws Exception {
 
         // 0.     3, 5, 7, 9
         // 1.     3, 4, 7, 10
         // 2.     3, 6, 8, 11
-
         if (active == null
             || until != null && IndexUtil.compare(active.nextRawEntry, 4, active.nextRawKeyLength, until.nextRawEntry, 4, until.nextRawKeyLength) >= 0) {
 
@@ -66,7 +63,9 @@ class InterleaveStream implements NextRawEntry {
         }
 
         if (active != null) {
-            stream.stream(active.nextRawEntry, active.nextOffset, active.nextLength);
+            if (active.nextRawEntry != null) {
+                stream.stream(active.nextRawEntry, active.nextOffset, active.nextLength);
+            }
             if (active.feedNext() == null) {
                 active = null;
                 until = null;
