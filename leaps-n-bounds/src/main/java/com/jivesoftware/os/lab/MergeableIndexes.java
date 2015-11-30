@@ -69,28 +69,6 @@ public class MergeableIndexes {
         return copy.length;
     }
 
-    public static void main(String[] args) {
-        int[] sizes = new int[] { 1000000, 1000000, 1000000, 1000000, 2000001 };
-
-        for (int i = 0; i < sizes.length; i++) {
-            long c = 0;
-            int s = 0;
-            for (int j = i; j < sizes.length; j++) {
-                c += sizes[j];
-                s++;
-                if (s > 1) {
-                    System.out.println(i + "-" + j + "=" + (((c / (double) s)) - s));
-                }
-            }
-        }
-    }
-
-    enum MergeStrategy {
-        smallestPairs,
-        biggestGain,
-        longestRun,
-        crazySauce;
-    }
 
     public Merger merge(IndexFactory indexFactory, CommitIndex commitIndex) throws Exception {
         boolean[] mergingCopy;
@@ -359,15 +337,6 @@ public class MergeableIndexes {
         return copy;
     }
 
-    private static class MergeRange {
-        private final int startOfSmallestMerge;
-        private final int length;
-
-        public MergeRange(int startOfSmallestMerge, int length) {
-            this.startOfSmallestMerge = startOfSmallestMerge;
-            this.length = length;
-        }
-    }
 
     public MergeRange getMergeRange(MergeStrategy mergeStrategy, boolean[] mergingCopy,
         RawConcurrentReadableIndex[] indexesCopy) throws IOException {

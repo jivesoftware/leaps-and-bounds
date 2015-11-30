@@ -45,6 +45,7 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
         writeIndex = index.fileChannelWriter(1 * 1024 * 1024); // TODO config;
     }
 
+    @Override
     public IndexRangeId id() {
         return indexRangeId;
     }

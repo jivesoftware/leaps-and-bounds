@@ -24,28 +24,6 @@ import java.io.IOException;
 
 public class UIO {
 
-    /**
-     *
-     * @param _from
-     * @param _to
-     * @param _bufferSize
-     * @return
-     * @throws Exception
-     */
-    public static long copy(IReadable _from, IWriteable _to, long _bufferSize) throws Exception {
-        long byteCount = _bufferSize;
-        if (_bufferSize < 1) {
-            byteCount = 1024 * 1024; //1MB
-        }
-        byte[] chunk = new byte[(int) byteCount];
-        int bytesRead = -1;
-        long size = 0;
-        while ((bytesRead = _from.read(chunk)) > -1) {
-            _to.write(chunk, 0, bytesRead);
-            size += bytesRead;
-        }
-        return size;
-    }
 
     /**
      *

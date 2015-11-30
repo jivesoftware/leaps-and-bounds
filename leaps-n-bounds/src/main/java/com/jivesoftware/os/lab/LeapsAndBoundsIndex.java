@@ -95,7 +95,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
             }
             return new ReadLeapsAndBoundsIndex(disposed, hideABone, new ActiveScan(leaps, leapsCache, footer, readableIndex, lengthBuffer));
-        } catch (Throwable x) {
+        } catch (IOException | RuntimeException x) {
             throw x;
         } finally {
             hideABone.release();

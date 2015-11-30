@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
 public class AutoGrowingByteBufferBackedFiler implements IFiler {
 
     public static final long MAX_BUFFER_SEGMENT_SIZE = UIO.chunkLength(30);
-    public static long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
+    public static final long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
 
     private final long initialBufferSegmentSize;
     private final long maxBufferSegmentSize;
@@ -30,17 +30,16 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler {
         ByteBufferFactory byteBufferFactory) throws IOException {
         this.initialBufferSegmentSize = initialBufferSegmentSize > 0 ? UIO.chunkLength(UIO.chunkPower(initialBufferSegmentSize, 0)) : -1;
 
-        maxBufferSegmentSize = Math.min(UIO.chunkLength(UIO.chunkPower(maxBufferSegmentSize, 0)), MAX_BUFFER_SEGMENT_SIZE);
-        this.maxBufferSegmentSize = maxBufferSegmentSize;
+        this.maxBufferSegmentSize = Math.min(UIO.chunkLength(UIO.chunkPower(maxBufferSegmentSize, 0)), MAX_BUFFER_SEGMENT_SIZE);
 
         this.byteBufferFactory = byteBufferFactory;
         this.filers = new ByteBufferBackedFiler[0];
         this.length = byteBufferFactory.length();
 
         // test power of 2
-        if ((maxBufferSegmentSize & (maxBufferSegmentSize - 1)) == 0) {
-            this.fShift = Long.numberOfTrailingZeros(maxBufferSegmentSize);
-            this.fseekMask = maxBufferSegmentSize - 1;
+        if ((this.maxBufferSegmentSize & (this.maxBufferSegmentSize - 1)) == 0) {
+            this.fShift = Long.numberOfTrailingZeros(this.maxBufferSegmentSize);
+            this.fseekMask = this.maxBufferSegmentSize - 1;
         } else {
             throw new IllegalArgumentException("It's hard to ensure powers of 2");
         }
