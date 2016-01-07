@@ -25,7 +25,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     private final ExecutorService destroy;
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
-    private final int numBonesHidden = 1024;  // TODO config
+    private final int numBonesHidden = 1024; // TODO config
     private final Semaphore hideABone;
 
     public LeapsAndBoundsIndex(ExecutorService destroy, IndexRangeId id, IndexFile index) throws Exception {
@@ -33,22 +33,24 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         this.id = id;
         this.index = index;
         this.hideABone = new Semaphore(numBonesHidden, true);
+        this.footer = readFooter(index.reader(null, index.length(), 0));
+    }
 
-        long indexLength = index.length();
+    private Footer readFooter(IReadable readable) throws IOException {
+        long indexLength = readable.length();
         if (indexLength < 4) {
             System.out.println("WTF:" + indexLength);
         }
-        index.seek(indexLength - 4);
-        int footerLength = UIO.readInt(index, "length", lengthBuffer);
-        index.seek(indexLength - (1 + footerLength));
 
-        int type = index.read();
+        readable.seek(indexLength - 4);
+        int footerLength = UIO.readInt(readable, "length", lengthBuffer);
+        readable.seek(indexLength - (1 + footerLength));
+
+        int type = readable.read();
         if (type != FOOTER) {
             throw new RuntimeException("Corruption! " + type + " expected " + FOOTER);
         }
-        this.footer = Footer.read(index, lengthBuffer);
-        index.seek(0);
-    
+        return Footer.read(readable, lengthBuffer);
     }
 
     @Override
@@ -69,10 +71,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         }
 
         try {
-            IReadable readableIndex = index.fileChannelMemMapFiler(0);
-            if (readableIndex == null) {
-                readableIndex = (bufferSize > 0) ? new HeapBufferedReadable(index.fileChannelFiler(), bufferSize) : index.fileChannelFiler();
-            }
+            IReadable readableIndex = index.reader(null, index.length(), bufferSize);
 
             if (leaps == null) {
                 long indexLength = readableIndex.length();

@@ -40,14 +40,14 @@ public class MergableIndexsNGTest {
             for (int wi = 0; wi < indexes; wi++) {
 
                 File indexFiler = File.createTempFile("a-index-" + wi, ".tmp");
-                IndexFile indexFile = new IndexFile(indexFiler.getAbsolutePath(), "rw", false);
+                IndexFile indexFile = new IndexFile(indexFiler.getAbsolutePath(), "rw", false, 1024);
                 IndexRangeId indexRangeId = new IndexRangeId(wi, wi);
 
                 WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, indexFile, 64, 2);
                 IndexTestUtils.append(rand, write, 0, step, count, desired);
                 write.close();
 
-                indexFile = new IndexFile(indexFiler.getAbsolutePath(), "r", false);
+                indexFile = new IndexFile(indexFiler.getAbsolutePath(), "r", false, 1024);
                 indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
 
             }
@@ -62,9 +62,9 @@ public class MergableIndexsNGTest {
         MergeableIndexes.Merger merger = indexs.merge((id, worstCaseCount) -> {
             int updatesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-            return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler.getAbsolutePath(), "rw", false), maxLeaps, updatesBetweenLeaps);
+            return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler.getAbsolutePath(), "rw", false, 1024), maxLeaps, updatesBetweenLeaps);
         }, (id, index) -> {
-            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", false));
+            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", false, 1024));
         });
         if (merger != null) {
             merger.call();
@@ -91,14 +91,14 @@ public class MergableIndexsNGTest {
 
             File indexFiler = File.createTempFile("MergableIndexsNGTest" + File.separator + "MergableIndexsNGTest-testTx" + File.separator + "a-index-" + wi,
                 ".tmp");
-            IndexFile indexFile = new IndexFile(indexFiler.getAbsolutePath(), "rw", false);
+            IndexFile indexFile = new IndexFile(indexFiler.getAbsolutePath(), "rw", false, 1024);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi);
 
             WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, indexFile, 64, 2);
             IndexTestUtils.append(rand, write, 0, step, count, desired);
             write.close();
 
-            indexFile = new IndexFile(indexFiler.getAbsolutePath(), "r", false);
+            indexFile = new IndexFile(indexFiler.getAbsolutePath(), "r", false, 1024);
             indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
         }
 
@@ -109,9 +109,9 @@ public class MergableIndexsNGTest {
         MergeableIndexes.Merger merger = indexs.merge((id, worstCaseCount) -> {
             int updatesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-            return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler.getAbsolutePath(), "rw", false), maxLeaps, updatesBetweenLeaps);
+            return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler.getAbsolutePath(), "rw", false, 1024), maxLeaps, updatesBetweenLeaps);
         }, (id, index) -> {
-            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", false));
+            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", false, 1024));
         });
         merger.call();
 

@@ -38,14 +38,13 @@ public class HeapFiler implements IFiler {
         maxLength = 0;
     }
 
-    public HeapFiler(byte[] _bytes) {
-        bytes = _bytes;
-        maxLength = _bytes.length;
-    }
-
-    public HeapFiler(byte[] _bytes, int _maxLength) {
+    private HeapFiler(byte[] _bytes, int _maxLength) {
         bytes = _bytes;
         maxLength = _maxLength;
+    }
+
+    public static HeapFiler fromBytes(byte[] _bytes, int length) {
+        return new HeapFiler(_bytes, length);
     }
 
     public HeapFiler createReadOnlyClone() {

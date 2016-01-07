@@ -63,11 +63,12 @@ public class IndexStressNGTest {
                         long m = merge.incrementAndGet();
                         int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                         File mergeIndexFiler = File.createTempFile("d-index-merged-" + m, ".tmp");
-                        return new WriteLeapsAndBoundsIndex(id, new IndexFile(mergeIndexFiler.getAbsolutePath(), "rw", true), maxLeaps, entriesBetweenLeaps);
+                        return new WriteLeapsAndBoundsIndex(id, new IndexFile(mergeIndexFiler.getAbsolutePath(), "rw", true, 1024),
+                            maxLeaps, entriesBetweenLeaps);
                     }, (id, index) -> {
                         //System.out.println("Commit Merged id:" + id + "index:" + index);
                         ongoingMerges.decrementAndGet();
-                        return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFileName(), "r", true));
+                        return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFileName(), "r", true, 1024));
                     });
 
                     if (merger != null) {
@@ -91,8 +92,8 @@ public class IndexStressNGTest {
 
         Future<Object> pointGets = Executors.newSingleThreadExecutor().submit(() -> {
 
-            int[] hits = {0};
-            int[] misses = {0};
+            int[] hits = { 0 };
+            int[] misses = { 0 };
             RawEntryStream hitsAndMisses = (rawEntry, offset, length) -> {
                 if (rawEntry != null) {
                     hits[0]++;
@@ -144,7 +145,7 @@ public class IndexStressNGTest {
 
                         System.out.println(
                             "Hits:" + hits[0] + " Misses:" + misses[0] + " Elapse:" + elapse + " Best:" + rps(logInterval, best) + " Avg:" + rps(logInterval,
-                            (long) (total / (double) samples)));
+                                (long) (total / (double) samples)));
                         hits[0] = 0;
                         misses[0] = 0;
                         getStart = getEnd;
@@ -170,18 +171,18 @@ public class IndexStressNGTest {
 
             long startMerge = System.currentTimeMillis();
             WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(id,
-                new IndexFile(indexFiler.getAbsolutePath(), "rw", true), maxLeaps, entriesBetweenLeaps);
+                new IndexFile(indexFiler.getAbsolutePath(), "rw", true, 1024), maxLeaps, entriesBetweenLeaps);
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.close();
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
-            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", true)));
+            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", true, 1024)));
 
             count += batchSize;
 
             System.out.println("Insertions:" + format.format(count) + " ips:" + format.format(
                 ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " elapse:" + format.format(
-                    (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.mergeDebt());
+                (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.mergeDebt());
         }
 
         running.setValue(false);
@@ -190,7 +191,8 @@ public class IndexStressNGTest {
         Thread.sleep(10_000L);*/
         merging.setValue(false);
         System.out.println(
-            " **************   Total time to add " + (numBatches * batchSize) + " including all merging: " + (System.currentTimeMillis() - start) + " millis *****************");
+            " **************   Total time to add " + (numBatches * batchSize) + " including all merging: "
+                + (System.currentTimeMillis() - start) + " millis *****************");
 
         pointGets.get();
 

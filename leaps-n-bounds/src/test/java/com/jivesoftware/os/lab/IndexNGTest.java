@@ -34,13 +34,13 @@ public class IndexNGTest {
 
         IndexRangeId indexRangeId = new IndexRangeId(1, 1);
 
-        WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "rw", false),
+        WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "rw", false, 1024),
             64, 10);
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.close();
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "r", false)), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "r", false, 1024)), count, step, desired);
     }
 
     @Test(enabled = false)
@@ -73,13 +73,13 @@ public class IndexNGTest {
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1);
-        WriteLeapsAndBoundsIndex disIndex = new WriteLeapsAndBoundsIndex(indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "rw", false),
+        WriteLeapsAndBoundsIndex disIndex = new WriteLeapsAndBoundsIndex(indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "rw", false, 1024),
             64, 10);
 
         disIndex.append(memoryIndex);
         disIndex.close();
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "r", false)), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler.getAbsolutePath(), "r", false, 1024)), count, step, desired);
 
     }
 

@@ -40,7 +40,7 @@ public class HeapBufferedReadable implements IReadable {
             if (buffer == null || needed > buffer.leakBytes().length) {
                 byte[] bytes = new byte[nextBufferSize];
                 backingReadable.read(bytes, 0, used);
-                buffer = new HeapFiler(bytes, used);
+                buffer = HeapFiler.fromBytes(bytes, used);
             } else {
                 buffer.reset(used);
                 backingReadable.read(buffer.leakBytes(), 0, used);

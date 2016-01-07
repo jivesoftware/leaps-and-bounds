@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 
 /**
- *
  * @author jonathan.colt
  */
 public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
@@ -42,7 +41,7 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
         this.maxLeaps = maxLeaps;
         this.updatesBetweenLeaps = updatesBetweenLeaps;
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
-        writeIndex = index.fileChannelWriter(1 * 1024 * 1024); // TODO config;
+        this.writeIndex = index.appender();
     }
 
     @Override
@@ -126,7 +125,8 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
 
     @Override
     public String toString() {
-        return "WriteLeapsAndBoundsIndex{" + "indexRangeId=" + indexRangeId + ", index=" + index + ", maxLeaps=" + maxLeaps + ", updatesBetweenLeaps=" + updatesBetweenLeaps + ", count=" + count + '}';
+        return "WriteLeapsAndBoundsIndex{" + "indexRangeId=" + indexRangeId + ", index=" + index + ", maxLeaps=" + maxLeaps + ", updatesBetweenLeaps=" +
+            updatesBetweenLeaps + ", count=" + count + '}';
     }
 
 }

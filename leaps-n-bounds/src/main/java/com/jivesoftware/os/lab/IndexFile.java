@@ -4,96 +4,108 @@ import com.jivesoftware.os.lab.io.AutoGrowingByteBufferBackedFiler;
 import com.jivesoftware.os.lab.io.FileBackedMemMappedByteBufferFactory;
 import com.jivesoftware.os.lab.io.HeapFiler;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
+import com.jivesoftware.os.lab.io.api.ICloseable;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author jonathan.colt
  */
-public class IndexFile extends RandomAccessFile implements IReadable {
+public class IndexFile implements ICloseable {
 
     private static final long BUFFER_SEGMENT_SIZE = 1024L * 1024 * 1024;
 
     private final String fileName;
+    private final String mode;
+    private RandomAccessFile randomAccessFile;
+    private FileChannel channel;
     private final boolean useMemMap;
     private final AtomicLong size;
+    private final IAppendOnly appendOnly;
 
-    private final AutoGrowingByteBufferBackedFiler memMapFiler;
+    private AutoGrowingByteBufferBackedFiler memMapFiler;
     private final AtomicLong memMapFilerLength = new AtomicLong(-1);
 
-    public IndexFile(String name, String mode, boolean useMemMap) throws IOException {
-        super(name, mode);
-        this.fileName = name;
-        this.useMemMap = useMemMap;
-        this.size = new AtomicLong(super.length());
-        if (useMemMap) {
-            FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(new File(name), BUFFER_SEGMENT_SIZE);
-            this.memMapFiler = new AutoGrowingByteBufferBackedFiler(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
-        } else {
-            this.memMapFiler = null;
-        }
-    }
+    private final Object fileLock = new Object();
+    private final Object memMapLock = new Object();
 
-    @Override
-    public Object lock() {
-        return this;
+    public IndexFile(String fileName, String mode, boolean useMemMap, int appendBufferSize) throws IOException {
+        this.fileName = fileName;
+        this.mode = mode;
+        this.useMemMap = useMemMap;
+        this.randomAccessFile = new RandomAccessFile(fileName, mode);
+        this.channel = randomAccessFile.getChannel();
+        this.size = new AtomicLong(randomAccessFile.length());
+        this.appendOnly = createAppendOnly(appendBufferSize);
+        this.memMapFiler = createMemMap();
     }
 
     public String getFileName() {
         return fileName;
     }
 
-    public IReadable fileChannelFiler() {
-        FileChannel channel = getChannel();
-        return new IndexFilerChannelReader(this, channel);
-    }
-
-    public IReadable fileChannelMemMapFiler(long size) throws IOException {
+    public IReadable reader(IReadable current, long requiredLength, int bufferSize) throws IOException {
         if (!useMemMap) {
-            return null;
-        }
-        if (size <= memMapFilerLength.get()) {
-            return memMapFiler.duplicateAll();
-        }
-        synchronized (this) {
-            if (size > memMapFilerLength.get()) {
-                memMapFiler.seek(size);
-                memMapFilerLength.set(size);
+            if (current != null) {
+                return current;
+            } else {
+                IndexFilerChannelReader reader = new IndexFilerChannelReader(this, channel);
+                return bufferSize > 0 ? new HeapBufferedReadable(reader, bufferSize) : reader;
             }
+        }
+
+        if (current != null && current.length() >= requiredLength) {
+            return current;
+        }
+        synchronized (memMapLock) {
+            long length = size.get();
+            memMapFiler.seek(length);
+            memMapFilerLength.set(length);
         }
         return memMapFiler.duplicateAll();
     }
 
-    public IAppendOnly fileChannelWriter(int bufferSize) throws IOException {
+    public IAppendOnly appender() throws IOException {
+        return appendOnly;
+    }
 
-        HeapFiler filer = new HeapFiler(bufferSize);
-        seek(0);
+    private IAppendOnly createAppendOnly(int bufferSize) throws IOException {
+        HeapFiler filer = bufferSize > 0 ? new HeapFiler(bufferSize) : null;
+        randomAccessFile.seek(size.get());
         return new IAppendOnly() {
-            private long flushedFp = 0;
 
             @Override
             public void write(byte[] b, int _offset, int _len) throws IOException {
-                filer.write(b, _offset, _len);
-                if (filer.length() > bufferSize) {
-                    flush(false);
+                if (filer != null) {
+                    filer.write(b, _offset, _len);
+                    if (filer.length() > bufferSize) {
+                        flush(false);
+                    }
+                } else {
+                    IndexFile.this.write(b, _offset, _len);
                 }
             }
 
             @Override
             public void flush(boolean fsync) throws IOException {
-                long length = filer.length();
-                flushedFp += length;
-                IndexFile.this.write(filer.leakBytes(), 0, (int) length);
-                filer.reset();
+                if (filer != null && filer.length() > 0) {
+                    long length = filer.length();
+                    IndexFile.this.write(filer.leakBytes(), 0, (int) length);
+                    filer.reset();
+                }
+                IndexFile.this.flush(fsync);
             }
 
             @Override
             public void close() throws IOException {
-                filer.reset();
+                if (filer != null) {
+                    filer.reset();
+                }
             }
 
             @Override
@@ -103,84 +115,99 @@ public class IndexFile extends RandomAccessFile implements IReadable {
 
             @Override
             public long length() throws IOException {
-                return flushedFp + filer.getFilePointer();
+                return IndexFile.this.length() + (filer != null ? filer.length() : 0);
             }
 
             @Override
             public long getFilePointer() throws IOException {
-                return flushedFp + filer.getFilePointer();
+                return length();
             }
         };
-
     }
 
-    void addToSize(long amount) {
-        size.addAndGet(amount);
+    private AutoGrowingByteBufferBackedFiler createMemMap() throws IOException {
+        if (useMemMap) {
+            FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(new File(fileName), BUFFER_SEGMENT_SIZE);
+            return new AutoGrowingByteBufferBackedFiler(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
+        } else {
+            return null;
+        }
     }
 
     @Override
     public String toString() {
-        return "DiskBackedWALFiler{"
+        return "IndexFile{"
             + "fileName=" + fileName
             + ", useMemMap=" + useMemMap
             + ", size=" + size
-            + ", memMapFiler=" + memMapFiler
-            + ", memMapFilerLength=" + memMapFilerLength
             + '}';
     }
 
     @Override
     public void close() throws IOException {
-        super.close();
+        randomAccessFile.close();
     }
 
-    @Override
-    public void seek(long _fp) throws IOException {
-        super.seek(_fp);
-    }
-
-    @Override
-    public int read() throws IOException {
-        return super.read();
-    }
-
-    @Override
-    public int read(byte b[]) throws IOException {
-        return super.read(b);
-    }
-
-    @Override
-    public int read(byte b[], int _offset, int _len) throws IOException {
-        return super.read(b, _offset, _len);
-    }
-
-    @Override
     public long length() throws IOException {
         return size.get();
     }
 
-    @Override
-    public void write(int b) throws IOException {
-        size.incrementAndGet();
-        super.write(b);
-    }
-
-    @Override
-    public void write(byte[] b) throws IOException {
-        if (b != null) {
-            super.write(b);
-            size.addAndGet(b.length);
+    private void write(byte[] b, int _offset, int _len) throws IOException {
+        while (true) {
+            try {
+                randomAccessFile.write(b, _offset, _len);
+                size.addAndGet(_len);
+                break;
+            } catch (ClosedChannelException e) {
+                ensureOpen();
+                randomAccessFile.seek(size.get());
+            }
         }
     }
 
-    @Override
-    public void write(byte[] b, int _offset, int _len) throws IOException {
-        super.write(b, _offset, _len);
-        size.addAndGet(_len);
+    private void flush(boolean fsync) throws IOException {
+        if (fsync) {
+            while (true) {
+                try {
+                    randomAccessFile.getFD().sync();
+                    break;
+                } catch (ClosedChannelException e) {
+                    ensureOpen();
+                }
+            }
+        }
     }
 
-    public void eof() throws IOException {
-        setLength(getFilePointer());
+    public void truncate(long size) throws IOException {
+        // should only be called with a write AND a read lock
+        while (true) {
+            try {
+                randomAccessFile.setLength(size);
+
+                synchronized (memMapLock) {
+                    memMapFiler = createMemMap();
+                    memMapFilerLength.set(-1);
+                }
+                break;
+            } catch (ClosedChannelException e) {
+                ensureOpen();
+            }
+        }
     }
 
+    private void ensureOpen() throws IOException {
+        if (!channel.isOpen()) {
+            synchronized (fileLock) {
+                if (!channel.isOpen()) {
+                    randomAccessFile = new RandomAccessFile(fileName, mode);
+                    channel = randomAccessFile.getChannel();
+                }
+            }
+        }
+    }
+
+    FileChannel getFileChannel() throws IOException {
+        ensureOpen();
+        return channel;
+    }
 }
