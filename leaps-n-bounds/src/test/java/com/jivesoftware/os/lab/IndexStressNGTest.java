@@ -22,7 +22,7 @@ public class IndexStressNGTest {
 
     NumberFormat format = NumberFormat.getInstance();
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void stress() throws Exception {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
 
@@ -34,7 +34,7 @@ public class IndexStressNGTest {
         int count = 0;
 
         boolean concurrentReads = false;
-        int numBatches = 1000;
+        int numBatches = 10;
         int batchSize = 100_000;
         int maxKeyIncrement = 2000;
         int entriesBetweenLeaps = 1024;
@@ -43,7 +43,7 @@ public class IndexStressNGTest {
         MutableLong maxKey = new MutableLong();
         MutableBoolean running = new MutableBoolean(true);
         MutableBoolean merging = new MutableBoolean(true);
-        MutableLong stopGets = new MutableLong(Long.MAX_VALUE);
+        MutableLong stopGets = new MutableLong(System.currentTimeMillis() + 4_000);
 
         int maxParallelMerges = 2;
         AtomicLong ongoingMerges = new AtomicLong(0);
@@ -92,8 +92,8 @@ public class IndexStressNGTest {
 
         Future<Object> pointGets = Executors.newSingleThreadExecutor().submit(() -> {
 
-            int[] hits = { 0 };
-            int[] misses = { 0 };
+            int[] hits = {0};
+            int[] misses = {0};
             RawEntryStream hitsAndMisses = (rawEntry, offset, length) -> {
                 if (rawEntry != null) {
                     hits[0]++;
@@ -145,7 +145,7 @@ public class IndexStressNGTest {
 
                         System.out.println(
                             "Hits:" + hits[0] + " Misses:" + misses[0] + " Elapse:" + elapse + " Best:" + rps(logInterval, best) + " Avg:" + rps(logInterval,
-                                (long) (total / (double) samples)));
+                            (long) (total / (double) samples)));
                         hits[0] = 0;
                         misses[0] = 0;
                         getStart = getEnd;
@@ -182,7 +182,7 @@ public class IndexStressNGTest {
 
             System.out.println("Insertions:" + format.format(count) + " ips:" + format.format(
                 ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " elapse:" + format.format(
-                (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.mergeDebt());
+                    (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.mergeDebt());
         }
 
         running.setValue(false);
@@ -192,7 +192,7 @@ public class IndexStressNGTest {
         merging.setValue(false);
         System.out.println(
             " **************   Total time to add " + (numBatches * batchSize) + " including all merging: "
-                + (System.currentTimeMillis() - start) + " millis *****************");
+            + (System.currentTimeMillis() - start) + " millis *****************");
 
         pointGets.get();
 
