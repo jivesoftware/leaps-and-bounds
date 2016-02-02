@@ -119,7 +119,7 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
 
         UIO.writeByte(writeIndex, FOOTER, "type");
         new Footer(leapCount, count, firstKey, lastKey).write(writeIndex, lengthBuffer);
-        writeIndex.flush(false); // TODO expose config Fsync
+        writeIndex.flush(true); // TODO expose config Fsync
         index.close();
     }
 

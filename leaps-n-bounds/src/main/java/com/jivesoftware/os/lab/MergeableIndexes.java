@@ -49,7 +49,7 @@ public class MergeableIndexes {
         }
 
         MergeRange mergeRange = getMergeRange(MergeStrategy.crazySauce, mergingCopy, indexesCopy);
-        if (mergeRange.startOfSmallestMerge < 0) {
+        if (mergeRange.startOfSmallestMerge < 0 || mergeRange.length < 2) {
             for (boolean m : mergingCopy) {
                 if (m) {
                     return true;
@@ -68,7 +68,6 @@ public class MergeableIndexes {
         }
         return copy.length;
     }
-
 
     public Merger merge(IndexFactory indexFactory, CommitIndex commitIndex) throws Exception {
         boolean[] mergingCopy;
@@ -109,7 +108,6 @@ public class MergeableIndexes {
 
             /*System.out.println("????? WTF " + startOfSmallestMerge + " " + length + " " + Arrays.toString(mergingCopy) + " ~~~~~~~~~~~ " + Arrays.toString(
                 updateMerging));*/
-
             merging = updateMerging;
         }
 
@@ -337,8 +335,8 @@ public class MergeableIndexes {
         return copy;
     }
 
-
-    public MergeRange getMergeRange(MergeStrategy mergeStrategy, boolean[] mergingCopy,
+    public MergeRange getMergeRange(MergeStrategy mergeStrategy,
+        boolean[] mergingCopy,
         RawConcurrentReadableIndex[] indexesCopy) throws IOException {
 
         int startOfSmallestMerge = -1;

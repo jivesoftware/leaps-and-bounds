@@ -115,7 +115,14 @@ public class MergableIndexsNGTest {
         });
         merger.call();
 
-        assertions(reader, count, step, desired);
+
+        indexs = new MergeableIndexes();
+        IndexRangeId indexRangeId = new IndexRangeId(0, 0);
+        IndexFile indexFile = new IndexFile(indexFiler.getAbsolutePath(), "r", false, 1024);
+        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
+        MergeableIndexes.Reader reader1 = indexs.reader();
+
+        assertions(reader1, count, step, desired);
     }
 
     private void assertions(MergeableIndexes.Reader reader,
