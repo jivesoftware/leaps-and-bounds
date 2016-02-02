@@ -63,12 +63,12 @@ public class IndexStressNGTest {
                         long m = merge.incrementAndGet();
                         int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                         File mergeIndexFiler = File.createTempFile("d-index-merged-" + m, ".tmp");
-                        return new WriteLeapsAndBoundsIndex(id, new IndexFile(mergeIndexFiler.getAbsolutePath(), "rw", true, 1024),
+                        return new WriteLeapsAndBoundsIndex(id, new IndexFile(mergeIndexFiler.getAbsolutePath(), "rw", true, 0),
                             maxLeaps, entriesBetweenLeaps);
                     }, (id, index) -> {
                         //System.out.println("Commit Merged id:" + id + "index:" + index);
                         ongoingMerges.decrementAndGet();
-                        return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFileName(), "r", true, 1024));
+                        return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFileName(), "r", true, 0));
                     });
 
                     if (merger != null) {
@@ -171,12 +171,12 @@ public class IndexStressNGTest {
 
             long startMerge = System.currentTimeMillis();
             WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(id,
-                new IndexFile(indexFiler.getAbsolutePath(), "rw", true, 1024), maxLeaps, entriesBetweenLeaps);
+                new IndexFile(indexFiler.getAbsolutePath(), "rw", true, 0), maxLeaps, entriesBetweenLeaps);
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.close();
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
-            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", true, 1024)));
+            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler.getAbsolutePath(), "r", true, 0)));
 
             count += batchSize;
 

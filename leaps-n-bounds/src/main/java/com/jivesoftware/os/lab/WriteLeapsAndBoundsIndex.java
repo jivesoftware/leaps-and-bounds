@@ -27,7 +27,6 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
     private int updatesSinceLeap;
 
     private final long[] startOfEntryIndex;
-    private final HeapFiler entryBuffer = new HeapFiler(1024); // TODO somthing better
     private byte[] firstKey;
     private byte[] lastKey;
     private int leapCount;
@@ -56,6 +55,7 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
     @Override
     public boolean append(RawEntries pointers) throws Exception {
 
+        HeapFiler entryBuffer = new HeapFiler(1024);
         pointers.consume((rawEntry, offset, length) -> {
 
             entryBuffer.reset();
