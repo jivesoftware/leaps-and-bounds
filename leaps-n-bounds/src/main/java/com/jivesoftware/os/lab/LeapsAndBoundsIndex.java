@@ -38,7 +38,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         this.index = index;
         this.hideABone = new Semaphore(numBonesHidden, true);
         this.footer = readFooter(index.reader(null, index.length(), 0));
-        this.leapsCache = new ConcurrentLHash<>(footer.leapCount / 128, 128); // TODO config
+        this.leapsCache = new ConcurrentLHash<>(3, -2, -1, Runtime.getRuntime().availableProcessors()); // TODO config
     }
 
     private Footer readFooter(IReadable readable) throws IOException {
