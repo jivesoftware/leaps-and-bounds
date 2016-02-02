@@ -6,15 +6,15 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * @author jonathan.colt
  */
-public class BAHash<V> {
+public class LHash<V> {
 
-    private final AtomicReference<BAHMapState< V>> state;
+    private final AtomicReference<LHMapState< V>> state;
 
     /**
      *
      * @param capacity
      */
-    public BAHash(BAHMapState<V> state) {
+    public LHash(LHMapState<V> state) {
         this.state = new AtomicReference<>(state);
     }
 
@@ -30,7 +30,7 @@ public class BAHash<V> {
         state.set(state.get().allocate(0));
     }
 
-    private long hash(BAHMapState state, long keyShuffle) {
+    private long hash(LHMapState state, long keyShuffle) {
         keyShuffle += keyShuffle >> 8; // shuffle bits to avoid worst case clustering
 
         if (keyShuffle < 0) {
@@ -44,7 +44,7 @@ public class BAHash<V> {
     }
 
     public V get(long hashCode, long key) {
-        BAHMapState< V> s = state.get();
+        LHMapState< V> s = state.get();
         long nil = s.nil();
         long skipped = s.skipped();
         if (key == nil || key == skipped) {
@@ -80,7 +80,7 @@ public class BAHash<V> {
 
     @SuppressWarnings("unchecked")
     public void remove(long hashCode, long key) {
-        BAHMapState<V> s = state.get();
+        LHMapState<V> s = state.get();
         long nil = s.nil();
         long skipped = s.skipped();
         if (key == nil || key == skipped) {
@@ -126,11 +126,11 @@ public class BAHash<V> {
 
     @SuppressWarnings("unchecked")
     public void put(long hashCode, long key, V value) {
-        BAHMapState<V> s = state.get();
+        LHMapState<V> s = state.get();
         internalPut(s, hashCode, key, value);
     }
 
-    private void internalPut(BAHMapState<V> s, long hashCode, long key, V value) {
+    private void internalPut(LHMapState<V> s, long hashCode, long key, V value) {
         long capacity = s.capacity();
         if (s.size() * 2 >= capacity) {
             s = grow();
@@ -160,9 +160,9 @@ public class BAHash<V> {
         }
     }
 
-    private BAHMapState<V> grow() {
-        BAHMapState<V> s = state.get();
-        BAHMapState<V> grown = s.allocate(s.capacity() * 2);
+    private LHMapState<V> grow() {
+        LHMapState<V> s = state.get();
+        LHMapState<V> grown = s.allocate(s.capacity() * 2);
         long i = s.first();
         long nil = grown.nil();
         long skipped = grown.skipped();

@@ -6,7 +6,7 @@ import java.util.Arrays;
  *
  * @author jonathan.colt
  */
-public class BAHMapState<V> {
+public class LHMapState<V> {
 
     public static final byte[] NIL = new byte[0];
 
@@ -17,7 +17,7 @@ public class BAHMapState<V> {
     private final Object[] values;
     private int count;
 
-    public BAHMapState(long capacity, long nilKey, long skipKey) {
+    public LHMapState(long capacity, long nilKey, long skipKey) {
         this.count = 0;
         this.capacity = capacity;
         this.nilKey = nilKey;
@@ -28,8 +28,8 @@ public class BAHMapState<V> {
         this.values = new Object[(int) capacity];
     }
 
-    public BAHMapState<V> allocate(long capacity) {
-        return new BAHMapState<>(capacity, nilKey, skipKey);
+    public LHMapState<V> allocate(long capacity) {
+        return new LHMapState<>(capacity, nilKey, skipKey);
     }
 
     public long skipped() {
