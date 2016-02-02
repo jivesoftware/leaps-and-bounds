@@ -3,7 +3,10 @@ package com.jivesoftware.os.lab;
 import com.jivesoftware.os.lab.api.GetRaw;
 import com.jivesoftware.os.lab.api.NextRawEntry;
 import com.jivesoftware.os.lab.api.ReadIndex;
+import com.jivesoftware.os.lab.collections.ConcurrentLHash;
+import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -14,12 +17,23 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     private final AtomicBoolean disposed;
     private final Semaphore hideABone;
-    private final ActiveScan activeScan;
+    private final Leaps leaps;
+    private final ConcurrentLHash<Leaps> leapsCache;
+    private final Footer footer;
+    private final Callable<IReadable> readable;
 
-    public ReadLeapsAndBoundsIndex(AtomicBoolean disposed, Semaphore hideABone, ActiveScan activeScan) {
+    public ReadLeapsAndBoundsIndex(AtomicBoolean disposed,
+        Semaphore hideABone,
+        Leaps leaps,
+        ConcurrentLHash<Leaps> leapsCache,
+        Footer footer,
+        Callable<IReadable> readable) {
         this.disposed = disposed;
         this.hideABone = hideABone;
-        this.activeScan = activeScan;
+        this.leaps = leaps;
+        this.leapsCache = leapsCache;
+        this.footer = footer;
+        this.readable = readable;
     }
 
     @Override
@@ -38,11 +52,12 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public GetRaw get() throws Exception {
-        return new Gets(activeScan);
+        return new Gets(new ActiveScan(leaps, leapsCache, footer, readable.call(), new byte[8]));
     }
 
     @Override
     public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
+        ActiveScan activeScan = new ActiveScan(leaps, leapsCache, footer, readable.call(), new byte[8]);
         activeScan.reset();
         long fp = activeScan.getInclusiveStartOfRow(from, false);
         if (fp < 0) {
@@ -73,6 +88,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public NextRawEntry rowScan() throws Exception {
+        ActiveScan activeScan = new ActiveScan(leaps, leapsCache, footer, readable.call(), new byte[8]);
         activeScan.reset();
         return (stream) -> {
             activeScan.next(0, stream);
@@ -86,12 +102,12 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public long count() throws Exception {
-        return activeScan.count();
+        return footer.count;
     }
 
     @Override
     public boolean isEmpty() throws Exception {
-        return activeScan.count() == 0;
+        return footer.count == 0;
     }
 
 }

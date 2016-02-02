@@ -3,9 +3,9 @@ package com.jivesoftware.os.lab;
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.api.RawEntryStream;
 import com.jivesoftware.os.lab.api.ScanFromFp;
+import com.jivesoftware.os.lab.collections.ConcurrentLHash;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
-import gnu.trove.map.hash.TLongObjectHashMap;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -20,7 +20,7 @@ import static com.jivesoftware.os.lab.WriteLeapsAndBoundsIndex.LEAP;
 public class ActiveScan implements ScanFromFp {
 
     private final Leaps leaps;
-    private final TLongObjectHashMap<Leaps> leapsCache;
+    private final ConcurrentLHash<Leaps> leapsCache;
     private final Footer footer;
     private final IReadable readable;
     private final byte[] lengthBuffer;
@@ -28,7 +28,7 @@ public class ActiveScan implements ScanFromFp {
     private long activeFp = Long.MAX_VALUE;
     private boolean activeResult;
 
-    public ActiveScan(Leaps leaps, TLongObjectHashMap<Leaps> leapsCache, Footer footer, IReadable readable, byte[] lengthBuffer) {
+    public ActiveScan(Leaps leaps, ConcurrentLHash<Leaps> leapsCache, Footer footer, IReadable readable, byte[] lengthBuffer) {
         this.leaps = leaps;
         this.leapsCache = leapsCache;
         this.footer = footer;

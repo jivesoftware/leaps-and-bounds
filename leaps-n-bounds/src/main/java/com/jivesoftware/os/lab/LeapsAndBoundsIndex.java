@@ -2,9 +2,9 @@ package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.lab.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.api.ReadIndex;
+import com.jivesoftware.os.lab.collections.ConcurrentLHash;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
-import gnu.trove.map.hash.TLongObjectHashMap;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
@@ -59,7 +59,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     }
 
     private Leaps leaps = null;
-    private TLongObjectHashMap<Leaps> leapsCache;
+    private ConcurrentLHash<Leaps> leapsCache;
     private Footer footer = null;
 
     @Override
@@ -90,10 +90,12 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
                     throw new RuntimeException("Corruption! " + type + " expected " + LEAP);
                 }
                 leaps = Leaps.read(readableIndex, lengthBuffer);
-                leapsCache = new TLongObjectHashMap<>(footer.leapCount);
-
             }
-            return new ReadLeapsAndBoundsIndex(disposed, hideABone, new ActiveScan(leaps, leapsCache, footer, readableIndex, lengthBuffer));
+            leapsCache = new ConcurrentLHash<>(footer.leapCount / 128, 128); // TODO config
+            return new ReadLeapsAndBoundsIndex(disposed, hideABone, leaps, leapsCache, footer, () -> {
+
+                return index.reader(null, index.length(), bufferSize);
+            });
         } catch (IOException | RuntimeException x) {
             throw x;
         } finally {
