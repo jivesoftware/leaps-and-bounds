@@ -105,9 +105,6 @@ public class MergeableIndexes {
                     updateMerging[i] = merging[i];
                 }
             }
-
-            /*System.out.println("????? WTF " + startOfSmallestMerge + " " + length + " " + Arrays.toString(mergingCopy) + " ~~~~~~~~~~~ " + Arrays.toString(
-                updateMerging));*/
             merging = updateMerging;
         }
 
@@ -143,17 +140,7 @@ public class MergeableIndexes {
         @Override
         public Void call() {
             try {
-                /*StringBuilder bla = new StringBuilder();
-                bla.append(Thread.currentThread() + " ------ Merging:");
-                for (RawConcurrentReadableIndex m : mergeSet) {
-                    bla.append(m.id()).append("=").append(m.count()).append(",");
-                }
-                bla.append(" remaining debt:" + mergeDebt() + " -> ");
-                for (RawConcurrentReadableIndex i : indexes) {
-                    bla.append(i.id()).append("=").append(i.count()).append(",");
-                }
-                System.out.println("\n" + bla.toString() + "\n");*/
-
+               
                 long startMerge = System.currentTimeMillis();
 
                 long worstCaseCount = 0;
@@ -249,6 +236,8 @@ public class MergeableIndexes {
         return new Reader();
     }
 
+
+
     public class Reader {
 
         private long cacheVersion = -1;
@@ -256,10 +245,9 @@ public class MergeableIndexes {
         private ReadIndex[] readIndexs;
 
         public ReadIndex[] acquire(int bufferSize) throws Exception {
-            long stackVersion = version;
             TRY_AGAIN:
             while (true) {
-                if (cacheVersion < stackVersion) {
+                if (cacheVersion < version) {
                     readIndexs = acquireReadIndexes(bufferSize);
                 }
                 for (int i = 0; i < readIndexs.length; i++) {
