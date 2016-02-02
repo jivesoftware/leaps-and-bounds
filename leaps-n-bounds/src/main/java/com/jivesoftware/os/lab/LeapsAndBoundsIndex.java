@@ -24,9 +24,13 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     private final IndexFile index;
     private final ExecutorService destroy;
     private final AtomicBoolean disposed = new AtomicBoolean(false);
+    private final ConcurrentLHash<Leaps> leapsCache;
+    private final Footer footer;
 
     private final int numBonesHidden = 1024; // TODO config
     private final Semaphore hideABone;
+
+    private Leaps leaps; // loaded when reading
 
     public LeapsAndBoundsIndex(ExecutorService destroy, IndexRangeId id, IndexFile index) throws Exception {
         this.destroy = destroy;
@@ -34,6 +38,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         this.index = index;
         this.hideABone = new Semaphore(numBonesHidden, true);
         this.footer = readFooter(index.reader(null, index.length(), 0));
+        this.leapsCache = new ConcurrentLHash<>(footer.leapCount / 128, 128); // TODO config
     }
 
     private Footer readFooter(IReadable readable) throws IOException {
@@ -57,10 +62,6 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     public IndexRangeId id() {
         return id;
     }
-
-    private Leaps leaps = null;
-    private ConcurrentLHash<Leaps> leapsCache;
-    private Footer footer = null;
 
     @Override
     public ReadIndex reader(int bufferSize) throws Exception {
@@ -91,9 +92,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
                 }
                 leaps = Leaps.read(readableIndex, lengthBuffer);
             }
-            leapsCache = new ConcurrentLHash<>(footer.leapCount / 128, 128); // TODO config
             return new ReadLeapsAndBoundsIndex(disposed, hideABone, leaps, leapsCache, footer, () -> {
-
                 return index.reader(null, index.length(), bufferSize);
             });
         } catch (IOException | RuntimeException x) {

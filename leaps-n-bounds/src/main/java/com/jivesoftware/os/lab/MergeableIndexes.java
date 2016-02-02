@@ -243,6 +243,8 @@ public class MergeableIndexes {
 
     }
 
+
+    // For testing :(
     public final Reader reader() throws Exception {
         return new Reader();
     }
