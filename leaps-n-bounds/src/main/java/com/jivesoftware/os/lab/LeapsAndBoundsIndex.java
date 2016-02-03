@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
 import com.jivesoftware.os.lab.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.api.ReadIndex;
-import com.jivesoftware.os.lab.collections.ConcurrentLHash;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;

@@ -1,9 +1,9 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
 import com.jivesoftware.os.lab.api.RawEntryStream;
 import com.jivesoftware.os.lab.api.ScanFromFp;
-import com.jivesoftware.os.lab.collections.ConcurrentLHash;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;

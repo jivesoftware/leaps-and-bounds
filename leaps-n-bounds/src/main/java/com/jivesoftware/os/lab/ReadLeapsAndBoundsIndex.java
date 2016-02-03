@@ -1,9 +1,9 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
 import com.jivesoftware.os.lab.api.GetRaw;
 import com.jivesoftware.os.lab.api.NextRawEntry;
 import com.jivesoftware.os.lab.api.ReadIndex;
-import com.jivesoftware.os.lab.collections.ConcurrentLHash;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.concurrent.Callable;
@@ -52,6 +52,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public GetRaw get() throws Exception {
+
+        // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
         return new Gets(new ActiveScan(leaps, leapsCache, footer, readable.call(), new byte[8]));
     }
 
