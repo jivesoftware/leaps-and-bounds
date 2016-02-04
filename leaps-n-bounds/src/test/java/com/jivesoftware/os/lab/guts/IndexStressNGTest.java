@@ -21,7 +21,7 @@ public class IndexStressNGTest {
 
     NumberFormat format = NumberFormat.getInstance();
 
-    @Test(enabled = true)
+    @Test(enabled = false)
     public void stress() throws Exception {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
 
