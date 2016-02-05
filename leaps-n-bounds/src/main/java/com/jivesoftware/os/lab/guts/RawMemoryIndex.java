@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.api.MergeRawEntry;
+import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
@@ -12,7 +12,6 @@ import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -67,8 +66,15 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
             @Override
             public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
-                ConcurrentNavigableMap<byte[], byte[]> subMap = index.subMap(from, true, to, false);
-                Iterator<Map.Entry<byte[], byte[]>> iterator = subMap.entrySet().iterator();
+                Iterator<Map.Entry<byte[], byte[]>> iterator;
+                if (from != null && to == null) {
+                    iterator = index.tailMap(from, true).entrySet().iterator();
+                } else if (from == null && to != null) {
+                    iterator = index.headMap(to, false).entrySet().iterator();
+
+                } else {
+                    iterator = index.subMap(from, true, to, false).entrySet().iterator();
+                }
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();

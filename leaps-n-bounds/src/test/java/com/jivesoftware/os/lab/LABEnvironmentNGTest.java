@@ -33,6 +33,16 @@ public class LABEnvironmentNGTest {
 
         env.shutdown();
 
+        env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8);
+        env.rename("foo", "bar");
+        index = env.open("bar", 1000);
+
+        indexTest(index);
+
+        env.shutdown();
+        env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8);
+        env.remove("bar");
+
     }
 
     @Test

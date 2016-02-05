@@ -99,29 +99,30 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
             if (leaps == null) {
                 long indexLength = readableIndex.length();
-                if (indexLength < 4) {
-                    System.out.println("WTF:" + indexLength);
-                }
                 byte[] lengthBuffer = new byte[8];
-
-                readableIndex.seek(indexLength - 4);
-                int footerLength = UIO.readInt(readableIndex, "length", lengthBuffer);
-                long seekTo = indexLength - (footerLength + 1 + 4);
+                
+                long seekTo = indexLength - 4;
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index.length());
+                    throw new RuntimeException("1. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index.length());
+                }
+                readableIndex.seek(seekTo);
+                int footerLength = UIO.readInt(readableIndex, "length", lengthBuffer);
+                seekTo = indexLength - (footerLength + 1 + 4);
+                if (seekTo < 0 || seekTo > indexLength) {
+                    throw new RuntimeException("2. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index.length());
                 }
                 readableIndex.seek(seekTo);
                 int leapLength = UIO.readInt(readableIndex, "length", lengthBuffer);
 
                 seekTo = indexLength - (1 + leapLength + 1 + footerLength);
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index.length());
+                    throw new RuntimeException("3. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index.length());
                 }
                 readableIndex.seek(indexLength - (1 + leapLength + 1 + footerLength));
 
                 int type = readableIndex.read();
                 if (type != LEAP) {
-                    throw new RuntimeException("Corruption! " + type + " expected " + LEAP + " file:" + index.getFile() + " length:" + index.length());
+                    throw new RuntimeException("4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + index.getFile() + " length:" + index.length());
                 }
                 leaps = Leaps.read(readableIndex, lengthBuffer);
             }

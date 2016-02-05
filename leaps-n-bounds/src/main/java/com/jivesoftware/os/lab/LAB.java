@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
 import com.jivesoftware.os.lab.api.ValueIndex;
+import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.Values;
 import com.jivesoftware.os.lab.guts.IndexFile;
 import com.jivesoftware.os.lab.guts.IndexRangeId;
@@ -372,62 +373,75 @@ public class LAB implements ValueIndex {
 
     @Override
     public String toString() {
-        return "LSMPointerIndex{"
+        return "LAB{"
             + "indexRoot=" + indexRoot
-            + ", memoryPointerIndex=" + memoryPointerIndex
-            + ", flushingMemoryPointerIndex=" + flushingMemoryPointerIndex
+            + ", useMemMap=" + useMemMap
+            + ", maxUpdatesBeforeFlush=" + maxUpdatesBeforeFlush
+            + ", minMergeDebt=" + minMergeDebt
+            + ", maxMergeDebt=" + maxMergeDebt
             + ", largestIndexId=" + largestIndexId
-            + ", mergeablePointerIndexs=" + mergeablePointerIndexs
+            + ", ongoingMerges=" + ongoingMerges
+            + ", corrrupt=" + corrrupt
+            + ", valueMerger=" + valueMerger
             + '}';
     }
 
     private static <R> R rawToReal(byte[] key, GetRaw rawNextPointer, ValueTx<R> tx) throws Exception {
-
         return tx.tx((stream) -> rawNextPointer.get(key, (rawEntry, offset, length) -> {
-
-            if (rawEntry == null) {
-                return stream.stream(key, -1, false, -1, UIO.longBytes(-1));
-            }
-            int keyLength = UIO.bytesInt(rawEntry, offset);
-            byte[] k = new byte[keyLength];
-            System.arraycopy(rawEntry, offset + 4, k, 0, keyLength);
-            long timestamp = UIO.bytesLong(rawEntry, offset + 4 + keyLength);
-            boolean tombstone = rawEntry[offset + 4 + keyLength + 8] != 0;
-            long version = UIO.bytesLong(rawEntry, offset + 4 + keyLength + 8 + 1);
-            long walPointerFp = UIO.bytesLong(rawEntry, offset + 4 + keyLength + 8 + 1 + 8);
-
-            return stream.stream(k, timestamp, tombstone, version, UIO.longBytes(walPointerFp));
+            return streamRawEntry(stream, rawEntry, offset);
         }));
     }
 
     private static <R> R rawToReal(NextRawEntry rawNextPointer, ValueTx<R> tx) throws Exception {
-
-        return tx.tx((stream) -> rawNextPointer.next((rawEntry, offset, length) -> {
-
-            if (rawEntry == null) {
-                return stream.stream(null, -1, false, -1, UIO.longBytes(-1));
+        return tx.tx((stream) -> {
+            while (true) {
+                boolean more = rawNextPointer.next((rawEntry, offset, length) -> {
+                    return streamRawEntry(stream, rawEntry, offset);
+                });
+                if (!more) {
+                    return false;
+                }
             }
-            int keyLength = UIO.bytesInt(rawEntry, offset);
-            byte[] key = new byte[keyLength];
-            System.arraycopy(rawEntry, offset + 4, key, 0, keyLength);
-            long timestamp = UIO.bytesLong(rawEntry, offset + 4 + keyLength);
-            boolean tombstone = rawEntry[offset + 4 + keyLength + 8] != 0;
-            long version = UIO.bytesLong(rawEntry, offset + 4 + keyLength + 8 + 1);
-            long walPointerFp = UIO.bytesLong(rawEntry, offset + 4 + keyLength + 8 + 1 + 8);
+        });
+    }
 
-            return stream.stream(key, timestamp, tombstone, version, UIO.longBytes(walPointerFp));
-        }));
+    private static boolean streamRawEntry(ValueStream stream, byte[] rawEntry, int offset) throws Exception {
+        if (rawEntry == null) {
+            return stream.stream(null, -1, false, -1, null);
+        }
+        int keyLength = UIO.bytesInt(rawEntry, offset);
+        offset += 4;
+        byte[] k = new byte[keyLength];
+        System.arraycopy(rawEntry, offset, k, 0, keyLength);
+        offset += keyLength;
+        long timestamp = UIO.bytesLong(rawEntry, offset);
+        offset += 8;
+        boolean tombstone = rawEntry[offset] != 0;
+        if (tombstone) {
+            return stream.stream(null, -1, false, -1, null);
+        }
+        offset++;
+        long version = UIO.bytesLong(rawEntry, offset);
+        offset += 8;
+
+        int payloadLength = UIO.bytesInt(rawEntry, offset);
+        offset += 4;
+        byte[] payload = new byte[payloadLength];
+        System.arraycopy(rawEntry, offset, payload, 0, payloadLength);
+        offset += payloadLength;
+
+        return stream.stream(k, timestamp, tombstone, version, payload);
     }
 
     private static byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws IOException {
 
         HeapFiler indexEntryFiler = new HeapFiler(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
-
-        UIO.writeByteArray(indexEntryFiler, key, "key", new byte[4]);
+        byte[] lengthBuffer = new byte[4];
+        UIO.writeByteArray(indexEntryFiler, key, "key", lengthBuffer);
         UIO.writeLong(indexEntryFiler, timestamp, "timestamp");
         UIO.writeByte(indexEntryFiler, tombstoned ? (byte) 1 : (byte) 0, "tombstone");
         UIO.writeLong(indexEntryFiler, version, "version");
-        UIO.writeByteArray(indexEntryFiler, payload, "payload", new byte[4]);
+        UIO.writeByteArray(indexEntryFiler, payload, "payload", lengthBuffer);
         return indexEntryFiler.getBytes();
     }
 }

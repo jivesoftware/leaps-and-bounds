@@ -46,27 +46,11 @@ public class IndexRangeId implements Comparable<IndexRangeId> {
 
     @Override
     public int hashCode() {
-        int hash = 3;
-        hash = 41 * hash + (int) (this.start ^ (this.start >>> 32));
-        hash = 41 * hash + (int) (this.end ^ (this.end >>> 32));
-        return hash;
+        throw new IllegalAccessError("nope");
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final IndexRangeId other = (IndexRangeId) obj;
-        if (this.start != other.start) {
-            return false;
-        }
-        return this.end == other.end;
+        throw new IllegalAccessError("nope");
     }
 }
