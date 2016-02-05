@@ -51,8 +51,8 @@ public class LABEnvironmentConcurrenyNGTest {
         AtomicLong count = new AtomicLong();
 
         int totalCardinality = 100_000_000;
-        int commitCount = 1000;
-        int batchCount = 1000;
+        int commitCount = 100;
+        int batchCount = 100;
         boolean fsync = true;
 
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
