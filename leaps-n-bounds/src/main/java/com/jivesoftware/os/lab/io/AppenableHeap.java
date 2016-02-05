@@ -16,7 +16,7 @@
 package com.jivesoftware.os.lab.io;
 
 import com.google.common.math.IntMath;
-import com.jivesoftware.os.lab.io.api.IFiler;
+import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import java.io.IOException;
 
 /**
@@ -24,31 +24,31 @@ import java.io.IOException;
  * All of the methods are intentionally left unsynchronized. Up to caller to do the right thing using the Object returned by lock()
  *
  */
-public class HeapFiler implements IFiler {
+public class AppenableHeap implements IAppendOnly {
 
     private byte[] bytes = new byte[0];
     private long fp = 0;
     private long maxLength = 0;
 
-    public HeapFiler() {
+    public AppenableHeap() {
     }
 
-    public HeapFiler(int size) {
+    public AppenableHeap(int size) {
         bytes = new byte[size];
         maxLength = 0;
     }
 
-    private HeapFiler(byte[] _bytes, int _maxLength) {
+    private AppenableHeap(byte[] _bytes, int _maxLength) {
         bytes = _bytes;
         maxLength = _maxLength;
     }
 
-    public static HeapFiler fromBytes(byte[] _bytes, int length) {
-        return new HeapFiler(_bytes, length);
+    public static AppenableHeap fromBytes(byte[] _bytes, int length) {
+        return new AppenableHeap(_bytes, length);
     }
 
-    public HeapFiler createReadOnlyClone() {
-        HeapFiler heapFiler = new HeapFiler();
+    public AppenableHeap createReadOnlyClone() {
+        AppenableHeap heapFiler = new AppenableHeap();
         heapFiler.bytes = bytes;
         heapFiler.maxLength = maxLength;
         return heapFiler;
@@ -81,41 +81,7 @@ public class HeapFiler implements IFiler {
     }
 
     @Override
-    public int read() throws IOException {
-        if (fp + 1 > maxLength) {
-            return -1;
-        }
-        int b = bytes[(int) fp] & 0xFF;
-        fp++;
-        return b;
-    }
-
-    @Override
-    public int read(byte[] b) throws IOException {
-        return read(b, 0, b.length);
-    }
-
-    @Override
-    public int read(byte b[], int _offset, int _len) throws IOException {
-        if (fp > maxLength) {
-            return -1;
-        }
-        int len = _len;
-        if (fp + len > maxLength) {
-            len = (int) (maxLength - fp);
-        }
-        try {
-            System.arraycopy(bytes, (int) fp, b, _offset, len);
-        } catch (Exception x) {
-            System.out.println("Error:" + bytes.length + " srcPos:" + fp + " " + b.length + " dstPos:" + _offset + " legnth:" + len);
-            throw x;
-        }
-        fp += len;
-        return len;
-    }
-
-    @Override
-    public void write(byte _b[], int _offset, int _len) throws IOException {
+    public void append(byte _b[], int _offset, int _len) throws IOException {
         if (_b == null) {
             return;
         }
@@ -133,39 +99,8 @@ public class HeapFiler implements IFiler {
     }
 
     @Override
-    public void seek(long _position) throws IOException {
-        fp = _position;
-        maxLength = Math.max(maxLength, fp);
-    }
-
-    @Override
-    public long skip(long _position) throws IOException {
-        fp += _position;
-        maxLength = Math.max(maxLength, fp);
-        return fp;
-    }
-
-    @Override
-    public void setLength(long len) throws IOException {
-        if (len < 0) {
-            throw new IOException();
-        }
-        byte[] newBytes = new byte[(int) len];
-        System.arraycopy(bytes, 0, newBytes, 0, Math.min(bytes.length, newBytes.length));
-        fp = (int) len;
-        bytes = newBytes;
-        maxLength = len;
-    }
-
-    @Override
     public long length() throws IOException {
         return maxLength;
-    }
-
-    @Override
-    public void eof() throws IOException {
-        bytes = trim(bytes, (int) fp);
-        maxLength = fp;
     }
 
     @Override
@@ -193,4 +128,5 @@ public class HeapFiler implements IFiler {
         System.arraycopy(src, 0, newSrc, 0, src.length);
         return newSrc;
     }
+
 }

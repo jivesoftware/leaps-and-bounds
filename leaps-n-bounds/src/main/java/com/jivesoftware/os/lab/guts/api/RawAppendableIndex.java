@@ -12,5 +12,5 @@ public interface RawAppendableIndex {
 
     boolean append(RawEntries entries) throws Exception;
 
-    void close() throws Exception;
+    void closeAppendable(boolean fsync) throws Exception;
 }

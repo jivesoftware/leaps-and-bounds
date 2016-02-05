@@ -6,6 +6,7 @@ import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.ICloseable;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.ClosedChannelException;
@@ -16,6 +17,12 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author jonathan.colt
  */
 public class IndexFile implements ICloseable {
+
+    static private class OpenFileLock {
+    }
+
+    static private class MemMapLock {
+    }
 
     private static final long BUFFER_SEGMENT_SIZE = 1024L * 1024 * 1024;
 
@@ -30,8 +37,8 @@ public class IndexFile implements ICloseable {
     private AutoGrowingByteBufferBackedFiler memMapFiler;
     private final AtomicLong memMapFilerLength = new AtomicLong(-1);
 
-    private final Object fileLock = new Object();
-    private final Object memMapLock = new Object();
+    private final OpenFileLock openFileLock = new OpenFileLock();
+    private final MemMapLock memMapLock = new MemMapLock();
 
     public IndexFile(File file, String mode, boolean useMemMap) throws IOException {
         this.file = file;
@@ -75,25 +82,32 @@ public class IndexFile implements ICloseable {
 
     private IAppendOnly createAppendOnly() throws IOException {
         randomAccessFile.seek(size.get());
+        FileOutputStream writer = new FileOutputStream(file, true);
+        //FileChannel fileChannel = randomAccessFile.getChannel();
         return new IAppendOnly() {
-
+            volatile long position = size.get();
             @Override
-            public void write(byte[] b, int _offset, int _len) throws IOException {
-                IndexFile.this.write(b, _offset, _len);
+            public void append(byte[] b, int _offset, int _len) throws IOException {
+                writer.write(b, _offset, _len);
+                size.addAndGet(_len);
+                //IndexFile.this.write(b, _offset, _len);
+                //int wrote = fileChannel.write(ByteBuffer.wrap(b, _offset, _len), position);
+                //position = size.addAndGet(wrote);
             }
 
             @Override
             public void flush(boolean fsync) throws IOException {
-                IndexFile.this.flush(fsync);
+                //IndexFile.this.flush(fsync);
+                if (fsync) {
+                    writer.getFD().sync();
+                    //fileChannel.force(false);
+                }
             }
 
             @Override
             public void close() throws IOException {
-            }
-
-            @Override
-            public Object lock() {
-                return IndexFile.this;
+                writer.close();
+                //fileChannel.close();
             }
 
             @Override
@@ -105,6 +119,14 @@ public class IndexFile implements ICloseable {
             public long getFilePointer() throws IOException {
                 return length();
             }
+
+//            @Override
+//            public void write(ByteBuffer... byteBuffers) throws IOException {
+//                fileChannel.position(position);
+//                long wrote = fileChannel.write(byteBuffers);
+//                position = size.addAndGet(wrote);
+//            }
+
         };
     }
 
@@ -180,7 +202,7 @@ public class IndexFile implements ICloseable {
 
     private void ensureOpen() throws IOException {
         if (!channel.isOpen()) {
-            synchronized (fileLock) {
+            synchronized (openFileLock) {
                 if (!channel.isOpen()) {
                     randomAccessFile = new RandomAccessFile(file, mode);
                     channel = randomAccessFile.getChannel();

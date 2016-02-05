@@ -23,11 +23,6 @@ public class IndexFilerChannelReader implements IReadable {
     }
 
     @Override
-    public Object lock() {
-        return this;
-    }
-
-    @Override
     public void seek(long position) throws IOException {
         if (position < 0 || position > parent.length()) {
             throw new IOException("seek overflow " + position + " " + this);

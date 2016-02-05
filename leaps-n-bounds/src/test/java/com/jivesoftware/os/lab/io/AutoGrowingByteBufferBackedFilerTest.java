@@ -46,7 +46,7 @@ public class AutoGrowingByteBufferBackedFilerTest {
                 AutoGrowingByteBufferBackedFiler filer = new AutoGrowingByteBufferBackedFiler(b, b, bf);
                 for (int i = 0; i < b * 4; i++) {
                     System.out.println(b + " " + i + " " + bf);
-                    filer.write(new byte[] { (byte) i }, 0, 1);
+                    filer.append(new byte[] { (byte) i }, 0, 1);
                     filer.seek(i);
                     Assert.assertEquals(filer.read(), i, "Boo " + i + " at " + b + " " + bf);
                 }

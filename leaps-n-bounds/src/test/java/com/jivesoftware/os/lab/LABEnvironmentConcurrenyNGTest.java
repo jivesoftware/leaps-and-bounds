@@ -51,8 +51,9 @@ public class LABEnvironmentConcurrenyNGTest {
         AtomicLong count = new AtomicLong();
 
         int totalCardinality = 100_000_000;
-        int commitCount = 10;
+        int commitCount = 1000;
         int batchCount = 1000;
+        boolean fsync = true;
 
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
         ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
@@ -77,7 +78,7 @@ public class LABEnvironmentConcurrenyNGTest {
                             }
                             return true;
                         });
-                        index.commit();
+                        index.commit(fsync);
                         System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt());
                     }
                     return null;

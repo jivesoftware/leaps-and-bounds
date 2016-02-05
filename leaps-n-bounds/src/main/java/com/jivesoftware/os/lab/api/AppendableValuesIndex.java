@@ -8,5 +8,5 @@ public interface AppendableValuesIndex {
 
     boolean append(Values values) throws Exception;
 
-    void commit() throws Exception;
+    void commit(boolean fsync) throws Exception;
 }

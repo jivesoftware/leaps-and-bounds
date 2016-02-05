@@ -16,10 +16,12 @@ import java.util.concurrent.Callable;
  */
 public class MergeableIndexes {
 
+    static private class IndexesLock {}
+
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     // newest to oldest
-    private final Object indexesLock = new Object();
+    private final IndexesLock indexesLock = new IndexesLock();
     private volatile boolean[] merging = new boolean[0];
     private volatile RawConcurrentReadableIndex[] indexes = new RawConcurrentReadableIndex[0];
     private volatile long version;
@@ -73,7 +75,7 @@ public class MergeableIndexes {
         }
     }
 
-    public Merger buildMerger(IndexFactory indexFactory, CommitIndex commitIndex) throws Exception {
+    public Merger buildMerger(IndexFactory indexFactory, CommitIndex commitIndex, boolean fsync) throws Exception {
         boolean[] mergingCopy;
         RawConcurrentReadableIndex[] indexesCopy;
         RawConcurrentReadableIndex[] mergeSet;
@@ -120,7 +122,7 @@ public class MergeableIndexes {
             }
         }
 
-        return new Merger(mergeRange, counts, generations, mergeSet, join, indexFactory, commitIndex);
+        return new Merger(mergeRange, counts, generations, mergeSet, join, indexFactory, commitIndex, fsync);
     }
 
     public class Merger implements Callable<LeapsAndBoundsIndex> {
@@ -132,6 +134,7 @@ public class MergeableIndexes {
         private final IndexRangeId mergeRangeId;
         private final IndexFactory indexFactory;
         private final CommitIndex commitIndex;
+        private final boolean fsync;
 
         private Merger(MergeRange mergeRange,
             long[] counts,
@@ -139,7 +142,8 @@ public class MergeableIndexes {
             RawConcurrentReadableIndex[] mergeSet,
             IndexRangeId mergeRangeId,
             IndexFactory indexFactory,
-            CommitIndex commitIndex) {
+            CommitIndex commitIndex,
+            boolean fsync) {
 
             this.mergeRange = mergeRange;
             this.counts = counts;
@@ -148,6 +152,7 @@ public class MergeableIndexes {
             this.mergeRangeId = mergeRangeId;
             this.indexFactory = indexFactory;
             this.commitIndex = commitIndex;
+            this.fsync = fsync;
         }
 
         @Override
@@ -181,7 +186,7 @@ public class MergeableIndexes {
                     while (feedInterleaver.next(stream)) ;
                     return true;
                 });
-                mergedIndex.close();
+                mergedIndex.closeAppendable(fsync);
 
                 index = commitIndex.commit(mergeRangeId, mergedIndex);
 
@@ -312,7 +317,7 @@ public class MergeableIndexes {
     public void close() throws Exception {
         synchronized (indexesLock) {
             for (RawConcurrentReadableIndex indexe : indexes) {
-                indexe.close();
+                indexe.closeReadable();
             }
         }
     }

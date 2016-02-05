@@ -31,6 +31,7 @@ public class IndexStressNGTest {
         MergeableIndexes indexs = new MergeableIndexes();
         int count = 0;
 
+        boolean fsync = true;
         boolean concurrentReads = false;
         int numBatches = 1000;
         int batchSize = 10_000;
@@ -57,7 +58,7 @@ public class IndexStressNGTest {
                             maxLeaps, entriesBetweenLeaps);
                     }, (id, index) -> {
                         return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFile(), "r", true));
-                    });
+                    }, fsync);
 
                     if (merger != null) {
                         merger.call();
@@ -159,7 +160,7 @@ public class IndexStressNGTest {
             WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(id,
                 new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps);
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
-            write.close();
+            write.closeAppendable(fsync);
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
             indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true)));

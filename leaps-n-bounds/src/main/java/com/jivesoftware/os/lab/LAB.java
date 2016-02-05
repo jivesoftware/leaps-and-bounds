@@ -15,7 +15,7 @@ import com.jivesoftware.os.lab.guts.WriteLeapsAndBoundsIndex;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.io.HeapFiler;
+import com.jivesoftware.os.lab.io.AppenableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -31,6 +31,10 @@ import org.apache.commons.io.FileUtils;
  * @author jonathan.colt
  */
 public class LAB implements ValueIndex {
+
+    static private class CommitLock {}
+    static private class MergeLock {}
+
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
@@ -48,8 +52,8 @@ public class LAB implements ValueIndex {
 
     private volatile RawMemoryIndex memoryPointerIndex;
     private volatile RawMemoryIndex flushingMemoryPointerIndex;
-    private final Object commitLock = new Object();
-    private final Object mergeLock = new Object();
+    private final CommitLock commitLock = new CommitLock();
+    private final MergeLock mergeLock = new MergeLock();
     private final AtomicLong ongoingMerges = new AtomicLong();
     private volatile boolean corrrupt = false;
 
@@ -156,7 +160,7 @@ public class LAB implements ValueIndex {
 
     @Override
     public void close() throws Exception {
-        memoryPointerIndex.close();
+        memoryPointerIndex.closeReadable();
         mergeablePointerIndexs.close();
     }
 
@@ -183,7 +187,7 @@ public class LAB implements ValueIndex {
                 if (count[0] > maxUpdatesBeforeFlush) { //  TODO flush on memory pressure.
                     count[0] = memoryPointerIndex.count();
                     if (count[0] > maxUpdatesBeforeFlush) { //  TODO flush on memory pressure.
-                        commit();
+                        commit(true); // TODO hmmm
                     }
                 }
                 byte[] rawEntry = toRawEntry(key, timestamp, tombstoned, version, pointer);
@@ -250,7 +254,7 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public void commit() throws Exception {
+    public void commit(boolean fsync) throws Exception {
         if (corrrupt) {
             throw new LABIndexCorruptedException();
         }
@@ -262,16 +266,16 @@ public class LAB implements ValueIndex {
             flushingMemoryPointerIndex = stackCopy;
             memoryPointerIndex = new RawMemoryIndex(destroy, valueMerger);
 
-            LeapsAndBoundsIndex reopenedIndex = flushMemoryIndexToDisk(stackCopy, largestIndexId.incrementAndGet(), 0);
+            LeapsAndBoundsIndex reopenedIndex = flushMemoryIndexToDisk(stackCopy, largestIndexId.incrementAndGet(), 0, fsync);
             flushingMemoryPointerIndex = null;
             mergeablePointerIndexs.append(reopenedIndex);
             stackCopy.destroy();
         }
 
-        merge();
+        merge(fsync);
     }
 
-    private LeapsAndBoundsIndex flushMemoryIndexToDisk(RawMemoryIndex index, long nextIndexId, int generation) throws Exception {
+    private LeapsAndBoundsIndex flushMemoryIndexToDisk(RawMemoryIndex index, long nextIndexId, int generation, boolean fsync) throws Exception {
         LOG.debug("Commiting memory index (" + flushingMemoryPointerIndex.count() + ") to on disk index." + indexRoot);
 
         int entriesBetweenLeaps = 4096; // TODO expose to a config;
@@ -282,7 +286,7 @@ public class LAB implements ValueIndex {
         IndexFile indexFile = new IndexFile(commitingIndexFile, "rw", useMemMap);
         WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
         write.append(index);
-        write.close();
+        write.closeAppendable(fsync);
 
         File commitedIndexFile = indexRangeId.toFile(indexRoot);
         FileUtils.moveFile(commitingIndexFile, commitedIndexFile);
@@ -294,7 +298,7 @@ public class LAB implements ValueIndex {
         return reopenedIndex;
     }
 
-    public void merge() throws Exception {
+    public void merge(boolean fsync) throws Exception {
 
         int mergeDebt = mergeablePointerIndexs.hasMergeDebt();
         if (mergeDebt <= minMergeDebt) {
@@ -332,7 +336,7 @@ public class LAB implements ValueIndex {
                         reopenedIndex.flush(true); // Sorry
                         // TODO Files.fsync mergedIndexRoot when java 9 supports it.
                         return reopenedIndex;
-                    });
+                    }, fsync);
 
             }
             if (merger != null) {
@@ -435,7 +439,7 @@ public class LAB implements ValueIndex {
 
     private static byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws IOException {
 
-        HeapFiler indexEntryFiler = new HeapFiler(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
+        AppenableHeap indexEntryFiler = new AppenableHeap(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
         byte[] lengthBuffer = new byte[4];
         UIO.writeByteArray(indexEntryFiler, key, "key", lengthBuffer);
         UIO.writeLong(indexEntryFiler, timestamp, "timestamp");

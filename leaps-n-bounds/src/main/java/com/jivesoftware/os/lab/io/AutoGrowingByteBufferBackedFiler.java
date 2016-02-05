@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.io;
 
 import com.jivesoftware.os.lab.io.api.ByteBufferFactory;
+import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IFiler;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
@@ -9,7 +10,7 @@ import java.nio.ByteBuffer;
 /**
  *
  */
-public class AutoGrowingByteBufferBackedFiler implements IFiler {
+public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
 
     public static final long MAX_BUFFER_SEGMENT_SIZE = UIO.chunkLength(30);
     public static final long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
@@ -228,9 +229,14 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler {
         }
         return offset;
     }
-    
+
     @Override
     public void write(byte[] b, int offset, int len) throws IOException {
+        append(b, offset, len);
+    }
+    
+    @Override
+    public void append(byte[] b, int offset, int len) throws IOException {
         long count = ensure(len);
 
         long canWrite = Math.min(len, filers[fpFilerIndex].length() - filers[fpFilerIndex].getFilePointer());
@@ -249,6 +255,12 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler {
         length += count;
     }
 
+
+//    @Override
+//    public void write(ByteBuffer... byteBuffers) throws IOException {
+//        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+//    }
+
     @Override
     public void close() throws IOException {
         for (ByteBufferBackedFiler filer : filers) {
@@ -263,9 +275,5 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler {
         }
     }
 
-    @Override
-    public Object lock() {
-        return this;
-    }
 
 }

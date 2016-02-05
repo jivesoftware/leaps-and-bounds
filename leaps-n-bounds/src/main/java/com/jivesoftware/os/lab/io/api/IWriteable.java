@@ -19,6 +19,11 @@
  */
 package com.jivesoftware.os.lab.io.api;
 
-public interface IWriteable extends ICloseable, ISeekable, IAppendOnly {
+import java.io.IOException;
 
+public interface IWriteable extends ICloseable, ISeekable {
+
+    void write(byte b[], int _offset, int _len) throws IOException;
+
+    void flush(boolean fsync) throws IOException;
 }

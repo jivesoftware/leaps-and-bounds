@@ -75,6 +75,7 @@ public class LABEnvironmentNGTest {
         int commitCount = 34;
         int batchCount = 3_000;
         int getCount = 0;
+        boolean fsync = true;
 
         long mainStart = System.currentTimeMillis();
         Random rand = new Random(12345);
@@ -94,7 +95,7 @@ public class LABEnvironmentNGTest {
 
             System.out.println("Append Elapse:" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
-            index.commit();
+            index.commit(true);
             System.out.println("Commit Elapse:" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
 

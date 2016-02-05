@@ -29,6 +29,7 @@ public class MergableIndexsNGTest {
         int count = 3;
         int step = 100;
         int indexes = 40;
+        boolean fsync = true;
 
         MergeableIndexes indexs = new MergeableIndexes();
         long time = System.currentTimeMillis();
@@ -44,7 +45,7 @@ public class MergableIndexsNGTest {
 
                 WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, indexFile, 64, 2);
                 IndexTestUtils.append(rand, write, 0, step, count, desired);
-                write.close();
+                write.closeAppendable(fsync);
 
                 indexFile = new IndexFile(indexFiler, "r", false);
                 indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
@@ -64,7 +65,7 @@ public class MergableIndexsNGTest {
             return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
         }, (id, index) -> {
             return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", false));
-        });
+        }, fsync);
         if (merger != null) {
             merger.call();
         }
@@ -81,6 +82,7 @@ public class MergableIndexsNGTest {
         int count = 3;
         int step = 100;
         int indexes = 4;
+        boolean fsync = true;
 
         MergeableIndexes indexs = new MergeableIndexes();
         long time = System.currentTimeMillis();
@@ -95,7 +97,7 @@ public class MergableIndexsNGTest {
 
             WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, indexFile, 64, 2);
             IndexTestUtils.append(rand, write, 0, step, count, desired);
-            write.close();
+            write.closeAppendable(fsync);
 
             indexFile = new IndexFile(indexFiler, "r", false);
             indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
@@ -111,7 +113,7 @@ public class MergableIndexsNGTest {
             return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
         }, (id, index) -> {
             return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", false));
-        });
+        }, fsync);
         merger.call();
 
         indexs = new MergeableIndexes();

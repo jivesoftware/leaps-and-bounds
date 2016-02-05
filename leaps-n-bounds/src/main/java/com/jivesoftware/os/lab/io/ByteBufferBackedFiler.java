@@ -25,11 +25,6 @@ public class ByteBufferBackedFiler implements IFiler {
         this.buffer = buffer;
     }
 
-    @Override
-    public Object lock() {
-        return this;
-    }
-
     public ByteBufferBackedFiler duplicate() {
         return new ByteBufferBackedFiler(buffer.duplicate());
     }

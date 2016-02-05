@@ -21,6 +21,6 @@ public interface RawConcurrentReadableIndex {
 
     long count() throws IOException;
 
-    void close() throws Exception;
+    void closeReadable() throws Exception;
 
 }

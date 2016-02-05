@@ -194,7 +194,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public void close() throws Exception {
+    public void closeReadable() throws Exception {
+    }
+
+    @Override
+    public void closeAppendable(boolean fsync) throws Exception {
     }
 
     @Override

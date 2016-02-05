@@ -161,7 +161,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     }
 
     @Override
-    public void close() throws Exception {
+    public void closeReadable() throws Exception {
         hideABone.acquire(numBonesHidden);
         try {
             index.close();

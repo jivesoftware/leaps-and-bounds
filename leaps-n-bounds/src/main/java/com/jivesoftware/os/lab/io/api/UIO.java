@@ -33,7 +33,7 @@ public class UIO {
      * @throws IOException
      */
     public static void write(IAppendOnly _filer, byte[] bytes, String fieldName) throws IOException {
-        _filer.write(bytes, 0, bytes.length);
+        _filer.append(bytes, 0, bytes.length);
     }
 
     /**
@@ -45,7 +45,7 @@ public class UIO {
      */
     public static void writeByte(IAppendOnly _filer, byte v,
         String fieldName) throws IOException {
-        _filer.write(new byte[]{v}, 0, 1);
+        _filer.append(new byte[]{v}, 0, 1);
     }
 
     /**
@@ -61,7 +61,7 @@ public class UIO {
         intBuffer[2] = (byte) (v >>> 8);
         intBuffer[3] = (byte) (v);
 
-        _filer.write(intBuffer, 0, 4);
+        _filer.append(intBuffer, 0, 4);
     }
 
     /**
@@ -73,7 +73,7 @@ public class UIO {
      */
     public static void writeLong(IAppendOnly _filer, long v,
         String fieldName) throws IOException {
-        _filer.write(new byte[]{
+        _filer.append(new byte[]{
             (byte) (v >>> 56),
             (byte) (v >>> 48),
             (byte) (v >>> 40),
@@ -120,7 +120,7 @@ public class UIO {
         if (len < 0) {
             return;
         }
-        _filer.write(array, _start, len);
+        _filer.append(array, _start, len);
     }
 
     public static void writeLongArray(IAppendOnly _filer, long[] array,
@@ -140,7 +140,7 @@ public class UIO {
             long v = array[i];
             UIO.longBytes(v, bytes, i * 8);
         }
-        _filer.write(bytes, 0, bytes.length);
+        _filer.append(bytes, 0, bytes.length);
 
     }
 

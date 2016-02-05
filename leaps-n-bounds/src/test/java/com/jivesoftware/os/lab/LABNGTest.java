@@ -19,6 +19,7 @@ public class LABNGTest {
     @Test
     public void testEnv() throws Exception {
 
+        boolean fsync = true;
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 4, 8);
 
@@ -44,7 +45,7 @@ public class LABNGTest {
         testRangeScanExpected(index, UIO.longBytes(2), UIO.longBytes(7), new long[]{2, 3});
         testRangeScanExpected(index, UIO.longBytes(4), UIO.longBytes(7), new long[]{});
 
-        index.commit();
+        index.commit(fsync);
 
         index.append((stream) -> {
             stream.stream(UIO.longBytes(1), System.currentTimeMillis(), true, 0, UIO.longBytes(1));
