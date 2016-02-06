@@ -133,7 +133,7 @@ public class LAB implements ValueIndex {
 
     @Override
     public int debt() throws Exception {
-        return mergeablePointerIndexs.hasMergeDebt();
+        return mergeablePointerIndexs.hasMergeDebt(minMergeDebt);
     }
 
     @Override
@@ -300,7 +300,7 @@ public class LAB implements ValueIndex {
 
     public void merge(boolean fsync) throws Exception {
 
-        int mergeDebt = mergeablePointerIndexs.hasMergeDebt();
+        int mergeDebt = mergeablePointerIndexs.hasMergeDebt(minMergeDebt);
         if (mergeDebt <= minMergeDebt) {
             return;
         }
@@ -312,6 +312,7 @@ public class LAB implements ValueIndex {
             MergeableIndexes.Merger merger;
             synchronized (mergeLock) {
                 merger = mergeablePointerIndexs.buildMerger(
+                    minMergeDebt,
                     (id, count) -> {
 
                         int entriesBetweenLeaps = 4096; // TODO expose to a config;
@@ -368,7 +369,7 @@ public class LAB implements ValueIndex {
                         return;
                     }
                 }
-                mergeDebt = mergeablePointerIndexs.hasMergeDebt();
+                mergeDebt = mergeablePointerIndexs.hasMergeDebt(minMergeDebt);
             } else {
                 return;
             }

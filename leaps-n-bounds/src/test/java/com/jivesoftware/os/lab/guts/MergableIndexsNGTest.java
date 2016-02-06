@@ -30,6 +30,7 @@ public class MergableIndexsNGTest {
         int step = 100;
         int indexes = 40;
         boolean fsync = true;
+        int minimumRun = 4;
 
         MergeableIndexes indexs = new MergeableIndexes();
         long time = System.currentTimeMillis();
@@ -59,7 +60,7 @@ public class MergableIndexsNGTest {
         assertions(reader, count, step, desired);
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
-        MergeableIndexes.Merger merger = indexs.buildMerger((id, worstCaseCount) -> {
+        MergeableIndexes.Merger merger = indexs.buildMerger(minimumRun, (id, worstCaseCount) -> {
             int updatesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
             return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
@@ -83,6 +84,7 @@ public class MergableIndexsNGTest {
         int step = 100;
         int indexes = 4;
         boolean fsync = true;
+        int minimumRun = 4;
 
         MergeableIndexes indexs = new MergeableIndexes();
         long time = System.currentTimeMillis();
@@ -107,7 +109,7 @@ public class MergableIndexsNGTest {
         assertions(reader, count, step, desired);
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
-        MergeableIndexes.Merger merger = indexs.buildMerger((id, worstCaseCount) -> {
+        MergeableIndexes.Merger merger = indexs.buildMerger(minimumRun, (id, worstCaseCount) -> {
             int updatesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
             return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);

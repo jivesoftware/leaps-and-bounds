@@ -25,7 +25,7 @@ public class IndexStressNGTest {
     public void stress() throws Exception {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
 
-        Random rand = new Random();
+        Random rand = new Random(12345);
 
         long start = System.currentTimeMillis();
         MergeableIndexes indexs = new MergeableIndexes();
@@ -37,6 +37,7 @@ public class IndexStressNGTest {
         int batchSize = 10_000;
         int maxKeyIncrement = 2000;
         int entriesBetweenLeaps = 1024;
+        int minMergeDebt = 4;
 
         AtomicLong merge = new AtomicLong();
         MutableLong maxKey = new MutableLong();
@@ -49,16 +50,18 @@ public class IndexStressNGTest {
             while (running.isTrue()) {
 
                 try {
-                    MergeableIndexes.Merger merger = indexs.buildMerger((id, worstCaseCount) -> {
+                    MergeableIndexes.Merger merger = indexs.buildMerger(
+                        minMergeDebt,
+                        (id, worstCaseCount) -> {
 
-                        long m = merge.incrementAndGet();
-                        int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
-                        File mergeIndexFiler = File.createTempFile("d-index-merged-" + m, ".tmp");
-                        return new WriteLeapsAndBoundsIndex(id, new IndexFile(mergeIndexFiler, "rw", true),
-                            maxLeaps, entriesBetweenLeaps);
-                    }, (id, index) -> {
-                        return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFile(), "r", true));
-                    }, fsync);
+                            long m = merge.incrementAndGet();
+                            int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
+                            File mergeIndexFiler = File.createTempFile("d-index-merged-" + m, ".tmp");
+                            return new WriteLeapsAndBoundsIndex(id, new IndexFile(mergeIndexFiler, "rw", true),
+                                maxLeaps, entriesBetweenLeaps);
+                        }, (id, index) -> {
+                            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFile(), "r", true));
+                        }, fsync);
 
                     if (merger != null) {
                         merger.call();
@@ -169,9 +172,9 @@ public class IndexStressNGTest {
 
             System.out.println("Insertions:" + format.format(count) + " ips:" + format.format(
                 ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " elapse:" + format.format(
-                    (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.hasMergeDebt());
+                    (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.hasMergeDebt(minMergeDebt));
 
-            if (indexs.hasMergeDebt() > 10) {
+            if (indexs.hasMergeDebt(minMergeDebt) > 10) {
                 synchronized (waitForDebtToDrom) {
                     System.out.println("Waiting because debt is two high....");
                     waitForDebtToDrom.wait();

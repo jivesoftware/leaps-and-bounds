@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.guts.TieredCompaction;
-import com.jivesoftware.os.lab.guts.MergeRange;
 import java.util.Arrays;
 import java.util.Random;
 import org.testng.annotations.Test;
@@ -13,11 +11,20 @@ import org.testng.annotations.Test;
 public class TieredCompactionNGTest {
 
     @Test
+    public void testBla() {
+        long[] counts = new long[]{2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536};
+        for (long count : counts) {
+            System.out.println(Math.log(count));
+        }
+    }
+
+    @Test
     public void testMergeRange() {
 
-        long[] counts = new long[]{2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536};
+        int minimumRun = 4;
+        //long[] counts = new long[]{2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536};
         //long[] counts = new long[]{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-        //long[] counts = new long[0];
+        long[] counts = new long[0];
 
         int l = counts.length;
         boolean[] merging = new boolean[l];
@@ -25,12 +32,12 @@ public class TieredCompactionNGTest {
         Random rand = new Random();
         for (int a = 0; a < 100; a++) {
 
-            if (merging.length >= 4) {
+            if (merging.length >= minimumRun) {
                 long solutionCost = 0;
                 while (merging.length > 2) {
 
                     System.out.println("Merge:" + Arrays.toString(counts) + "\t\t\t" + Arrays.toString(generations));
-                    MergeRange mergeRange = TieredCompaction.getMergeRange(merging, counts, generations);
+                    MergeRange mergeRange = TieredCompaction.getMergeRange(minimumRun, merging, counts, generations, null, null);
                     if (mergeRange == null) {
                         break;
                     }

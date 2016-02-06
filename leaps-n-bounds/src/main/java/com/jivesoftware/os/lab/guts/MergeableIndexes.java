@@ -16,7 +16,8 @@ import java.util.concurrent.Callable;
  */
 public class MergeableIndexes {
 
-    static private class IndexesLock {}
+    static private class IndexesLock {
+    }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
@@ -43,7 +44,7 @@ public class MergeableIndexes {
         }
     }
 
-    public int hasMergeDebt() throws IOException {
+    public int hasMergeDebt(int minimumRun) throws IOException {
         boolean[] mergingCopy;
         RawConcurrentReadableIndex[] indexesCopy;
         synchronized (indexesLock) {
@@ -53,14 +54,19 @@ public class MergeableIndexes {
 
         long[] counts = new long[indexesCopy.length];
         long[] generations = new long[indexesCopy.length];
+        byte[][] minKeys = new byte[indexesCopy.length][];
+        byte[][] maxKeys = new byte[indexesCopy.length][];
+
         for (int i = 0; i < counts.length; i++) {
             counts[i] = indexesCopy[i].count();
             generations[i] = indexesCopy[i].id().generation;
+            minKeys[i] = indexesCopy[i].minKey();
+            maxKeys[i] = indexesCopy[i].maxKey();
         }
 
         int debt = 0;
         while (true) {
-            MergeRange mergeRange = TieredCompaction.getMergeRange(mergingCopy, counts, generations);
+            MergeRange mergeRange = TieredCompaction.getMergeRange(minimumRun, mergingCopy, counts, generations, minKeys, maxKeys);
             if (mergeRange == null) {
                 for (boolean m : mergingCopy) {
                     if (m) {
@@ -75,7 +81,7 @@ public class MergeableIndexes {
         }
     }
 
-    public Merger buildMerger(IndexFactory indexFactory, CommitIndex commitIndex, boolean fsync) throws Exception {
+    public Merger buildMerger(int minimumRun, IndexFactory indexFactory, CommitIndex commitIndex, boolean fsync) throws Exception {
         boolean[] mergingCopy;
         RawConcurrentReadableIndex[] indexesCopy;
         RawConcurrentReadableIndex[] mergeSet;
@@ -93,12 +99,17 @@ public class MergeableIndexes {
 
             counts = new long[indexesCopy.length];
             generations = new long[indexesCopy.length];
+            byte[][] minKeys = new byte[indexesCopy.length][];
+            byte[][] maxKeys = new byte[indexesCopy.length][];
+
             for (int i = 0; i < counts.length; i++) {
                 counts[i] = indexesCopy[i].count();
                 generations[i] = indexesCopy[i].id().generation;
+                minKeys[i] = indexesCopy[i].minKey();
+                maxKeys[i] = indexesCopy[i].maxKey();
             }
 
-            mergeRange = TieredCompaction.getMergeRange(mergingCopy, counts, generations);
+            mergeRange = TieredCompaction.getMergeRange(minimumRun, mergingCopy, counts, generations, minKeys, maxKeys);
             if (mergeRange == null) {
                 return null;
             }

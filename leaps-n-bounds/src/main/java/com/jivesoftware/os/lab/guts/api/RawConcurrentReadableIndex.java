@@ -10,8 +10,12 @@ import java.io.IOException;
 public interface RawConcurrentReadableIndex {
 
     String name();
-    
+
     IndexRangeId id();
+
+    byte[] minKey();
+
+    byte[] maxKey();
 
     ReadIndex reader() throws Exception;
 

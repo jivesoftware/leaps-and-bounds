@@ -211,4 +211,14 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
         return approximateCount.get();
     }
 
+    @Override
+    public byte[] minKey() {
+        return index.firstKey();
+    }
+
+    @Override
+    public byte[] maxKey() {
+        return index.lastKey();
+    }
+
 }
