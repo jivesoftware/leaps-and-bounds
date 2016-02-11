@@ -6,12 +6,69 @@ package com.jivesoftware.os.lab.guts;
  */
 public class TieredCompaction {
 
-    public static MergeRange getMergeRange(int minimumRun, boolean[] mergingCopy, long[] indexCounts, long[] generations, byte[][] minKeys, byte[][] maxKeys) {
+    public static MergeRange getMergeRange(int minimumRun,
+        boolean[] mergingCopy,
+        long[] indexCounts,
+        long[] indexSizes,
+        long[] generations,
+        byte[][] minKeys,
+        byte[][] maxKeys) {
 
         //return crazySause(minimumRun, mergingCopy, indexCounts, generations);
         //return closetToIdeaLog(minimumRun, mergingCopy, indexCounts, generations); // 117sec
         //return smallestDelta(minimumRun, mergingCopy, indexCounts, generations); //87sec
-        return randomSause(minimumRun, mergingCopy, indexCounts, generations); // 80sec
+        //return randomSause(minimumRun, mergingCopy, indexCounts, generations); // 80sec
+        return hbaseSause(minimumRun, mergingCopy, indexCounts, indexSizes, generations);
+    }
+
+    /*
+
+    http://www.ngdata.com/visualizing-hbase-flushes-and-compactions/
+    
+    The algorithm is basically as follows:
+
+    Run over the set of all store files, from oldest to youngest
+
+    If there are more than 3 (hbase.hstore.compactionThreshold) store
+    files left and the current store file is 20% larger then the sum of
+    all younger store files, and it is larger than the memstore flush size,
+    then we go on to the next, younger, store file and repeat step 2.
+
+    Once one of the conditions in step two is not valid anymore, the store
+    files from the current one to the youngest one are the ones that will
+    be merged together. If there are less than the compactionThreshold,
+    no merge will be performed. There is also a limit which prevents more
+    than 10 (hbase.hstore.compaction.max) store files to be merged in one compaction.
+
+     */
+    public static MergeRange hbaseSause(int minimumRun, boolean[] mergingCopy, long[] indexCounts, long[] indexSizes, long[] generations) {
+
+        int maxMergedAtOnce = 10;
+
+        for (int i = mergingCopy.length - 1; i > -1; i--) {
+
+            if (mergingCopy[i]) {
+                return null;
+            }
+            long oldSum = indexSizes[i];
+            long g = generations[i];
+
+            long youngSum = 0;
+            int l = 2;
+            int j = i - 1;
+            for (; j > -1 && l < maxMergedAtOnce; j--, l++) {
+                if (mergingCopy[j]) {
+                    return null;
+                }
+                youngSum += indexSizes[j];
+                g = Math.max(g, generations[j]);
+
+                if ((l >= minimumRun || j == 0) && youngSum > (oldSum * 1.20d)) {
+                    return new MergeRange(g, j, l, null, null);
+                }
+            }
+        }
+        return null;
     }
 
     public static MergeRange crazySause(int minimumRun, boolean[] mergingCopy, long[] indexCounts, long[] generations) {
@@ -46,7 +103,7 @@ public class TieredCompaction {
             length = mergingCopy.length;
         }
 
-        return (start == -1) ? null : new MergeRange(g, start, length);
+        return (start == -1) ? null : new MergeRange(g, start, length, null, null);
     }
 
     public static MergeRange randomSause(int minimumRun, boolean[] mergingCopy, long[] indexCounts, long[] generations) {
@@ -87,7 +144,7 @@ public class TieredCompaction {
             }
         }
 
-        return (start == -1) ? null : new MergeRange(generation, start, length);
+        return (start == -1) ? null : new MergeRange(generation, start, length, null, null);
     }
 
     public static MergeRange closetToIdeaLog(int minimumRun, boolean[] mergingCopy, long[] indexCounts, long[] generations) {
@@ -132,7 +189,7 @@ public class TieredCompaction {
             }
         }
 
-        return (start == -1) ? null : new MergeRange(generation, start, length);
+        return (start == -1) ? null : new MergeRange(generation, start, length, null, null);
     }
 
     private static double log(long x, int base) {
@@ -180,7 +237,7 @@ public class TieredCompaction {
             }
         }
 
-        return (start == -1) ? null : new MergeRange(generation, start, length);
+        return (start == -1) ? null : new MergeRange(generation, start, length, null, null);
     }
 
     public static String range(long[] counts, int offset, int l) {

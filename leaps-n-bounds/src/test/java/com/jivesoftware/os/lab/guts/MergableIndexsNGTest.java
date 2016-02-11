@@ -44,7 +44,7 @@ public class MergableIndexsNGTest {
                 IndexFile indexFile = new IndexFile(indexFiler, "rw", false);
                 IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-                WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, indexFile, 64, 2);
+                LABAppenableIndex write = new LABAppenableIndex(indexRangeId, indexFile, 64, 2);
                 IndexTestUtils.append(rand, write, 0, step, count, desired);
                 write.closeAppendable(fsync);
 
@@ -56,22 +56,21 @@ public class MergableIndexsNGTest {
             return null;
         });
 
-        MergeableIndexes.Reader reader = indexs.reader();
-        assertions(reader, count, step, desired);
+        assertions(indexs, count, step, desired);
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
         MergeableIndexes.Merger merger = indexs.buildMerger(minimumRun, (id, worstCaseCount) -> {
             int updatesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-            return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
-        }, (id, index) -> {
-            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", false));
+            return new LABAppenableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
+        }, (ids) -> {
+            return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false));
         }, fsync);
         if (merger != null) {
             merger.call();
         }
 
-        assertions(reader, count, step, desired);
+        assertions(indexs, count, step, desired);
     }
 
     @Test(enabled = true)
@@ -97,7 +96,7 @@ public class MergableIndexsNGTest {
             IndexFile indexFile = new IndexFile(indexFiler, "rw", false);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-            WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, indexFile, 64, 2);
+            LABAppenableIndex write = new LABAppenableIndex(indexRangeId, indexFile, 64, 2);
             IndexTestUtils.append(rand, write, 0, step, count, desired);
             write.closeAppendable(fsync);
 
@@ -105,16 +104,15 @@ public class MergableIndexsNGTest {
             indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
         }
 
-        MergeableIndexes.Reader reader = indexs.reader();
-        assertions(reader, count, step, desired);
+        assertions(indexs, count, step, desired);
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
         MergeableIndexes.Merger merger = indexs.buildMerger(minimumRun, (id, worstCaseCount) -> {
             int updatesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-            return new WriteLeapsAndBoundsIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
-        }, (id, index) -> {
-            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", false));
+            return new LABAppenableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
+        }, (ids) -> {
+            return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false));
         }, fsync);
         merger.call();
 
@@ -122,12 +120,11 @@ public class MergableIndexsNGTest {
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         IndexFile indexFile = new IndexFile(indexFiler, "r", false);
         indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
-        MergeableIndexes.Reader reader1 = indexs.reader();
-
-        assertions(reader1, count, step, desired);
+        
+        assertions(indexs, count, step, desired);
     }
 
-    private void assertions(MergeableIndexes.Reader reader,
+    private void assertions(MergeableIndexes indexs,
         int count, int step,
         ConcurrentSkipListMap<byte[], byte[]> desired) throws
         Exception {
@@ -135,7 +132,7 @@ public class MergableIndexsNGTest {
         ArrayList<byte[]> keys = new ArrayList<>(desired.navigableKeySet());
 
         int[] index = new int[1];
-        reader.tx(acquired -> {
+        indexs.tx(acquired -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired);
             RawEntryStream stream = (rawEntry, offset, length) -> {
                 System.out.println("Expected:key:" + UIO.bytesLong(keys.get(index[0])) + " Found:" + SimpleRawEntry.toString(rawEntry));
@@ -146,13 +143,13 @@ public class MergableIndexsNGTest {
             while (rowScan.next(stream));
             Assert.assertEquals(index[0], keys.size());
             System.out.println("rowScan PASSED");
-            return null;
+            return true;
         });
 
-        reader.tx(acquired -> {
+        indexs.tx(acquired -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
-                GetRaw getPointer = IndexUtil.get(acquired);
+                GetRaw getRaw = IndexUtil.get(acquired);
                 byte[] key = UIO.longBytes(k);
                 RawEntryStream stream = (rawEntry, offset, length) -> {
                     System.out.println("->" + SimpleRawEntry.key(rawEntry) + " " + SimpleRawEntry.value(rawEntry) + " " + offset + " " + length);
@@ -171,13 +168,13 @@ public class MergableIndexsNGTest {
                     }
                     return rawEntry != null;
                 };
-                getPointer.get(key, stream);
+                getRaw.get(key, stream);
             }
-            System.out.println("getPointer PASSED");
-            return null;
+            System.out.println("gets PASSED");
+            return true;
         });
 
-        reader.tx(acquired -> {
+        indexs.tx(acquired -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
 
@@ -197,10 +194,10 @@ public class MergableIndexsNGTest {
 
             }
             System.out.println("rangeScan PASSED");
-            return null;
+            return true;
         });
 
-        reader.tx(acquired -> {
+        indexs.tx(acquired -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
@@ -216,7 +213,7 @@ public class MergableIndexsNGTest {
 
             }
             System.out.println("rangeScan2 PASSED");
-            return null;
+            return true;
         });
     }
 

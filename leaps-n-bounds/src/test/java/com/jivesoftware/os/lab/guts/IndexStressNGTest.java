@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.google.common.io.Files;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -45,7 +46,8 @@ public class IndexStressNGTest {
         MutableBoolean merging = new MutableBoolean(true);
         MutableLong stopGets = new MutableLong(System.currentTimeMillis() + 4_000);
 
-        Object waitForDebtToDrom = new Object();
+        File root = Files.createTempDir();
+        AtomicLong waitForDebtToDrom = new AtomicLong();
         Future<Object> mergering = Executors.newSingleThreadExecutor().submit(() -> {
             while (running.isTrue()) {
 
@@ -56,16 +58,19 @@ public class IndexStressNGTest {
 
                             long m = merge.incrementAndGet();
                             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
-                            File mergeIndexFiler = File.createTempFile("d-index-merged-" + m, ".tmp");
-                            return new WriteLeapsAndBoundsIndex(id, new IndexFile(mergeIndexFiler, "rw", true),
+                            File mergingFile = id.toFile(root);
+                            return new LABAppenableIndex(id, new IndexFile(mergingFile, "rw", true),
                                 maxLeaps, entriesBetweenLeaps);
-                        }, (id, index) -> {
-                            return new LeapsAndBoundsIndex(destroy, id, new IndexFile(index.getIndex().getFile(), "r", true));
+                        }, (ids) -> {
+                            File mergedFile = ids.get(0).toFile(root);
+                            return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true));
                         }, fsync);
 
                     if (merger != null) {
+                        waitForDebtToDrom.incrementAndGet();
                         merger.call();
                         synchronized (waitForDebtToDrom) {
+                            waitForDebtToDrom.decrementAndGet();
                             waitForDebtToDrom.notifyAll();
                         }
                     } else {
@@ -97,8 +102,6 @@ public class IndexStressNGTest {
             long samples = 0;
             byte[] key = new byte[8];
 
-            MergeableIndexes.Reader reader = indexs.reader();
-
             if (!concurrentReads) {
                 while (merging.isTrue() || running.isTrue()) {
                     Thread.sleep(100);
@@ -113,17 +116,17 @@ public class IndexStressNGTest {
                     Thread.sleep(10);
                     continue;
                 }
-                reader.tx(acquire -> {
-                    GetRaw pointer = IndexUtil.get(acquire);
+                indexs.tx(acquire -> {
+                    GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {
 
                         int longKey = rand.nextInt(i);
                         UIO.longBytes(longKey, key, 0);
-                        pointer.get(key, hitsAndMisses);
+                        getRaw.get(key, hitsAndMisses);
 
                         if ((hits[0] + misses[0]) % logInterval == 0) {
-                            return null;
+                            return true;
                         }
 
                         //Thread.sleep(1);
@@ -131,7 +134,7 @@ public class IndexStressNGTest {
                         x.printStackTrace();
                         Thread.sleep(10);
                     }
-                    return null;
+                    return true;
                 });
 
                 long getEnd = System.currentTimeMillis();
@@ -160,7 +163,7 @@ public class IndexStressNGTest {
             File indexFiler = File.createTempFile("s-index-merged-" + b, ".tmp");
 
             long startMerge = System.currentTimeMillis();
-            WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(id,
+            LABAppenableIndex write = new LABAppenableIndex(id,
                 new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps);
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.closeAppendable(fsync);
@@ -176,8 +179,10 @@ public class IndexStressNGTest {
 
             if (indexs.hasMergeDebt(minMergeDebt) > 10) {
                 synchronized (waitForDebtToDrom) {
-                    System.out.println("Waiting because debt is two high....");
-                    waitForDebtToDrom.wait();
+                    if (waitForDebtToDrom.get() > 0) {
+                        System.out.println("Waiting because debt is two high....");
+                        waitForDebtToDrom.wait();
+                    }
                 }
             }
         }

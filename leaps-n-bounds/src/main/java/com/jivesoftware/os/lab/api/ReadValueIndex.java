@@ -6,16 +6,16 @@ package com.jivesoftware.os.lab.api;
  */
 public interface ReadValueIndex {
 
-    interface ValueTx<R> {
+    interface ValueTx {
 
-        R tx(NextValue nextValue) throws Exception;
+        boolean tx(NextValue nextValue) throws Exception;
     }
 
-    <R> R get(byte[] key, ValueTx<R> tx) throws Exception;
+    boolean get(byte[] key, ValueTx tx) throws Exception;
 
-    <R> R rangeScan(byte[] from, byte[] to, ValueTx<R> tx) throws Exception;
+    boolean rangeScan(byte[] from, byte[] to, ValueTx tx) throws Exception;
 
-    <R> R rowScan(ValueTx<R> tx) throws Exception;
+    boolean rowScan(ValueTx tx) throws Exception;
 
     void close() throws Exception;
 

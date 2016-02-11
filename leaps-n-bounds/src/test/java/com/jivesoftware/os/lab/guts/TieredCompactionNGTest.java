@@ -37,7 +37,7 @@ public class TieredCompactionNGTest {
                 while (merging.length > 2) {
 
                     System.out.println("Merge:" + Arrays.toString(counts) + "\t\t\t" + Arrays.toString(generations));
-                    MergeRange mergeRange = TieredCompaction.getMergeRange(minimumRun, merging, counts, generations, null, null);
+                    MergeRange mergeRange = TieredCompaction.getMergeRange(minimumRun, merging, counts, counts, generations, null, null);
                     if (mergeRange == null) {
                         break;
                     }

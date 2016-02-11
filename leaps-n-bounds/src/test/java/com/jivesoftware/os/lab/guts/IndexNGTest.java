@@ -34,7 +34,7 @@ public class IndexNGTest {
 
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
-        WriteLeapsAndBoundsIndex write = new WriteLeapsAndBoundsIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
+        LABAppenableIndex write = new LABAppenableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
             64, 10);
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
@@ -74,7 +74,7 @@ public class IndexNGTest {
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
-        WriteLeapsAndBoundsIndex disIndex = new WriteLeapsAndBoundsIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
+        LABAppenableIndex disIndex = new LABAppenableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
             64, 10);
 
         disIndex.append(memoryIndex);
@@ -101,7 +101,7 @@ public class IndexNGTest {
         System.out.println("Point Get");
         for (int i = 0; i < count * step; i++) {
             long k = i;
-            GetRaw getPointer = walIndex.reader().get();
+            GetRaw getRaw = walIndex.reader().get();
             byte[] key = UIO.longBytes(k);
             stream = (rawEntry, offset, length) -> {
 
@@ -121,7 +121,7 @@ public class IndexNGTest {
                 return rawEntry != null;
             };
 
-            Assert.assertEquals(getPointer.get(key, stream), desired.containsKey(key));
+            Assert.assertEquals(getRaw.get(key, stream), desired.containsKey(key));
         }
 
         System.out.println("Ranges");

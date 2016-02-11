@@ -10,7 +10,7 @@ import java.io.IOException;
 /**
  * @author jonathan.colt
  */
-public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
+public class LABAppenableIndex implements RawAppendableIndex {
 
     public static final byte ENTRY = 0;
     public static final byte LEAP = 1;
@@ -34,10 +34,11 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
 
     private final IAppendOnly appendOnly;
 
-    public WriteLeapsAndBoundsIndex(IndexRangeId indexRangeId,
+    public LABAppenableIndex(IndexRangeId indexRangeId,
         IndexFile index,
         int maxLeaps,
         int updatesBetweenLeaps) throws IOException {
+        
         this.indexRangeId = indexRangeId;
         this.index = index;
         this.maxLeaps = maxLeaps;
@@ -56,10 +57,10 @@ public class WriteLeapsAndBoundsIndex implements RawAppendableIndex {
     }
 
     @Override
-    public boolean append(RawEntries pointers) throws Exception {
+    public boolean append(RawEntries rawEntries) throws Exception {
 
         AppenableHeap entryBuffer = new AppenableHeap(1024);
-        pointers.consume((rawEntry, offset, length) -> {
+        rawEntries.consume((rawEntry, offset, length) -> {
 
             entryBuffer.reset();
 

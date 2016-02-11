@@ -19,11 +19,18 @@
  */
 package com.jivesoftware.os.lab.io.api;
 
+import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Iterator;
 
 public class UIO {
 
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     /**
      *
@@ -559,5 +566,145 @@ public class UIO {
 
     private static void readFully(byte[] from, int offset, byte[] into, int length) throws IOException {
         System.arraycopy(from, offset, into, 0, length);
+    }
+
+    public static void main(String[] args) {
+        for (byte[] i : iterateOnSplits(new byte[]{1, 2, 3, 4, 5}, new byte[]{9, 8, 7, 6, 5}, false, 1)) {
+            System.out.println(Arrays.toString(i));
+        }
+
+        for (byte[] i : iterateOnSplits(new byte[]{1, 2, 3, 4, 5}, new byte[]{1, 2, 3, 4, 5}, true, 1)) {
+            System.out.println(Arrays.toString(i));
+        }
+    }
+
+    /**
+     * Lex key range splittting Copied from HBase
+     * Iterate over keys within the passed range.
+     */
+    public static Iterable<byte[]> iterateOnSplits(final byte[] a, final byte[] b, boolean inclusive, final int num) {
+        byte[] aPadded;
+        byte[] bPadded;
+        if (a.length < b.length) {
+            aPadded = padTail(a, b.length - a.length);
+            bPadded = b;
+        } else if (b.length < a.length) {
+            aPadded = a;
+            bPadded = padTail(b, a.length - b.length);
+        } else {
+            aPadded = a;
+            bPadded = b;
+        }
+        if (UnsignedBytes.lexicographicalComparator().compare(aPadded, bPadded) >= 0) {
+            throw new IllegalArgumentException("b <= a");
+        }
+        if (num <= 0) {
+            throw new IllegalArgumentException("num cannot be <= 0");
+        }
+        byte[] prependHeader = {1, 0};
+        final BigInteger startBI = new BigInteger(add(prependHeader, aPadded));
+        final BigInteger stopBI = new BigInteger(add(prependHeader, bPadded));
+        BigInteger diffBI = stopBI.subtract(startBI);
+        if (inclusive) {
+            diffBI = diffBI.add(BigInteger.ONE);
+        }
+        final BigInteger splitsBI = BigInteger.valueOf(num + 1);
+        //when diffBI < splitBI, use an additional byte to increase diffBI
+        if (diffBI.compareTo(splitsBI) < 0) {
+            byte[] aPaddedAdditional = new byte[aPadded.length + 1];
+            byte[] bPaddedAdditional = new byte[bPadded.length + 1];
+            for (int i = 0; i < aPadded.length; i++) {
+                aPaddedAdditional[i] = aPadded[i];
+            }
+            for (int j = 0; j < bPadded.length; j++) {
+                bPaddedAdditional[j] = bPadded[j];
+            }
+            aPaddedAdditional[aPadded.length] = 0;
+            bPaddedAdditional[bPadded.length] = 0;
+            return iterateOnSplits(aPaddedAdditional, bPaddedAdditional, inclusive, num);
+        }
+        final BigInteger intervalBI;
+        try {
+            intervalBI = diffBI.divide(splitsBI);
+        } catch (Exception e) {
+            LOG.error("Exception caught during division", e);
+            return null;
+        }
+
+        final Iterator<byte[]> iterator = new Iterator<byte[]>() {
+            private int i = -1;
+
+            @Override
+            public boolean hasNext() {
+                return i < num + 1;
+            }
+
+            @Override
+            public byte[] next() {
+                i++;
+                if (i == 0) {
+                    return a;
+                }
+                if (i == num + 1) {
+                    return b;
+                }
+
+                BigInteger curBI = startBI.add(intervalBI.multiply(BigInteger.valueOf(i)));
+                byte[] padded = curBI.toByteArray();
+                if (padded[1] == 0) {
+                    padded = tail(padded, padded.length - 2);
+                } else {
+                    padded = tail(padded, padded.length - 1);
+                }
+                return padded;
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+
+        };
+
+        return () -> iterator;
+    }
+
+    /**
+     * @param a array
+     * @param length new array size
+     * @return Value in <code>a</code> plus <code>length</code> appended 0 bytes
+     */
+    public static byte[] padTail(byte[] a, int length) {
+        byte[] padding = new byte[length];
+        for (int i = 0; i < length; i++) {
+            padding[i] = 0;
+        }
+        return add(a, padding);
+    }
+
+    /**
+     * @param a lower half
+     * @param b upper half
+     * @return New array that has a in lower half and b in upper half.
+     */
+    public static byte[] add(byte[] a, byte[] b) {
+        byte[] result = new byte[a.length + b.length];
+        System.arraycopy(a, 0, result, 0, a.length);
+        System.arraycopy(b, 0, result, a.length, b.length);
+        return result;
+    }
+
+    /**
+     * @param a array
+     * @param length amount of bytes to snarf
+     * @return Last <code>length</code> bytes from <code>a</code>
+     */
+    public static byte[] tail(final byte[] a, final int length) {
+        if (a.length < length) {
+            return null;
+        }
+        byte[] result = new byte[length];
+        System.arraycopy(a, a.length - length, result, 0, length);
+        return result;
     }
 }

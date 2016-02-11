@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.guts.InterleaveStream;
-import com.jivesoftware.os.lab.guts.RawMemoryIndex;
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -25,7 +23,7 @@ public class InterleaveStreamNGTest {
     public void testNext() throws Exception {
 
         InterleaveStream ips = new InterleaveStream(new NextRawEntry[]{
-            nextPointerSequence(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3})
+            nextEntrySequence(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3})
         });
 
         List<Expected> expected = new ArrayList<>();
@@ -53,9 +51,9 @@ public class InterleaveStreamNGTest {
     public void testNext1() throws Exception {
 
         InterleaveStream ips = new InterleaveStream(new NextRawEntry[]{
-            nextPointerSequence(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3}),
-            nextPointerSequence(new long[]{1, 2, 3, 4, 5}, new long[]{2, 2, 2, 2, 2}),
-            nextPointerSequence(new long[]{1, 2, 3, 4, 5}, new long[]{1, 1, 1, 1, 1})
+            nextEntrySequence(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3}),
+            nextEntrySequence(new long[]{1, 2, 3, 4, 5}, new long[]{2, 2, 2, 2, 2}),
+            nextEntrySequence(new long[]{1, 2, 3, 4, 5}, new long[]{1, 1, 1, 1, 1})
         });
 
         List<Expected> expected = new ArrayList<>();
@@ -73,9 +71,9 @@ public class InterleaveStreamNGTest {
     public void testNext2() throws Exception {
 
         InterleaveStream ips = new InterleaveStream(new NextRawEntry[]{
-            nextPointerSequence(new long[]{10, 21, 29, 41, 50}, new long[]{1, 0, 0, 0, 1}),
-            nextPointerSequence(new long[]{10, 21, 29, 40, 50}, new long[]{0, 0, 0, 1, 0}),
-            nextPointerSequence(new long[]{10, 20, 30, 39, 50}, new long[]{0, 1, 1, 0, 0})
+            nextEntrySequence(new long[]{10, 21, 29, 41, 50}, new long[]{1, 0, 0, 0, 1}),
+            nextEntrySequence(new long[]{10, 21, 29, 40, 50}, new long[]{0, 0, 0, 1, 0}),
+            nextEntrySequence(new long[]{10, 20, 30, 39, 50}, new long[]{0, 1, 1, 0, 0})
         });
 
         List<Expected> expected = new ArrayList<>();
@@ -106,26 +104,26 @@ public class InterleaveStreamNGTest {
 
         ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
 
-        RawMemoryIndex[] pointerIndexes = new RawMemoryIndex[indexes];
-        NextRawEntry[] nextPointers = new NextRawEntry[indexes];
+        RawMemoryIndex[] memoryIndexes = new RawMemoryIndex[indexes];
+        NextRawEntry[] nextRawEntrys = new NextRawEntry[indexes];
         for (int wi = 0; wi < indexes; wi++) {
 
             int i = (indexes - 1) - wi;
 
-            pointerIndexes[i] = new RawMemoryIndex(destroy, new SimpleRawEntry());
-            IndexTestUtils.append(rand, pointerIndexes[i], 0, step, count, desired);
+            memoryIndexes[i] = new RawMemoryIndex(destroy, new SimpleRawEntry());
+            IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
             System.out.println("Index " + i);
-            NextRawEntry nextPointer = pointerIndexes[i].reader().rowScan();
-            while (nextPointer.next((rawEntry, offset, length) -> {
+            NextRawEntry nextRawEntry = memoryIndexes[i].reader().rowScan();
+            while (nextRawEntry.next((rawEntry, offset, length) -> {
                 System.out.println(SimpleRawEntry.toString(rawEntry));
                 return true;
             }));
             System.out.println("\n");
 
-            nextPointers[i] = pointerIndexes[i].reader().rowScan();
+            nextRawEntrys[i] = memoryIndexes[i].reader().rowScan();
         }
 
-        InterleaveStream ips = new InterleaveStream(nextPointers);
+        InterleaveStream ips = new InterleaveStream(nextRawEntrys);
 
         List<Expected> expected = new ArrayList<>();
         System.out.println("Expected:");
@@ -154,7 +152,7 @@ public class InterleaveStreamNGTest {
 
     }
 
-    public NextRawEntry nextPointerSequence(long[] keys, long[] values) {
+    public NextRawEntry nextEntrySequence(long[] keys, long[] values) {
         int[] index = {0};
         return (stream) -> {
             if (index[0] < keys.length) {

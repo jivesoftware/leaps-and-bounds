@@ -27,43 +27,23 @@ import java.io.IOException;
 public class AppenableHeap implements IAppendOnly {
 
     private byte[] bytes = new byte[0];
-    private long fp = 0;
-    private long maxLength = 0;
-
-    public AppenableHeap() {
-    }
+    private int fp = 0;
+    private int maxLength = 0;
 
     public AppenableHeap(int size) {
         bytes = new byte[size];
         maxLength = 0;
     }
 
-    private AppenableHeap(byte[] _bytes, int _maxLength) {
-        bytes = _bytes;
-        maxLength = _maxLength;
-    }
-
-    public static AppenableHeap fromBytes(byte[] _bytes, int length) {
-        return new AppenableHeap(_bytes, length);
-    }
-
-    public AppenableHeap createReadOnlyClone() {
-        AppenableHeap heapFiler = new AppenableHeap();
-        heapFiler.bytes = bytes;
-        heapFiler.maxLength = maxLength;
-        return heapFiler;
-    }
-
     public byte[] getBytes() {
         if (maxLength == bytes.length) {
             return bytes;
         } else {
-            return trim(bytes, (int) maxLength);
-        }
-    }
+            byte[] newSrc = new byte[maxLength];
+            System.arraycopy(bytes, 0, newSrc, 0, maxLength);
+            return newSrc;
 
-    public byte[] copyUsedBytes() {
-        return trim(bytes, (int) maxLength);
+        }
     }
 
     public byte[] leakBytes() {
@@ -75,16 +55,8 @@ public class AppenableHeap implements IAppendOnly {
         maxLength = 0;
     }
 
-    public void reset(int _maxLength) {
-        fp = 0;
-        maxLength = _maxLength;
-    }
-
     @Override
     public void append(byte _b[], int _offset, int _len) throws IOException {
-        if (_b == null) {
-            return;
-        }
         if (fp + _len > bytes.length) {
             bytes = grow(bytes, Math.max((int) ((fp + _len) - bytes.length), bytes.length));
         }
@@ -111,16 +83,7 @@ public class AppenableHeap implements IAppendOnly {
     public void flush(boolean fsync) throws IOException {
     }
 
-    private static byte[] trim(byte[] src, int count) {
-        byte[] newSrc = new byte[count];
-        System.arraycopy(src, 0, newSrc, 0, count);
-        return newSrc;
-    }
-
     static final public byte[] grow(byte[] src, int amount) {
-        if (amount < 0) {
-            throw new IllegalArgumentException("amount must be greater than zero");
-        }
         if (src == null) {
             return new byte[amount];
         }

@@ -34,7 +34,17 @@ public class LABEnvironment {
     public ValueIndex open(String primaryName, int maxUpdatesBetweenCompactionHintMarker) throws Exception {
         File indexRoot = new File(rootFile, primaryName + File.separator);
         ensure(indexRoot);
-        return new LAB(valueMerger, merge, destroy, indexRoot, useMemMap, maxUpdatesBetweenCompactionHintMarker, minMergeDebt, maxMergeDebt);
+        return new LAB(valueMerger,
+            merge,
+            destroy,
+            indexRoot,
+            useMemMap,
+            maxUpdatesBetweenCompactionHintMarker,
+            minMergeDebt,
+            maxMergeDebt,
+            -1, // TODO expose
+            -1,// TODO expose
+            -1);// TODO expose
     }
 
     boolean ensure(File key) {

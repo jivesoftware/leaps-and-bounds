@@ -27,7 +27,7 @@ public class LABEnvironmentConcurrenyNGTest {
     public void testConcurrencyMethod() throws Exception {
 
         File root = Files.createTempDir();
-        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 4, 8);
+        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 4, 10);
 
         concurentTest(env);
     }
@@ -36,7 +36,7 @@ public class LABEnvironmentConcurrenyNGTest {
     public void testConcurrencyWithMemMapMethod() throws Exception {
 
         File root = Files.createTempDir();
-        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8);
+        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), true, 4, 10);
 
         concurentTest(env);
     }
@@ -47,12 +47,12 @@ public class LABEnvironmentConcurrenyNGTest {
 
         AtomicLong hits = new AtomicLong();
         AtomicLong version = new AtomicLong();
-        AtomicLong pointer = new AtomicLong();
+        AtomicLong value = new AtomicLong();
         AtomicLong count = new AtomicLong();
 
         int totalCardinality = 100_000_000;
-        int commitCount = 100;
-        int batchCount = 100;
+        int commitCount = 10;
+        int batchSize = 1000;
         boolean fsync = true;
 
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
@@ -68,13 +68,13 @@ public class LABEnvironmentConcurrenyNGTest {
                 try {
                     for (int c = 0; c < commitCount; c++) {
                         index.append((ValueStream stream) -> {
-                            for (int b = 0; b < batchCount; b++) {
+                            for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
                                 stream.stream(UIO.longBytes(rand.nextInt(totalCardinality)),
                                     System.currentTimeMillis(),
                                     rand.nextBoolean(),
                                     version.incrementAndGet(),
-                                    UIO.longBytes(pointer.incrementAndGet()));
+                                    UIO.longBytes(value.incrementAndGet()));
                             }
                             return true;
                         });
@@ -98,12 +98,12 @@ public class LABEnvironmentConcurrenyNGTest {
                 try {
 
                     while (running.get() > 0) {
-                        index.get(UIO.longBytes(rand.nextInt(1_000_000)), (NextValue nextPointer) -> {
-                            nextPointer.next((key, timestamp, tombstoned, version1, pointer1) -> {
+                        index.get(UIO.longBytes(rand.nextInt(1_000_000)), (NextValue nextValue) -> {
+                            nextValue.next((key, timestamp, tombstoned, version1, value1) -> {
                                 hits.incrementAndGet();
                                 return true;
                             });
-                            return null;
+                            return true;
                         });
                     }
                     System.out.println("Reader (" + readerId + ") finished.");

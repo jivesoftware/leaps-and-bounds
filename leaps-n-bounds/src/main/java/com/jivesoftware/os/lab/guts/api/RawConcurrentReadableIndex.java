@@ -27,4 +27,6 @@ public interface RawConcurrentReadableIndex {
 
     void closeReadable() throws Exception;
 
+    long sizeInBytes() throws IOException;
+
 }

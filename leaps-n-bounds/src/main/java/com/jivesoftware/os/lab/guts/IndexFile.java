@@ -9,7 +9,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -34,7 +33,7 @@ public class IndexFile implements ICloseable {
     private final AtomicLong size;
     private final IAppendOnly appendOnly;
 
-    private AutoGrowingByteBufferBackedFiler memMapFiler;
+    private final AutoGrowingByteBufferBackedFiler memMapFiler;
     private final AtomicLong memMapFilerLength = new AtomicLong(-1);
 
     private final OpenFileLock openFileLock = new OpenFileLock();
@@ -155,49 +154,6 @@ public class IndexFile implements ICloseable {
 
     public long length() throws IOException {
         return size.get();
-    }
-
-    private void write(byte[] b, int _offset, int _len) throws IOException {
-        while (true) {
-            try {
-                randomAccessFile.write(b, _offset, _len);
-                size.addAndGet(_len);
-                break;
-            } catch (ClosedChannelException e) {
-                ensureOpen();
-                randomAccessFile.seek(size.get());
-            }
-        }
-    }
-
-    private void flush(boolean fsync) throws IOException {
-        if (fsync) {
-            while (true) {
-                try {
-                    randomAccessFile.getFD().sync();
-                    break;
-                } catch (ClosedChannelException e) {
-                    ensureOpen();
-                }
-            }
-        }
-    }
-
-    public void truncate(long size) throws IOException {
-        // should only be called with a write AND a read lock
-        while (true) {
-            try {
-                randomAccessFile.setLength(size);
-
-                synchronized (memMapLock) {
-                    memMapFiler = createMemMap();
-                    memMapFilerLength.set(-1);
-                }
-                break;
-            } catch (ClosedChannelException e) {
-                ensureOpen();
-            }
-        }
     }
 
     private void ensureOpen() throws IOException {

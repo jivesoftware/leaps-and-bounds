@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.guts.MergeableIndexes;
-import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
@@ -24,17 +22,17 @@ import static com.jivesoftware.os.lab.guts.SimpleRawEntry.value;
  */
 public class IndexTestUtils {
 
-    static OrderIdProvider timeProvider = new OrderIdProviderImpl(new ConstantWriterIdProvider(1));
+    private static OrderIdProvider timeProvider = new OrderIdProviderImpl(new ConstantWriterIdProvider(1));
 
     static public long append(Random rand,
-        RawAppendableIndex appendablePointerIndex,
+        RawAppendableIndex index,
         long start,
         int step,
         int count,
         ConcurrentSkipListMap<byte[], byte[]> desired) throws Exception {
 
         long[] lastKey = new long[1];
-        appendablePointerIndex.append((stream) -> {
+        index.append((stream) -> {
             long k = start;
             for (int i = 0; i < count; i++) {
                 k += 1 + rand.nextInt(step);
@@ -63,7 +61,7 @@ public class IndexTestUtils {
         return lastKey[0];
     }
 
-    static public void assertions(MergeableIndexes.Reader reader,
+    static public void assertions(MergeableIndexes indexes,
         int count, int step,
         ConcurrentSkipListMap<byte[], byte[]> desired) throws
         Exception {
@@ -72,7 +70,7 @@ public class IndexTestUtils {
 
         int[] index = new int[1];
 
-        reader.tx(acquired -> {
+        indexes.tx(acquired -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired);
             RawEntryStream stream = (rawEntry, offset, length) -> {
                 System.out.println("scanned:" + UIO.bytesLong(keys.get(index[0])) + " " + key(rawEntry));
@@ -82,13 +80,13 @@ public class IndexTestUtils {
             };
             while (rowScan.next(stream)) ;
             System.out.println("rowScan PASSED");
-            return null;
+            return true;
         });
 
-        reader.tx(acquired -> {
+        indexes.tx(acquired -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
-                GetRaw getPointer = IndexUtil.get(acquired);
+                GetRaw getRaw = IndexUtil.get(acquired);
                 RawEntryStream stream = (rawEntry, offset, length) -> {
                     byte[] expectedFP = desired.get(UIO.longBytes(key(rawEntry)));
                     if (expectedFP == null) {
@@ -99,13 +97,13 @@ public class IndexTestUtils {
                     return true;
                 };
 
-                while (getPointer.get(UIO.longBytes(k), stream)) ;
+                while (getRaw.get(UIO.longBytes(k), stream)) ;
             }
-            System.out.println("getPointer PASSED");
-            return null;
+            System.out.println("gets PASSED");
+            return true;
         });
 
-        reader.tx(acquired -> {
+        indexes.tx(acquired -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
 
@@ -125,10 +123,10 @@ public class IndexTestUtils {
             }
 
             System.out.println("rangeScan PASSED");
-            return null;
+            return true;
         });
 
-        reader.tx(acquired -> {
+        indexes.tx(acquired -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
@@ -145,7 +143,7 @@ public class IndexTestUtils {
             }
 
             System.out.println("rangeScan2 PASSED");
-            return null;
+            return true;
         });
     }
 }

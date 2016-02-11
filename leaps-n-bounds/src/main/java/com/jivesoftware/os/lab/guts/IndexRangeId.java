@@ -19,7 +19,7 @@ public class IndexRangeId implements Comparable<IndexRangeId> {
     }
 
     public boolean intersects(IndexRangeId range) {
-        return (start <= range.start && end >= range.start) || (start <= range.end && end >= range.end);
+        return start <= range.end && range.start <= end;
     }
 
     @Override

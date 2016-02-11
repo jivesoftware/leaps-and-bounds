@@ -102,6 +102,7 @@ public class LABNGTest {
         });
         Assert.assertEquals(scanned.size(), expected.length);
         for (int i = 0; i < expected.length; i++) {
+            System.out.println((long) scanned.get(i) + " vs " + expected[i]);
             Assert.assertEquals((long) scanned.get(i), expected[i]);
         }
     }

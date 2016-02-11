@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.api;
 
 import com.jivesoftware.os.lab.guts.IndexRangeId;
-import com.jivesoftware.os.lab.guts.WriteLeapsAndBoundsIndex;
+import com.jivesoftware.os.lab.guts.LABAppenableIndex;
 
 /**
  *
@@ -9,5 +9,5 @@ import com.jivesoftware.os.lab.guts.WriteLeapsAndBoundsIndex;
  */
 public interface IndexFactory {
 
-    WriteLeapsAndBoundsIndex createIndex(IndexRangeId id, long worstCaseCount) throws Exception;
+    LABAppenableIndex createIndex(IndexRangeId id, long worstCaseCount) throws Exception;
 }

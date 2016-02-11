@@ -54,11 +54,16 @@
                 <version>${commons.io.version}</version>
             </dependency>
             <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>4.0</version>
+            </dependency>
+            <dependency>
                 <groupId>com.jivesoftware.os.jive.utils</groupId>
                 <artifactId>base</artifactId>
                 <version>${jive.utils.version}</version>
             </dependency>
-             <dependency>
+            <dependency>
                 <groupId>com.jivesoftware.os.jive.utils</groupId>
                 <artifactId>collections</artifactId>
                 <version>${jive.utils.version}</version>

@@ -13,8 +13,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.jivesoftware.os.lab.guts.WriteLeapsAndBoundsIndex.FOOTER;
-import static com.jivesoftware.os.lab.guts.WriteLeapsAndBoundsIndex.LEAP;
+import static com.jivesoftware.os.lab.guts.LABAppenableIndex.FOOTER;
+import static com.jivesoftware.os.lab.guts.LABAppenableIndex.LEAP;
 
 /**
  * @author jonathan.colt
@@ -181,6 +181,11 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     @Override
     public long count() throws IOException {
         return footer.count;
+    }
+
+    @Override
+    public long sizeInBytes() throws IOException {
+        return index.length();
     }
 
     @Override

@@ -6,8 +6,8 @@ import com.jivesoftware.os.lab.guts.api.ReadIndex;
  *
  * @author jonathan.colt
  */
-public interface ReaderTx<R> {
+public interface ReaderTx {
 
-    R tx(ReadIndex[] readIndexs) throws Exception;
+    boolean tx(ReadIndex[] readIndexs) throws Exception;
 
 }

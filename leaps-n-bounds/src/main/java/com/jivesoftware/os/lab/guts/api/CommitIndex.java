@@ -2,7 +2,7 @@ package com.jivesoftware.os.lab.guts.api;
 
 import com.jivesoftware.os.lab.guts.IndexRangeId;
 import com.jivesoftware.os.lab.guts.LeapsAndBoundsIndex;
-import com.jivesoftware.os.lab.guts.WriteLeapsAndBoundsIndex;
+import java.util.List;
 
 /**
  *
@@ -10,6 +10,6 @@ import com.jivesoftware.os.lab.guts.WriteLeapsAndBoundsIndex;
  */
 public interface CommitIndex {
 
-    LeapsAndBoundsIndex commit(IndexRangeId id, WriteLeapsAndBoundsIndex index) throws Exception;
+    LeapsAndBoundsIndex commit(List<IndexRangeId> ids) throws Exception;
 
 }

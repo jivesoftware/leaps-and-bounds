@@ -67,13 +67,14 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             @Override
             public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
                 Iterator<Map.Entry<byte[], byte[]>> iterator;
-                if (from != null && to == null) {
-                    iterator = index.tailMap(from, true).entrySet().iterator();
-                } else if (from == null && to != null) {
-                    iterator = index.headMap(to, false).entrySet().iterator();
-
-                } else {
+                if (from != null && to != null) {
                     iterator = index.subMap(from, true, to, false).entrySet().iterator();
+                } else if (from != null) {
+                    iterator = index.tailMap(from, true).entrySet().iterator();
+                } else if (to != null) {
+                    iterator = index.headMap(to, false).entrySet().iterator();
+                } else {
+                    iterator = index.entrySet().iterator();
                 }
                 return (stream) -> {
                     if (iterator.hasNext()) {
@@ -209,6 +210,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     @Override
     public long count() {
         return approximateCount.get();
+    }
+
+    @Override
+    public long sizeInBytes() {
+        return 0;
     }
 
     @Override
