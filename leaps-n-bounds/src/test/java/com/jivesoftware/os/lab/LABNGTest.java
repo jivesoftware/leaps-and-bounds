@@ -24,7 +24,7 @@ public class LABNGTest {
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 1, 2);
 
-        ValueIndex index = env.open("foo", 1000, 16, -1, -1);
+        ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1);
 
         index.append((stream) -> {
             stream.stream(UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));

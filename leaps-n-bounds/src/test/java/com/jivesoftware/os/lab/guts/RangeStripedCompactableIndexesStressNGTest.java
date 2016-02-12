@@ -39,6 +39,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         File root = Files.createTempDir();
         boolean useMemMap = true;
+        int entriesBetweenLeaps = 4096;
         long splitWhenKeysTotalExceedsNBytes = 8 * 1024 * 1024; //1024 * 1024 * 10;
         long splitWhenValuesTotalExceedsNBytes = -1;
         long splitWhenValuesAndKeysTotalExceedsNBytes = -1;
@@ -46,6 +47,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
         RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(destroy,
             root,
             useMemMap,
+            entriesBetweenLeaps,
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes);

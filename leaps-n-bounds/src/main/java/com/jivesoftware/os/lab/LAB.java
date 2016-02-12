@@ -61,6 +61,7 @@ public class LAB implements ValueIndex {
         ExecutorService destroy,
         File root,
         boolean useMemMap,
+        int entriesBetweenLeaps,
         int maxUpdatesBeforeFlush,
         int minDebt,
         int maxDebt,
@@ -72,8 +73,13 @@ public class LAB implements ValueIndex {
         this.destroy = destroy;
         this.maxUpdatesBeforeFlush = maxUpdatesBeforeFlush;
         this.memoryIndex = new RawMemoryIndex(destroy, valueMerger);
-        this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy, root, useMemMap, splitWhenKeysTotalExceedsNBytes,
-            splitWhenValuesTotalExceedsNBytes, splitWhenValuesAndKeysTotalExceedsNBytes);
+        this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
+            root,
+            useMemMap,
+            entriesBetweenLeaps,
+            splitWhenKeysTotalExceedsNBytes,
+            splitWhenValuesTotalExceedsNBytes,
+            splitWhenValuesAndKeysTotalExceedsNBytes);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
 

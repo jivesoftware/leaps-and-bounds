@@ -32,6 +32,7 @@ public class LABEnvironment {
     }
 
     public ValueIndex open(String primaryName,
+        int entriesBetweenLeaps,
         int maxUpdatesBetweenCompactionHintMarker,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
@@ -43,6 +44,7 @@ public class LABEnvironment {
             destroy,
             indexRoot,
             useMemMap,
+            entriesBetweenLeaps,
             maxUpdatesBetweenCompactionHintMarker,
             minMergeDebt,
             maxMergeDebt,

@@ -37,7 +37,7 @@ public class RangeStripedCompactableIndexes {
     private final ExecutorService destroy;
     private final File root;
     private final boolean useMemMap;
-    private final int entriesBetweenLeaps = 4096; // TODO expose to a config;
+    private final int entriesBetweenLeaps;
     private final Object copyIndexOnWrite = new Object();
     private volatile ConcurrentSkipListMap<byte[], FileBackMergableIndexs> indexes;
     private final long splitWhenKeysTotalExceedsNBytes;
@@ -48,6 +48,7 @@ public class RangeStripedCompactableIndexes {
     public RangeStripedCompactableIndexes(ExecutorService destroy,
         File root,
         boolean useMemMap,
+        int entriesBetweenLeaps,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
@@ -55,6 +56,7 @@ public class RangeStripedCompactableIndexes {
         this.destroy = destroy;
         this.root = root;
         this.useMemMap = useMemMap;
+        this.entriesBetweenLeaps = entriesBetweenLeaps;
         this.splitWhenKeysTotalExceedsNBytes = splitWhenKeysTotalExceedsNBytes;
         this.splitWhenValuesTotalExceedsNBytes = splitWhenValuesTotalExceedsNBytes;
         this.splitWhenValuesAndKeysTotalExceedsNBytes = splitWhenValuesAndKeysTotalExceedsNBytes;
