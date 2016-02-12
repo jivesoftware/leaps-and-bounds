@@ -1,7 +1,6 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
-import com.jivesoftware.os.lab.api.NextValue;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -26,19 +25,19 @@ public class LABEnvironmentNGTest {
             System.out.println("root" + root.getAbsolutePath());
             LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 4, 8);
 
-            ValueIndex index = env.open("foo", 1000);
+            ValueIndex index = env.open("foo", 1000, -1, -1, -1);
             indexTest(index);
 
             env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8);
 
-            index = env.open("foo", 1000);
+            index = env.open("foo", 1000, -1, -1, -1);
             indexTest(index);
 
             env.shutdown();
 
             env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8);
             env.rename("foo", "bar");
-            index = env.open("bar", 1000);
+            index = env.open("bar", 1000, -1, -1, -1);
 
             indexTest(index);
 
@@ -104,14 +103,14 @@ public class LABEnvironmentNGTest {
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8);
 
-        ValueIndex index = env.open("foo", 1000);
+        ValueIndex index = env.open("foo", 1000, -1, -1, -1);
         indexTest(index);
 
         env.shutdown();
 
         env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8);
 
-        index = env.open("foo", 1000);
+        index = env.open("foo", 1000, -1, -1, -1);
         indexTest(index);
 
         env.shutdown();
@@ -154,11 +153,8 @@ public class LABEnvironmentNGTest {
 
             AtomicLong hits = new AtomicLong();
             for (int i = 0; i < getCount; i++) {
-                index.get(UIO.longBytes(rand.nextInt(1_000_000)), (NextValue nextValue) -> {
-                    nextValue.next((key, timestamp, tombstoned, version1, value1) -> {
-                        hits.incrementAndGet();
-                        return true;
-                    });
+                index.get(UIO.longBytes(rand.nextInt(1_000_000)), (key, timestamp, tombstoned, version1, value1) -> {
+                    hits.incrementAndGet();
                     return true;
                 });
             }
@@ -176,11 +172,8 @@ public class LABEnvironmentNGTest {
         System.out.println("Index Count:" + index.count());
         System.out.println("Is empty:" + index.isEmpty());
 
-        index.rowScan((nextValue) -> {
-            nextValue.next((byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
-                System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays.toString(payload));
-                return true;
-            });
+        index.rowScan((byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
+            System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays.toString(payload));
             return true;
         });
 

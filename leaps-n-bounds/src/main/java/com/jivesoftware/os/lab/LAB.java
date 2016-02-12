@@ -5,12 +5,12 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.Values;
 import com.jivesoftware.os.lab.guts.IndexUtil;
-import com.jivesoftware.os.lab.guts.MergeableIndexes;
-import com.jivesoftware.os.lab.guts.RangeStripedMergableIndexes;
+import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.guts.RawMemoryIndex;
 import com.jivesoftware.os.lab.guts.ReaderTx;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
+import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.AppenableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -18,8 +18,12 @@ import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -31,20 +35,20 @@ public class LAB implements ValueIndex {
     static private class CommitLock {
     }
 
-    static private class MergeLock {
+    static private class CompactLock {
     }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final ExecutorService destroy;
-    private final ExecutorService merge;
+    private final ExecutorService compact;
     private final int maxUpdatesBeforeFlush;
-    private final int minMergeDebt;
-    private final int maxMergeDebt;
-    private final RangeStripedMergableIndexes stripedMergableIndexes;
+    private final int minDebt;
+    private final int maxDebt;
+    private final RangeStripedCompactableIndexes rangeStripedCompactableIndexes;
     private final CommitLock commitLock = new CommitLock();
-    private final MergeLock mergeLock = new MergeLock();
-    private final AtomicLong ongoingMerges = new AtomicLong();
+    private final CompactLock compactLock = new CompactLock();
+    private final AtomicLong ongoingCompactions = new AtomicLong();
 
     private volatile RawMemoryIndex memoryIndex;
     private volatile RawMemoryIndex flushingMemoryIndex;
@@ -53,31 +57,31 @@ public class LAB implements ValueIndex {
     private final LABValueMerger valueMerger = new LABValueMerger();
 
     public LAB(LABValueMerger valueMerger,
-        ExecutorService merge,
+        ExecutorService compact,
         ExecutorService destroy,
         File root,
         boolean useMemMap,
         int maxUpdatesBeforeFlush,
-        int minMergeDebt,
-        int maxMergeDebt,
+        int minDebt,
+        int maxDebt,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
 
-        this.merge = merge;
+        this.compact = compact;
         this.destroy = destroy;
         this.maxUpdatesBeforeFlush = maxUpdatesBeforeFlush;
         this.memoryIndex = new RawMemoryIndex(destroy, valueMerger);
-        this.stripedMergableIndexes = new RangeStripedMergableIndexes(destroy, root, useMemMap, splitWhenKeysTotalExceedsNBytes,
+        this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy, root, useMemMap, splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes, splitWhenValuesAndKeysTotalExceedsNBytes);
-        this.minMergeDebt = minMergeDebt;
-        this.maxMergeDebt = maxMergeDebt;
+        this.minDebt = minDebt;
+        this.maxDebt = maxDebt;
 
     } // descending
 
     @Override
     public int debt() throws Exception {
-        return stripedMergableIndexes.hasMergeDebt(minMergeDebt);
+        return rangeStripedCompactableIndexes.debt(minDebt);
     }
 
     /*
@@ -86,42 +90,42 @@ public class LAB implements ValueIndex {
     }
      */
     @Override
-    public boolean get(byte[] key, ValueTx tx) throws Exception {
+    public boolean get(byte[] key, ValueStream stream) throws Exception {
         return tx(key, key, (readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
-            return rawToReal(key, getRaw, tx);
+            return rawToReal(key, getRaw, stream);
         });
     }
 
     @Override
-    public boolean rangeScan(byte[] from, byte[] to, ValueTx tx) throws Exception {
+    public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
         return tx(from, to, (readIndexes) -> {
-            return rawToReal(IndexUtil.rangeScan(readIndexes, from, to), tx);
+            return rawToReal(IndexUtil.rangeScan(readIndexes, from, to), stream);
         });
     }
 
     @Override
-    public boolean rowScan(ValueTx tx) throws Exception {
+    public boolean rowScan(ValueStream stream) throws Exception {
         return tx(null, null, (readIndexes) -> {
-            return rawToReal(IndexUtil.rowScan(readIndexes), tx);
+            return rawToReal(IndexUtil.rowScan(readIndexes), stream);
         });
     }
 
     @Override
     public void close() throws Exception {
         memoryIndex.closeReadable();
-        stripedMergableIndexes.close();
+        rangeStripedCompactableIndexes.close();
     }
 
     @Override
     public long count() throws Exception {
-        return memoryIndex.count() + stripedMergableIndexes.count();
+        return memoryIndex.count() + rangeStripedCompactableIndexes.count();
     }
 
     @Override
     public boolean isEmpty() throws Exception {
         if (memoryIndex.isEmpty()) {
-            return stripedMergableIndexes.isEmpty();
+            return rangeStripedCompactableIndexes.isEmpty();
         }
         return false;
     }
@@ -168,6 +172,7 @@ public class LAB implements ValueIndex {
                             break;
                         } else {
                             memoryIndexReader.release();
+                            memoryIndexReader = null;
                         }
                     } else {
                         break;
@@ -177,7 +182,7 @@ public class LAB implements ValueIndex {
 
             ReadIndex reader = memoryIndexReader;
             ReadIndex flushingReader = flushingMemoryIndexReader;
-            return stripedMergableIndexes.tx(from, to, acquired -> {
+            return rangeStripedCompactableIndexes.tx(from, to, acquired -> {
 
                 int flushing = (flushingReader == null) ? 0 : 1;
                 ReadIndex[] indexes = new ReadIndex[acquired.length + 1 + flushing];
@@ -200,76 +205,75 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public void commit(boolean fsync) throws Exception {
+    public List<Future<Object>> commit(boolean fsync) throws Exception {
         if (corrrupt) {
             throw new LABIndexCorruptedException();
         }
         synchronized (commitLock) {
             if (memoryIndex.isEmpty()) {
-                return;
+                return Collections.emptyList();
             }
             RawMemoryIndex stackCopy = memoryIndex;
             flushingMemoryIndex = stackCopy;
             memoryIndex = new RawMemoryIndex(destroy, valueMerger);
-            stripedMergableIndexes.append(stackCopy, fsync);
+            rangeStripedCompactableIndexes.append(stackCopy, fsync);
             flushingMemoryIndex = null;
             stackCopy.destroy();
         }
 
-        merge(fsync);
+        return compact(fsync);
     }
 
-    public void merge(boolean fsync) throws Exception {
+    public List<Future<Object>> compact(boolean fsync) throws Exception {
 
-        int mergeDebt = stripedMergableIndexes.hasMergeDebt(minMergeDebt);
-        if (mergeDebt <= minMergeDebt) {
-            return;
+        int debt = rangeStripedCompactableIndexes.debt(minDebt);
+        if (debt == 0) {
+            return Collections.emptyList();
         }
 
+        List<Future<Object>> awaitable = null;
         while (true) {
             if (corrrupt) {
                 throw new LABIndexCorruptedException();
             }
-            List<MergeableIndexes.Merger> mergers;
-            synchronized (mergeLock) {
-                mergers = stripedMergableIndexes.buildMerger(minMergeDebt, fsync);
-
-            }
-            if (!mergers.isEmpty()) {
-                for (MergeableIndexes.Merger merger : mergers) {
-                    LOG.info("Scheduling async merger:{} for index:{} debt:{}", mergers, stripedMergableIndexes, mergeDebt);
-                    ongoingMerges.incrementAndGet();
-                    merge.submit(() -> {
+            List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(minDebt, fsync);
+            if (compactors != null && !compactors.isEmpty()) {
+                if (awaitable == null) {
+                    awaitable = new ArrayList<>(compactors.size());
+                }
+                for (Callable<Void> compactor : compactors) {
+                    LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, rangeStripedCompactableIndexes, debt);
+                    ongoingCompactions.incrementAndGet();
+                    Future<Object> future = compact.submit(() -> {
                         try {
-                            merger.call();
-                            synchronized (mergeLock) {
-                                mergeLock.notifyAll();
-                            }
-                            LAB.this.merge(fsync);
+                            compactor.call();
                         } catch (Exception x) {
-                            LOG.error("Failed to merge " + stripedMergableIndexes, x);
+                            LOG.error("Failed to compact " + rangeStripedCompactableIndexes, x);
                             corrrupt = true;
                         } finally {
-                            ongoingMerges.decrementAndGet();
+                            synchronized (compactLock) {
+                                ongoingCompactions.decrementAndGet();
+                                compactLock.notifyAll();
+                            }
                         }
                         return null;
                     });
+                    awaitable.add(future);
                 }
-
             }
 
-            if (mergeDebt >= maxMergeDebt) {
-                synchronized (mergeLock) {
-                    if (ongoingMerges.get() > 0) {
-                        LOG.debug("Waiting because merge debt it do high index:{} debt:{}", stripedMergableIndexes, mergeDebt);
-                        mergeLock.wait();
+            if (debt >= maxDebt) {
+                synchronized (compactLock) {
+                    if (ongoingCompactions.get() > 0) {
+                        LOG.debug("Waiting because debt it do high index:{} debt:{}", rangeStripedCompactableIndexes, debt);
+                        compactLock.wait();
                     } else {
-                        return;
+                        return awaitable;
                     }
                 }
-                mergeDebt = stripedMergableIndexes.hasMergeDebt(minMergeDebt);
+                debt = rangeStripedCompactableIndexes.debt(minDebt);
             } else {
-                return;
+                return awaitable;
             }
         }
     }
@@ -278,31 +282,29 @@ public class LAB implements ValueIndex {
     public String toString() {
         return "LAB{"
             + "maxUpdatesBeforeFlush=" + maxUpdatesBeforeFlush
-            + ", minMergeDebt=" + minMergeDebt
-            + ", maxMergeDebt=" + maxMergeDebt
-            + ", ongoingMerges=" + ongoingMerges
+            + ", minDebt=" + minDebt
+            + ", maxDebt=" + maxDebt
+            + ", ongoingCompactions=" + ongoingCompactions
             + ", corrrupt=" + corrrupt
             + ", valueMerger=" + valueMerger
             + '}';
     }
 
-    private static boolean rawToReal(byte[] key, GetRaw getRaw, ValueTx tx) throws Exception {
-        return tx.tx((stream) -> getRaw.get(key, (rawEntry, offset, length) -> {
-            return streamRawEntry(stream, rawEntry, offset);
-        }));
+    private static boolean rawToReal(byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
+        return getRaw.get(key, (rawEntry, offset, length) -> streamRawEntry(valueStream, rawEntry, offset));
     }
 
-    private static boolean rawToReal(NextRawEntry nextRawEntry, ValueTx tx) throws Exception {
-        return tx.tx((stream) -> {
-            while (true) {
-                boolean more = nextRawEntry.next((rawEntry, offset, length) -> {
-                    return streamRawEntry(stream, rawEntry, offset);
-                });
-                if (!more) {
-                    return false;
-                }
+    private static boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
+        while (true) {
+            Next next = nextRawEntry.next((rawEntry, offset, length) -> {
+                return streamRawEntry(valueStream, rawEntry, offset);
+            });
+            if (next == Next.stopped) {
+                return false;
+            } else if (next == Next.eos) {
+                return true;
             }
-        });
+        }
     }
 
     private static boolean streamRawEntry(ValueStream stream, byte[] rawEntry, int offset) throws Exception {

@@ -16,7 +16,7 @@ import org.apache.commons.io.FileUtils;
 public class LABEnvironment {
 
     private final File rootFile;
-    private final ExecutorService merge = Executors.newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("lab-merge-%d").build()); // TODO config 'maybe'
+    private final ExecutorService compact = Executors.newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build()); // TODO config 'maybe'
     private final ExecutorService destroy = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build()); // TODO config 'maybe'
     private final LABValueMerger valueMerger;
     private final boolean useMemMap;
@@ -31,20 +31,24 @@ public class LABEnvironment {
         this.maxMergeDebt = maxMergeDebt;
     }
 
-    public ValueIndex open(String primaryName, int maxUpdatesBetweenCompactionHintMarker) throws Exception {
+    public ValueIndex open(String primaryName,
+        int maxUpdatesBetweenCompactionHintMarker,
+        long splitWhenKeysTotalExceedsNBytes,
+        long splitWhenValuesTotalExceedsNBytes,
+        long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
         File indexRoot = new File(rootFile, primaryName + File.separator);
         ensure(indexRoot);
         return new LAB(valueMerger,
-            merge,
+            compact,
             destroy,
             indexRoot,
             useMemMap,
             maxUpdatesBetweenCompactionHintMarker,
             minMergeDebt,
             maxMergeDebt,
-            -1, // TODO expose
-            -1,// TODO expose
-            -1);// TODO expose
+            splitWhenKeysTotalExceedsNBytes,
+            splitWhenValuesTotalExceedsNBytes,
+            splitWhenValuesAndKeysTotalExceedsNBytes);
     }
 
     boolean ensure(File key) {
@@ -64,9 +68,9 @@ public class LABEnvironment {
     }
 
     public void shutdown() throws InterruptedException {
-        merge.shutdown();
+        compact.shutdown();
         destroy.shutdown();
-        merge.awaitTermination(30, TimeUnit.SECONDS);
+        compact.awaitTermination(30, TimeUnit.SECONDS);
         destroy.awaitTermination(30, TimeUnit.SECONDS);
     }
 }

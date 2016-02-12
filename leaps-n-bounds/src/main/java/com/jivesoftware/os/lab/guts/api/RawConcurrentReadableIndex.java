@@ -29,4 +29,8 @@ public interface RawConcurrentReadableIndex {
 
     long sizeInBytes() throws IOException;
 
+    long keysSizeInBytes() throws IOException;
+
+    long valuesSizeInBytes() throws IOException;
+
 }

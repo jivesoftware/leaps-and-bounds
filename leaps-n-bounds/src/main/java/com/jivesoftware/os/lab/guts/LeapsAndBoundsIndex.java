@@ -30,7 +30,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     private final ConcurrentLHash<Leaps> leapsCache;
     private final Footer footer;
 
-    private final int numBonesHidden = 1024; // TODO config
+    private final int numBonesHidden = Short.MAX_VALUE; // TODO config
     private final Semaphore hideABone;
 
     private Leaps leaps; // loaded when reading
@@ -186,6 +186,16 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     @Override
     public long sizeInBytes() throws IOException {
         return index.length();
+    }
+
+    @Override
+    public long keysSizeInBytes() throws IOException {
+        return footer.keysSizeInBytes;
+    }
+
+    @Override
+    public long valuesSizeInBytes() throws IOException {
+        return footer.valuesSizeInBytes;
     }
 
     @Override

@@ -6,5 +6,9 @@ package com.jivesoftware.os.lab.guts.api;
  */
 public interface NextRawEntry {
 
-    boolean next(RawEntryStream stream) throws Exception;
+    static enum Next {
+        eos, more, stopped;
+    }
+
+    Next next(RawEntryStream stream) throws Exception;
 }

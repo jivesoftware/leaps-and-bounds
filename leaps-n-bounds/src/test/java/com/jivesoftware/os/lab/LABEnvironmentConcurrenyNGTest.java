@@ -2,7 +2,6 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.jivesoftware.os.lab.api.NextValue;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -59,7 +58,7 @@ public class LABEnvironmentConcurrenyNGTest {
         ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
 
         Random rand = new Random(12345);
-        ValueIndex index = env.open("foo", 1000);
+        ValueIndex index = env.open("foo", 1000, 10 * 1024 * 1024, 0, 0);
         AtomicLong running = new AtomicLong();
         List<Future> writerFutures = new ArrayList<>();
         for (int i = 0; i < writerCount; i++) {
@@ -98,11 +97,8 @@ public class LABEnvironmentConcurrenyNGTest {
                 try {
 
                     while (running.get() > 0) {
-                        index.get(UIO.longBytes(rand.nextInt(1_000_000)), (NextValue nextValue) -> {
-                            nextValue.next((key, timestamp, tombstoned, version1, value1) -> {
-                                hits.incrementAndGet();
-                                return true;
-                            });
+                        index.get(UIO.longBytes(rand.nextInt(1_000_000)), (key, timestamp, tombstoned, version1, value1) -> {
+                            hits.incrementAndGet();
                             return true;
                         });
                     }

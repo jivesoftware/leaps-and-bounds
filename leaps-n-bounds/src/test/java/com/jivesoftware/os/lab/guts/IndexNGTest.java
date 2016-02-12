@@ -96,7 +96,7 @@ public class IndexNGTest {
             index[0]++;
             return true;
         };
-        while (rowScan.next(stream));
+        while (rowScan.next(stream) == NextRawEntry.Next.more);
 
         System.out.println("Point Get");
         for (int i = 0; i < count * step; i++) {
@@ -139,7 +139,7 @@ public class IndexNGTest {
 
             System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
             NextRawEntry rangeScan = walIndex.reader().rangeScan(keys.get(_i), keys.get(_i + 3));
-            while (rangeScan.next(stream));
+            while (rangeScan.next(stream) == NextRawEntry.Next.more);
             Assert.assertEquals(3, streamed[0]);
 
         }
@@ -154,7 +154,7 @@ public class IndexNGTest {
                 return SimpleRawEntry.value(entry) != -1;
             };
             NextRawEntry rangeScan = walIndex.reader().rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3));
-            while (rangeScan.next(stream));
+            while (rangeScan.next(stream) == NextRawEntry.Next.more);
             Assert.assertEquals(2, streamed[0]);
 
         }

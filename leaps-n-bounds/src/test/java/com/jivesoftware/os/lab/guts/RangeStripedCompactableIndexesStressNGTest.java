@@ -1,11 +1,15 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.lab.LABValueMerger;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
 import java.text.NumberFormat;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -19,7 +23,9 @@ import org.testng.annotations.Test;
 /**
  * @author jonathan.colt
  */
-public class IndexStressNGTest {
+public class RangeStripedCompactableIndexesStressNGTest {
+
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     NumberFormat format = NumberFormat.getInstance();
 
@@ -30,7 +36,20 @@ public class IndexStressNGTest {
         Random rand = new Random(12345);
 
         long start = System.currentTimeMillis();
-        CompactableIndexes indexs = new CompactableIndexes();
+
+        File root = Files.createTempDir();
+        boolean useMemMap = true;
+        long splitWhenKeysTotalExceedsNBytes = 1024 * 1024; //1024 * 1024 * 10;
+        long splitWhenValuesTotalExceedsNBytes = -1;
+        long splitWhenValuesAndKeysTotalExceedsNBytes = -1;
+
+        RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(destroy,
+            root,
+            useMemMap,
+            splitWhenKeysTotalExceedsNBytes,
+            splitWhenValuesTotalExceedsNBytes,
+            splitWhenValuesAndKeysTotalExceedsNBytes);
+
         int count = 0;
 
         boolean fsync = true;
@@ -46,46 +65,6 @@ public class IndexStressNGTest {
         MutableBoolean running = new MutableBoolean(true);
         MutableBoolean merging = new MutableBoolean(true);
         MutableLong stopGets = new MutableLong(System.currentTimeMillis() + 4_000);
-
-        File root = Files.createTempDir();
-        AtomicLong waitForDebtToDrain = new AtomicLong();
-        Future<Object> mergering = Executors.newSingleThreadExecutor().submit(() -> {
-            while (running.isTrue()) {
-
-                try {
-
-                    Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minMergeDebt, fsync,
-                        (minimumRun, fsync1, callback) -> callback.build(minimumRun, fsync1,
-                            (id, worstCaseCount) -> {
-
-                                long m = merge.incrementAndGet();
-                                int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
-                                File mergingFile = id.toFile(root);
-                                return new LABAppenableIndex(id, new IndexFile(mergingFile, "rw", true),
-                                    maxLeaps, entriesBetweenLeaps);
-                            },
-                            (ids) -> {
-                                File mergedFile = ids.get(0).toFile(root);
-                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true));
-                            }));
-                    if (compactor != null) {
-                        waitForDebtToDrain.incrementAndGet();
-                        compactor.call();
-                        synchronized (waitForDebtToDrain) {
-                            waitForDebtToDrain.decrementAndGet();
-                            waitForDebtToDrain.notifyAll();
-                        }
-                    } else {
-                        Thread.sleep(100);
-                    }
-                } catch (Exception x) {
-                    x.printStackTrace();
-                    Thread.sleep(10_000);
-                }
-            }
-            return null;
-
-        });
 
         Future<Object> pointGets = Executors.newSingleThreadExecutor().submit(() -> {
 
@@ -118,12 +97,13 @@ public class IndexStressNGTest {
                     Thread.sleep(10);
                     continue;
                 }
-                indexs.tx(acquire -> {
+                int longKey = rand.nextInt(i);
+                byte[] longAsBytes = UIO.longBytes(longKey);
+                indexs.tx(longAsBytes, longAsBytes, acquire -> {
                     GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {
 
-                        int longKey = rand.nextInt(i);
                         UIO.longBytes(longKey, key, 0);
                         getRaw.get(key, hitsAndMisses);
 
@@ -158,39 +138,67 @@ public class IndexStressNGTest {
 
         });
 
-        int maxLeaps = IndexUtil.calculateIdealMaxLeaps(batchSize, entriesBetweenLeaps);
+        AtomicLong ongoingCompactions = new AtomicLong();
+        Object compactLock = new Object();
+        ExecutorService compact = Executors.newCachedThreadPool();
+
         for (int b = 0; b < numBatches; b++) {
 
-            IndexRangeId id = new IndexRangeId(b, b, 0);
-            File indexFiler = File.createTempFile("s-index-merged-" + b, ".tmp");
+            RawMemoryIndex index = new RawMemoryIndex(destroy, new LABValueMerger());
+            long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
+            indexs.append(index, fsync);
 
-            long startMerge = System.currentTimeMillis();
-            LABAppenableIndex write = new LABAppenableIndex(id,
-                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps);
-            long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
-            write.closeAppendable(fsync);
+            int debt = indexs.debt(minMergeDebt);
+            if (debt == 0) {
+                continue;
+            }
+
+            while (true) {
+                List<Callable<Void>> compactors = indexs.buildCompactors(minMergeDebt, fsync);
+                if (compactors != null && !compactors.isEmpty()) {
+                    for (Callable<Void> compactor : compactors) {
+                        LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, indexs, debt);
+                        ongoingCompactions.incrementAndGet();
+                        compact.submit(() -> {
+                            try {
+                                compactor.call();
+                            } catch (Exception x) {
+                                LOG.error("Failed to compact " + indexs, x);
+                            } finally {
+                                synchronized (compactLock) {
+                                    ongoingCompactions.decrementAndGet();
+                                    compactLock.notifyAll();
+                                }
+                            }
+                            return null;
+                        });
+                    }
+                }
+
+                if (debt >= minMergeDebt) {
+                    synchronized (compactLock) {
+                        if (ongoingCompactions.get() > 0) {
+                            LOG.debug("Waiting because debt it do high index:{} debt:{}", compactors, debt);
+                            compactLock.wait();
+                        } else {
+                            break;
+                        }
+                    }
+                    debt = indexs.debt(minMergeDebt);
+                } else {
+                    break;
+                }
+            }
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
-            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true)));
 
             count += batchSize;
 
             System.out.println("Insertions:" + format.format(count) + " ips:" + format.format(
-                ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " elapse:" + format.format(
-                    (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.debt(minMergeDebt));
-
-            if (indexs.debt(minMergeDebt) > 10) {
-                synchronized (waitForDebtToDrain) {
-                    if (waitForDebtToDrain.get() > 0) {
-                        System.out.println("Waiting because debt is two high....");
-                        waitForDebtToDrain.wait();
-                    }
-                }
-            }
+                ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " mergeDebut:" + indexs.debt(minMergeDebt));
         }
 
         running.setValue(false);
-        mergering.get();
         /*System.out.println("Sleeping 10 sec before gets...");
         Thread.sleep(10_000L);*/
         merging.setValue(false);

@@ -13,21 +13,27 @@ public class Footer {
 
     final int leapCount;
     final long count;
+    final long keysSizeInBytes;
+    final long valuesSizeInBytes;
     final byte[] minKey;
     final byte[] maxKey;
 
-    public Footer(int leapCount, long count, byte[] minKey, byte[] maxKey) {
+    public Footer(int leapCount, long count, long keysSizeInBytes, long valuesSizeInBytes, byte[] minKey, byte[] maxKey) {
         this.leapCount = leapCount;
         this.count = count;
+        this.keysSizeInBytes = keysSizeInBytes;
+        this.valuesSizeInBytes = valuesSizeInBytes;
         this.minKey = minKey;
         this.maxKey = maxKey;
     }
 
     void write(IAppendOnly writeable, byte[] lengthBuffer) throws IOException {
-        int entryLength = 4 + 4 + 8 + 4 + minKey.length + 4 + maxKey.length + 4;
+        int entryLength = 4 + 4 + 8 + 8 + 8 + 4 + (minKey == null ? 0 : minKey.length) + 4 + (maxKey == null ? 0 : maxKey.length) + 4;
         UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
         UIO.writeInt(writeable, leapCount, "leapCount", lengthBuffer);
         UIO.writeLong(writeable, count, "count");
+        UIO.writeLong(writeable, keysSizeInBytes, "keysSizeInBytes");
+        UIO.writeLong(writeable, valuesSizeInBytes, "valuesSizeInBytes");
         UIO.writeByteArray(writeable, minKey, "minKey", lengthBuffer);
         UIO.writeByteArray(writeable, maxKey, "maxKey", lengthBuffer);
         UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
@@ -37,13 +43,15 @@ public class Footer {
         int entryLength = UIO.readInt(readable, "entryLength", lengthBuffer);
         int leapCount = UIO.readInt(readable, "leapCount", lengthBuffer);
         long count = UIO.readLong(readable, "count", lengthBuffer);
+        long keysSizeInBytes = UIO.readLong(readable, "keysSizeInBytes", lengthBuffer);
+        long valuesSizeInBytes = UIO.readLong(readable, "valuesSizeInBytes", lengthBuffer);
         byte[] minKey = UIO.readByteArray(readable, "minKey", lengthBuffer);
         byte[] maxKey = UIO.readByteArray(readable, "minKey", lengthBuffer);
 
         if (UIO.readInt(readable, "entryLength", lengthBuffer) != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
-        return new Footer(leapCount, count, minKey, maxKey);
+        return new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, minKey, maxKey);
     }
 
 }

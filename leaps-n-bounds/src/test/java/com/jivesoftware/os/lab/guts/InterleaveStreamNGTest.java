@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
+import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,7 +44,7 @@ public class InterleaveStreamNGTest {
             Assert.assertEquals(SimpleRawEntry.key(rawEntry), expect.key);
             Assert.assertEquals(SimpleRawEntry.value(rawEntry), expect.value);
             return true;
-        }));
+        }) == NextRawEntry.Next.more);
         Assert.assertTrue(expected.isEmpty());
     }
 
@@ -101,7 +102,6 @@ public class InterleaveStreamNGTest {
         Random rand = new Random();
         ExecutorService destroy = Executors.newSingleThreadExecutor();
 
-
         ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
 
         RawMemoryIndex[] memoryIndexes = new RawMemoryIndex[indexes];
@@ -117,7 +117,7 @@ public class InterleaveStreamNGTest {
             while (nextRawEntry.next((rawEntry, offset, length) -> {
                 System.out.println(SimpleRawEntry.toString(rawEntry));
                 return true;
-            }));
+            }) == NextRawEntry.Next.more);
             System.out.println("\n");
 
             nextRawEntrys[i] = memoryIndexes[i].reader().rowScan();
@@ -158,11 +158,11 @@ public class InterleaveStreamNGTest {
             if (index[0] < keys.length) {
                 byte[] rawEntry = SimpleRawEntry.rawEntry(keys[index[0]], values[index[0]]);
                 if (!stream.stream(rawEntry, 0, rawEntry.length)) {
-                    return false;
+                    return Next.stopped;
                 }
             }
             index[0]++;
-            return index[0] <= keys.length;
+            return index[0] <= keys.length ? Next.more : Next.eos;
         };
     }
 

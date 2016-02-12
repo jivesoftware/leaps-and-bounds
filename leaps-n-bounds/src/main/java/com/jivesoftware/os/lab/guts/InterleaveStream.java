@@ -2,13 +2,14 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
+import com.jivesoftware.os.lab.guts.api.StreamRawEntry;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.PriorityQueue;
 
 /**
  * @author jonathan.colt
  */
-class InterleaveStream implements NextRawEntry {
+class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
     private final PriorityQueue<Feed> feeds = new PriorityQueue<>();
     private Feed active;
@@ -30,7 +31,19 @@ class InterleaveStream implements NextRawEntry {
     /*private int streamed = -1;
     private int until = -1;*/
     @Override
-    public boolean next(RawEntryStream stream) throws Exception {
+    public boolean stream(RawEntryStream stream) throws Exception {
+
+        Next more = Next.more;
+        while (more == Next.more) {
+            more = next(stream);
+        }
+        return more == Next.stopped ? false : true;
+    }
+
+    /*private int streamed = -1;
+    private int until = -1;*/
+    @Override
+    public Next next(RawEntryStream stream) throws Exception {
 
         // 0.     3, 5, 7, 9
         // 1.     3, 4, 7, 10
@@ -44,7 +57,7 @@ class InterleaveStream implements NextRawEntry {
 
             active = feeds.poll();
             if (active == null) {
-                return false;
+                return Next.eos;
             }
 
             while (true) {
@@ -64,15 +77,17 @@ class InterleaveStream implements NextRawEntry {
 
         if (active != null) {
             if (active.nextRawEntry != null) {
-                stream.stream(active.nextRawEntry, active.nextOffset, active.nextLength);
+                if (!stream.stream(active.nextRawEntry, active.nextOffset, active.nextLength)) {
+                    return Next.stopped;
+                }
             }
             if (active.feedNext() == null) {
                 active = null;
                 until = null;
             }
-            return true;
+            return Next.more;
         } else {
-            return false;
+            return Next.eos;
         }
     }
 
@@ -92,14 +107,14 @@ class InterleaveStream implements NextRawEntry {
         }
 
         private byte[] feedNext() throws Exception {
-            boolean hadNext = feed.next((rawEntry, offset, length) -> {
+            Next hadNext = feed.next((rawEntry, offset, length) -> {
                 nextRawKeyLength = UIO.bytesInt(rawEntry, offset);
                 nextRawEntry = rawEntry;
                 nextOffset = offset;
                 nextLength = length;
                 return true;
             });
-            if (!hadNext) {
+            if (hadNext != Next.more) {
                 nextRawEntry = null;
             }
             return nextRawEntry;

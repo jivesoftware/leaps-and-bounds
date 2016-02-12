@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
+import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -64,7 +65,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         activeScan.reset();
         long fp = activeScan.getInclusiveStartOfRow(from, false);
         if (fp < 0) {
-            return (stream) -> false;
+            return (stream) -> Next.eos;
         }
         return (stream) -> {
             boolean[] once = new boolean[]{false};
@@ -75,7 +76,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
                         int keylength = UIO.bytesInt(rawEntry, offset);
                         int c = IndexUtil.compare(rawEntry, 4, keylength, from, 0, from.length);
                         if (c >= 0) {
-                            c = IndexUtil.compare(rawEntry, 4, keylength, to, 0, to.length);
+                            c = to == null ? -1 : IndexUtil.compare(rawEntry, 4, keylength, to, 0, to.length);
                             if (c < 0) {
                                 once[0] = true;
                             }
@@ -85,7 +86,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
                         }
                     });
             }
-            return activeScan.result();
+            more = activeScan.result();
+            return more ? Next.more : Next.stopped;
         };
     }
 
@@ -95,7 +97,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         activeScan.reset();
         return (stream) -> {
             activeScan.next(0, stream);
-            return activeScan.result();
+            boolean more = activeScan.result();
+            return more ? Next.more : Next.stopped;
         };
     }
 

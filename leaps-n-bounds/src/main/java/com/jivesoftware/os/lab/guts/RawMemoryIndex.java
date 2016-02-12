@@ -4,12 +4,14 @@ import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.api.MergeRawEntry;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
+import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.UIO;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -30,7 +32,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final ExecutorService destroy;
     private final MergeRawEntry merger;
 
-    private final int numBones = 1024;
+    private final int numBones = Short.MAX_VALUE;
     private final Semaphore hideABone = new Semaphore(numBones, true);
     private final ReadIndex reader;
 
@@ -79,9 +81,10 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        return stream.stream(next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(next.getValue(), 0, next.getValue().length);
+                        return more ? Next.more : Next.stopped;
                     }
-                    return false;
+                    return Next.eos;
                 };
             }
 
@@ -91,9 +94,10 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        return stream.stream(next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(next.getValue(), 0, next.getValue().length);
+                        return more ? Next.more : Next.stopped;
                     }
-                    return false;
+                    return Next.eos;
                 };
             }
 
@@ -173,6 +177,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     public ReadIndex reader() throws Exception {
         hideABone.acquire();
         if (disposed.get()) {
+            hideABone.release();
             return null;
         }
         hideABone.release();
@@ -214,6 +219,16 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public long sizeInBytes() {
+        return 0;
+    }
+
+    @Override
+    public long keysSizeInBytes() throws IOException {
+        return 0;
+    }
+
+    @Override
+    public long valuesSizeInBytes() throws IOException {
         return 0;
     }
 

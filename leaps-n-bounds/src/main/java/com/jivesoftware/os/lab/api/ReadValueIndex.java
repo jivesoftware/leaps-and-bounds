@@ -6,16 +6,11 @@ package com.jivesoftware.os.lab.api;
  */
 public interface ReadValueIndex {
 
-    interface ValueTx {
+    boolean get(byte[] key, ValueStream stream) throws Exception;
 
-        boolean tx(NextValue nextValue) throws Exception;
-    }
+    boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception;
 
-    boolean get(byte[] key, ValueTx tx) throws Exception;
-
-    boolean rangeScan(byte[] from, byte[] to, ValueTx tx) throws Exception;
-
-    boolean rowScan(ValueTx tx) throws Exception;
+    boolean rowScan(ValueStream stream) throws Exception;
 
     void close() throws Exception;
 

@@ -20,7 +20,7 @@ public class LABAppenableIndex implements RawAppendableIndex {
     private final IndexFile index;
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
-   
+
     private final byte[] lengthBuffer = new byte[4];
 
     private LeapFrog latestLeapFrog;
@@ -31,6 +31,8 @@ public class LABAppenableIndex implements RawAppendableIndex {
     private byte[] lastKey;
     private int leapCount;
     private long count;
+    private long keysSizeInBytes;
+    private long valuesSizeInBytes;
 
     private final IAppendOnly appendOnly;
 
@@ -38,7 +40,7 @@ public class LABAppenableIndex implements RawAppendableIndex {
         IndexFile index,
         int maxLeaps,
         int updatesBetweenLeaps) throws IOException {
-        
+
         this.indexRangeId = indexRangeId;
         this.index = index;
         this.maxLeaps = maxLeaps;
@@ -77,6 +79,9 @@ public class LABAppenableIndex implements RawAppendableIndex {
             int keyLength = UIO.bytesInt(rawEntry, offset);
             byte[] key = new byte[keyLength];
             System.arraycopy(rawEntry, 4, key, 0, keyLength);
+
+            keysSizeInBytes += keyLength;
+            valuesSizeInBytes += rawEntry.length - keyLength;
 
             if (firstKey == null) {
                 firstKey = key;
@@ -122,7 +127,7 @@ public class LABAppenableIndex implements RawAppendableIndex {
         }
 
         UIO.writeByte(appendOnly, FOOTER, "type");
-        new Footer(leapCount, count, firstKey, lastKey).write(appendOnly, lengthBuffer);
+        new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, firstKey, lastKey).write(appendOnly, lengthBuffer);
         appendOnly.flush(fsync);
         index.close();
     }
