@@ -498,7 +498,7 @@ public class RangeStripedCompactableIndexes {
             if (floorKey != null) {
                 map = indexes.subMap(floorKey, true, to, Arrays.equals(from, to));
             } else {
-                map = indexes.headMap(to);
+                map = indexes.headMap(to, Arrays.equals(from, to));
             }
         } else if (from != null) {
             byte[] floorKey = indexes.floorKey(from);
@@ -513,9 +513,13 @@ public class RangeStripedCompactableIndexes {
             map = indexes;
         }
 
-        for (FileBackMergableIndexs index : map.values()) {
-            if (!index.tx(tx)) {
-                return false;
+        if (map.isEmpty()) {
+            return tx.tx(new ReadIndex[0]);
+        } else {
+            for (FileBackMergableIndexs index : map.values()) {
+                if (!index.tx(tx)) {
+                    return false;
+                }
             }
         }
         return true;

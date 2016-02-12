@@ -29,7 +29,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
     NumberFormat format = NumberFormat.getInstance();
 
-    @Test(enabled = true)
+    @Test(enabled = false)
     public void stress() throws Exception {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
 
