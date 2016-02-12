@@ -86,7 +86,7 @@ public class CompactableIndexes {
         }
 
         while (true) {
-            if (splittable(splittableIfLargerThanBytes, splittableIfKeysLargerThanBytes, splittableIfValuesLargerThanBytes)) {
+            if (splittable(splittableIfKeysLargerThanBytes, splittableIfValuesLargerThanBytes, splittableIfLargerThanBytes)) {
                 Callable<Void> splitter = splitterBuilder.build(fsync, (leftHalfIndexFactory, rightHalfIndexFactory, commitIndex, fsync1) -> {
                     return buildSplitter(leftHalfIndexFactory, rightHalfIndexFactory, commitIndex, fsync1);
                 });
@@ -136,9 +136,10 @@ public class CompactableIndexes {
         }
     }
 
-    private boolean splittable(long splittableIfLargerThanBytes,
+    private boolean splittable(
         long splittableIfKeysLargerThanBytes,
-        long splittableIfValuesLargerThanBytes) throws Exception {
+        long splittableIfValuesLargerThanBytes,
+        long splittableIfLargerThanBytes) throws Exception {
 
         RawConcurrentReadableIndex[] splittable;
         synchronized (indexesLock) {
@@ -149,13 +150,13 @@ public class CompactableIndexes {
         }
         byte[] minKey = null;
         byte[] maxKey = null;
-        long worstCaseSizeInBytes = 0;
         long worstCaseKeysSizeInBytes = 0;
         long worstCaseValuesSizeInBytes = 0;
+        long worstCaseSizeInBytes = 0;
         for (int i = 0; i < splittable.length; i++) {
-            worstCaseSizeInBytes += splittable[i].sizeInBytes();
             worstCaseKeysSizeInBytes += splittable[i].keysSizeInBytes();
             worstCaseValuesSizeInBytes += splittable[i].valuesSizeInBytes();
+            worstCaseSizeInBytes += splittable[i].sizeInBytes();
             if (minKey == null) {
                 minKey = splittable[i].minKey();
             } else {
@@ -487,10 +488,10 @@ public class CompactableIndexes {
             LeapsAndBoundsIndex index = null;
             try {
 
-                LOG.info("Merging: counts:{} gens:{}...",
-                    TieredCompaction.range(counts, mergeRange.offset, mergeRange.length),
-                    Arrays.toString(generations)
-                );
+//                LOG.info("Merging: counts:{} gens:{}...",
+//                    TieredCompaction.range(counts, mergeRange.offset, mergeRange.length),
+//                    Arrays.toString(generations)
+//                );
 
                 long startMerge = System.currentTimeMillis();
 

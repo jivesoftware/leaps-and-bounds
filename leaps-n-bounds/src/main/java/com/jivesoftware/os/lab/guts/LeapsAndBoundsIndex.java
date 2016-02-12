@@ -150,7 +150,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
             try {
                 index.close();
                 index.getFile().delete();
-                LOG.info("Destroyed {} {}", id, index.getFile());
+                //LOG.info("Destroyed {} {}", id, index.getFile());
             } finally {
                 hideABone.release(numBonesHidden);
             }

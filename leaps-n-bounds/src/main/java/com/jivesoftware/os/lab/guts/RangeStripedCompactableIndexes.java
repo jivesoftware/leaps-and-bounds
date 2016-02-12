@@ -242,13 +242,13 @@ public class RangeStripedCompactableIndexes {
             File commitingIndexFile = indexRangeId.toFile(commitingRoot);
             FileUtils.deleteQuietly(commitingIndexFile);
             IndexFile indexFile = new IndexFile(commitingIndexFile, "rw", useMemMap);
-            LABAppenableIndex write = new LABAppenableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
-            write.append((stream) -> {
+            LABAppenableIndex appendableIndex = new LABAppenableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
+            appendableIndex.append((stream) -> {
                 NextRawEntry rangeScan = index.reader().rangeScan(minKey, maxKey);
                 while (rangeScan.next(stream) == NextRawEntry.Next.more);
                 return true;
             });
-            write.closeAppendable(fsync);
+            appendableIndex.closeAppendable(fsync);
 
             File commitedIndexFile = indexRangeId.toFile(indexRoot);
             return moveIntoPlace(commitingIndexFile, commitedIndexFile, indexRangeId);
@@ -364,6 +364,9 @@ public class RangeStripedCompactableIndexes {
                                 indexes = copyOfIndexes;
                             }
                             compactableIndexes.destroy();
+                            FileUtils.deleteQuietly(mergingRoot);
+                            FileUtils.deleteQuietly(commitingRoot);
+                            FileUtils.deleteQuietly(splittingRoot);
 
                             LOG.info("Completed split:" + stripeRoot + " became:" + left + " and " + right);
                             return null;

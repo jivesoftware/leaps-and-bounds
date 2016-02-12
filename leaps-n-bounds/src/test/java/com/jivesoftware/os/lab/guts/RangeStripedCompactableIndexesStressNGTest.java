@@ -29,7 +29,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
     NumberFormat format = NumberFormat.getInstance();
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void stress() throws Exception {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
 
@@ -39,7 +39,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         File root = Files.createTempDir();
         boolean useMemMap = true;
-        long splitWhenKeysTotalExceedsNBytes = 1024 * 1024; //1024 * 1024 * 10;
+        long splitWhenKeysTotalExceedsNBytes = 8 * 1024 * 1024; //1024 * 1024 * 10;
         long splitWhenValuesTotalExceedsNBytes = -1;
         long splitWhenValuesAndKeysTotalExceedsNBytes = -1;
 
@@ -57,7 +57,6 @@ public class RangeStripedCompactableIndexesStressNGTest {
         int numBatches = 1000;
         int batchSize = 10_000;
         int maxKeyIncrement = 2000;
-        int entriesBetweenLeaps = 1024;
         int minMergeDebt = 4;
 
         AtomicLong merge = new AtomicLong();
@@ -157,7 +156,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 List<Callable<Void>> compactors = indexs.buildCompactors(minMergeDebt, fsync);
                 if (compactors != null && !compactors.isEmpty()) {
                     for (Callable<Void> compactor : compactors) {
-                        LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, indexs, debt);
+                        //LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, indexs, debt);
                         ongoingCompactions.incrementAndGet();
                         compact.submit(() -> {
                             try {
@@ -178,7 +177,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 if (debt >= minMergeDebt) {
                     synchronized (compactLock) {
                         if (ongoingCompactions.get() > 0) {
-                            LOG.debug("Waiting because debt it do high index:{} debt:{}", compactors, debt);
+                            LOG.info("Waiting because debt it do high index:{} debt:{}", compactors, debt);
                             compactLock.wait();
                         } else {
                             break;
