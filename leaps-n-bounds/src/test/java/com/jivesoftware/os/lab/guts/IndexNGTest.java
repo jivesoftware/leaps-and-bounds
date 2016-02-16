@@ -40,7 +40,7 @@ public class IndexNGTest {
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false)), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), 8), count, step, desired);
     }
 
     @Test(enabled = false)
@@ -80,7 +80,7 @@ public class IndexNGTest {
         disIndex.append(memoryIndex);
         disIndex.closeAppendable(false);
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false)), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), 8), count, step, desired);
 
     }
 

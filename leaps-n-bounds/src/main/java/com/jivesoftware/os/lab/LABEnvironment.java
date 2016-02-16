@@ -22,18 +22,20 @@ public class LABEnvironment {
     private final boolean useMemMap;
     private final int minMergeDebt;
     private final int maxMergeDebt;
+    private final int concurrency;
 
-    public LABEnvironment(File rootFile, LABValueMerger valueMerger, boolean useMemMap, int minMergeDebt, int maxMergeDebt) {
+    public LABEnvironment(File rootFile, LABValueMerger valueMerger, boolean useMemMap, int minMergeDebt, int maxMergeDebt, int concurrency) {
         this.rootFile = rootFile;
         this.valueMerger = valueMerger;
         this.useMemMap = useMemMap;
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
+        this.concurrency = concurrency;
     }
 
     public ValueIndex open(String primaryName,
         int entriesBetweenLeaps,
-        int maxUpdatesBetweenCompactionHintMarker,
+        int maxUpdatesBeforeFlush,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
@@ -45,12 +47,13 @@ public class LABEnvironment {
             indexRoot,
             useMemMap,
             entriesBetweenLeaps,
-            maxUpdatesBetweenCompactionHintMarker,
+            maxUpdatesBeforeFlush,
             minMergeDebt,
             maxMergeDebt,
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
-            splitWhenValuesAndKeysTotalExceedsNBytes);
+            splitWhenValuesAndKeysTotalExceedsNBytes,
+            concurrency);
     }
 
     boolean ensure(File key) {

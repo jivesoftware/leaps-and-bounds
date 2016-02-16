@@ -35,7 +35,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
     private Leaps leaps; // loaded when reading
 
-    public LeapsAndBoundsIndex(ExecutorService destroy, IndexRangeId id, IndexFile index) throws Exception {
+    public LeapsAndBoundsIndex(ExecutorService destroy, IndexRangeId id, IndexFile index, int concurrency) throws Exception {
         this.destroy = destroy;
         this.id = id;
         this.index = index;
@@ -46,7 +46,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         }
         IReadable reader = index.reader(null, length);
         this.footer = readFooter(reader);
-        this.leapsCache = new ConcurrentLHash<>(3, -2, -1, Runtime.getRuntime().availableProcessors()); // TODO config
+        this.leapsCache = new ConcurrentLHash<>(3, -2, -1, concurrency); // TODO config
     }
 
     private Footer readFooter(IReadable readable) throws IOException, LABIndexCorruptedException {

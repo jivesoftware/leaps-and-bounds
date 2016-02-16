@@ -43,6 +43,7 @@ public class RangeStripedCompactableIndexes {
     private final long splitWhenKeysTotalExceedsNBytes;
     private final long splitWhenValuesTotalExceedsNBytes;
     private final long splitWhenValuesAndKeysTotalExceedsNBytes;
+    private final int concurrency;
     private final Semaphore appendSemaphore = new Semaphore(Short.MAX_VALUE, true);
 
     public RangeStripedCompactableIndexes(ExecutorService destroy,
@@ -51,7 +52,8 @@ public class RangeStripedCompactableIndexes {
         int entriesBetweenLeaps,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
-        long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
+        long splitWhenValuesAndKeysTotalExceedsNBytes,
+        int concurrency) throws Exception {
 
         this.destroy = destroy;
         this.root = root;
@@ -60,6 +62,7 @@ public class RangeStripedCompactableIndexes {
         this.splitWhenKeysTotalExceedsNBytes = splitWhenKeysTotalExceedsNBytes;
         this.splitWhenValuesTotalExceedsNBytes = splitWhenValuesTotalExceedsNBytes;
         this.splitWhenValuesAndKeysTotalExceedsNBytes = splitWhenValuesAndKeysTotalExceedsNBytes;
+        this.concurrency = concurrency;
         this.indexes = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
 
         File[] stripeDirs = root.listFiles();
@@ -166,7 +169,7 @@ public class RangeStripedCompactableIndexes {
                         continue;
                     }
                     IndexFile indexFile = new IndexFile(file, "rw", useMemMap);
-                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile);
+                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, concurrency);
                     if (keyRange == null) {
                         keyRange = new KeyRange(lab.minKey(), lab.maxKey());
                     } else {
@@ -259,7 +262,7 @@ public class RangeStripedCompactableIndexes {
         private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId) throws Exception {
             FileUtils.moveFile(commitingIndexFile, commitedIndexFile);
             LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy,
-                indexRangeId, new IndexFile(commitedIndexFile, "r", useMemMap));
+                indexRangeId, new IndexFile(commitedIndexFile, "r", useMemMap), concurrency);
             reopenedIndex.flush(true);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
             return reopenedIndex;

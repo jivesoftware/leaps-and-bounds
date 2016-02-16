@@ -50,7 +50,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
             entriesBetweenLeaps,
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
-            splitWhenValuesAndKeysTotalExceedsNBytes);
+            splitWhenValuesAndKeysTotalExceedsNBytes,
+            8);
 
         int count = 0;
 

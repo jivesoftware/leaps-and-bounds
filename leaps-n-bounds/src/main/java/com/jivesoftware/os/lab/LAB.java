@@ -67,7 +67,8 @@ public class LAB implements ValueIndex {
         int maxDebt,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
-        long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
+        long splitWhenValuesAndKeysTotalExceedsNBytes,
+        int concurrency) throws Exception {
 
         this.compact = compact;
         this.destroy = destroy;
@@ -79,7 +80,8 @@ public class LAB implements ValueIndex {
             entriesBetweenLeaps,
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
-            splitWhenValuesAndKeysTotalExceedsNBytes);
+            splitWhenValuesAndKeysTotalExceedsNBytes,
+            concurrency);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
 

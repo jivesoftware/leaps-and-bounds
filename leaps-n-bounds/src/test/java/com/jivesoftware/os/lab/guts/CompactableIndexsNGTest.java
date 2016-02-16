@@ -52,7 +52,7 @@ public class CompactableIndexsNGTest {
                 write.closeAppendable(fsync);
 
                 indexFile = new IndexFile(file, "r", false);
-                indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
+                indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
 
             }
             Thread.sleep(10);
@@ -71,7 +71,7 @@ public class CompactableIndexsNGTest {
                     return new LABAppenableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
                 },
                 (ids) -> {
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false));
+                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), 8);
                 }));
 
         if (compactor != null) {
@@ -109,7 +109,7 @@ public class CompactableIndexsNGTest {
             write.closeAppendable(fsync);
 
             indexFile = new IndexFile(indexFiler, "r", false);
-            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
+            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
         }
 
         indexs.tx((ReadIndex[] readIndexs) -> {
@@ -136,7 +136,7 @@ public class CompactableIndexsNGTest {
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
                     return new LABAppenableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
                 }, (ids) -> {
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false));
+                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), 8);
                 }));
 
         if (compactor != null) {
@@ -161,7 +161,7 @@ public class CompactableIndexsNGTest {
         indexs = new CompactableIndexes();
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         IndexFile indexFile = new IndexFile(indexFiler, "r", false);
-        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile));
+        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
 
         assertions(indexs, count, step, desired);
     }

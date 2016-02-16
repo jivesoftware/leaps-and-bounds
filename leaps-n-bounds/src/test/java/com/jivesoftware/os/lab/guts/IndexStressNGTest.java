@@ -66,7 +66,7 @@ public class IndexStressNGTest {
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
-                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true));
+                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true), 8);
                             }));
                     if (compactor != null) {
                         waitForDebtToDrain.incrementAndGet();
@@ -171,7 +171,7 @@ public class IndexStressNGTest {
             write.closeAppendable(fsync);
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
-            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true)));
+            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true), 8));
 
             count += batchSize;
 
