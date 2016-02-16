@@ -54,13 +54,12 @@ public class IndexFile implements ICloseable {
         return file;
     }
 
-    public IReadable reader(IReadable current, long requiredLength) throws IOException {
+    public IReadable reader(IReadable current, long requiredLength, boolean fallBackToChannelReader) throws IOException {
         if (!useMemMap) {
             if (current != null) {
                 return current;
             } else {
-                IndexFilerChannelReader reader = new IndexFilerChannelReader(this, channel);
-                return reader;
+                return new IndexFilerChannelReader(this, channel);
             }
         }
 
@@ -69,6 +68,13 @@ public class IndexFile implements ICloseable {
         }
         synchronized (memMapLock) {
             long length = size.get();
+            if (current != null && current.length() <= length && current.length() >= requiredLength) {
+                return current;
+            }
+            if (fallBackToChannelReader && memMapFilerLength.get() < requiredLength) {
+                // mmap is too small, fall back to channel reader
+                return new IndexFilerChannelReader(this, channel);
+            }
             memMapFiler.seek(length);
             memMapFilerLength.set(length);
         }
@@ -85,6 +91,7 @@ public class IndexFile implements ICloseable {
         //FileChannel fileChannel = randomAccessFile.getChannel();
         return new IAppendOnly() {
             volatile long position = size.get();
+
             @Override
             public void append(byte[] b, int _offset, int _len) throws IOException {
                 writer.write(b, _offset, _len);

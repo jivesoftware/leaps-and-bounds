@@ -44,7 +44,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         if (length == 0) {
             throw new LABIndexCorruptedException("Trying to construct an index with an empy file.");
         }
-        IReadable reader = index.reader(null, length);
+        IReadable reader = index.reader(null, length, true);
         this.footer = readFooter(reader);
         this.leapsCache = new ConcurrentLHash<>(3, -2, -1, concurrency); // TODO config
     }
@@ -95,7 +95,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         }
 
         try {
-            IReadable readableIndex = index.reader(null, index.length());
+            IReadable readableIndex = index.reader(null, index.length(), false);
 
             if (leaps == null) {
                 long indexLength = readableIndex.length();
@@ -130,7 +130,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
                 leaps = Leaps.read(readableIndex, lengthBuffer);
             }
             ReadLeapsAndBoundsIndex i = new ReadLeapsAndBoundsIndex(disposed, hideABone, leaps, leapsCache, footer, () -> {
-                return index.reader(null, index.length());
+                return index.reader(null, index.length(), false);
             });
 
             hideABone.release();
