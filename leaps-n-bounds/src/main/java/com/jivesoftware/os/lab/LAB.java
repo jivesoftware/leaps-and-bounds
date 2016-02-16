@@ -60,6 +60,7 @@ public class LAB implements ValueIndex {
         ExecutorService compact,
         ExecutorService destroy,
         File root,
+        String indexName,
         boolean useMemMap,
         int entriesBetweenLeaps,
         int maxUpdatesBeforeFlush,
@@ -76,6 +77,7 @@ public class LAB implements ValueIndex {
         this.memoryIndex = new RawMemoryIndex(destroy, valueMerger);
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
             root,
+            indexName,
             useMemMap,
             entriesBetweenLeaps,
             splitWhenKeysTotalExceedsNBytes,
@@ -84,8 +86,7 @@ public class LAB implements ValueIndex {
             concurrency);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
-
-    } // descending
+    }
 
     @Override
     public int debt() throws Exception {

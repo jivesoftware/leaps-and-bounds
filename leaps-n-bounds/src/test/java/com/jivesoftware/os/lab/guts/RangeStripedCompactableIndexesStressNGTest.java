@@ -46,6 +46,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(destroy,
             root,
+            "test",
             useMemMap,
             entriesBetweenLeaps,
             splitWhenKeysTotalExceedsNBytes,

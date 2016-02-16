@@ -39,12 +39,11 @@ public class LABEnvironment {
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
-        File indexRoot = new File(rootFile, primaryName + File.separator);
-        ensure(indexRoot);
         return new LAB(valueMerger,
             compact,
             destroy,
-            indexRoot,
+            rootFile,
+            primaryName,
             useMemMap,
             entriesBetweenLeaps,
             maxUpdatesBeforeFlush,
@@ -56,19 +55,15 @@ public class LABEnvironment {
             concurrency);
     }
 
-    boolean ensure(File key) {
-        return key.exists() || key.mkdirs();
-    }
-
     public void rename(String oldName, String newName) throws IOException {
-        File oldFileName = new File(rootFile, oldName + File.separator);
-        File newFileName = new File(rootFile, newName + File.separator);
+        File oldFileName = new File(rootFile, oldName);
+        File newFileName = new File(rootFile, newName);
         FileUtils.moveDirectory(oldFileName, newFileName);
         FileUtils.deleteDirectory(oldFileName);
     }
 
     public void remove(String primaryName) throws IOException {
-        File fileName = new File(rootFile, primaryName + File.separator);
+        File fileName = new File(rootFile, primaryName);
         FileUtils.deleteDirectory(fileName);
     }
 
