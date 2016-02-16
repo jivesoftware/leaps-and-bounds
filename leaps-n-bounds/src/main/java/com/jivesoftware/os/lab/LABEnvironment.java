@@ -55,11 +55,16 @@ public class LABEnvironment {
             concurrency);
     }
 
-    public void rename(String oldName, String newName) throws IOException {
+    public boolean rename(String oldName, String newName) throws IOException {
         File oldFileName = new File(rootFile, oldName);
         File newFileName = new File(rootFile, newName);
-        FileUtils.moveDirectory(oldFileName, newFileName);
-        FileUtils.deleteDirectory(oldFileName);
+        if (oldFileName.exists()) {
+            FileUtils.moveDirectory(oldFileName, newFileName);
+            FileUtils.deleteDirectory(oldFileName);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public void remove(String primaryName) throws IOException {
