@@ -67,7 +67,8 @@ public class RangeStripedCompactableIndexes {
         this.concurrency = concurrency;
         this.indexes = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
 
-        File[] stripeDirs = root.listFiles();
+        File indexRoot = new File(root, indexName);
+        File[] stripeDirs = indexRoot.listFiles();
         if (stripeDirs != null) {
             Map<File, Stripe> stripes = new HashMap<>();
             for (File stripeDir : stripeDirs) {
