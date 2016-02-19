@@ -16,8 +16,10 @@ import org.apache.commons.io.FileUtils;
 public class LABEnvironment {
 
     private final File rootFile;
-    private final ExecutorService compact = Executors.newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build()); // TODO config 'maybe'
-    private final ExecutorService destroy = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build()); // TODO config 'maybe'
+    private final ExecutorService compact = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+        new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build()); // TODO config 'maybe'
+    private final ExecutorService destroy = Executors.newSingleThreadExecutor(
+        new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build()); // TODO config 'maybe'
     private final LABValueMerger valueMerger;
     private final boolean useMemMap;
     private final int minMergeDebt;
