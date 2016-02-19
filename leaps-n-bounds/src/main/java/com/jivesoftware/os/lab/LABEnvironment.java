@@ -16,17 +16,34 @@ import org.apache.commons.io.FileUtils;
 public class LABEnvironment {
 
     private final File rootFile;
-    private final ExecutorService compact = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-        new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build()); // TODO config 'maybe'
-    private final ExecutorService destroy = Executors.newSingleThreadExecutor(
-        new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build()); // TODO config 'maybe'
+    private final ExecutorService compact;
+    private final ExecutorService destroy;
     private final LABValueMerger valueMerger;
     private final boolean useMemMap;
     private final int minMergeDebt;
     private final int maxMergeDebt;
     private final int concurrency;
 
-    public LABEnvironment(File rootFile, LABValueMerger valueMerger, boolean useMemMap, int minMergeDebt, int maxMergeDebt, int concurrency) {
+    public static ExecutorService buildLABCompactorThreadPool(int count) {
+        return Executors.newFixedThreadPool(count,
+            new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build()); // TODO config 'maybe'
+    }
+
+    public static ExecutorService buildLABDestroyThreadPool(int count) {
+        return Executors.newFixedThreadPool(count,
+            new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build()); // TODO config 'maybe'
+    }
+
+    public LABEnvironment(ExecutorService compact,
+        final ExecutorService destroy,
+        File rootFile,
+        LABValueMerger valueMerger,
+        boolean useMemMap,
+        int minMergeDebt,
+        int maxMergeDebt,
+        int concurrency) {
+        this.compact = compact;
+        this.destroy = destroy;
         this.rootFile = rootFile;
         this.valueMerger = valueMerger;
         this.useMemMap = useMemMap;

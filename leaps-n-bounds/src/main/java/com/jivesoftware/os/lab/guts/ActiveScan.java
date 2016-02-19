@@ -12,6 +12,7 @@ import java.util.Arrays;
 import static com.jivesoftware.os.lab.guts.LABAppenableIndex.ENTRY;
 import static com.jivesoftware.os.lab.guts.LABAppenableIndex.FOOTER;
 import static com.jivesoftware.os.lab.guts.LABAppenableIndex.LEAP;
+import static com.jivesoftware.os.lab.io.api.UIO.readLength;
 
 /**
  *
@@ -112,17 +113,29 @@ public class ActiveScan implements ScanFromFp {
         int low = 0;
         int high = at.startOfEntryIndex.length - 1;
 
+        byte[] midKey = null;
         while (low <= high) {
             int mid = (low + high) >>> 1;
             long fp = at.startOfEntryIndex[mid];
 
             readable.seek(fp);
-            byte[] midKey = UIO.readByteArray(readable, "key", lengthBuffer);
-            if (midKey == null) {
+
+            int len = readLength(readable, lengthBuffer);
+            if (len < 0) {
                 throw new IllegalStateException("Missing key");
             }
-
-            int cmp = IndexUtil.compare(midKey, 0, midKey.length, key, 0, key.length);
+            if (len == 0) {
+                if (midKey == null) {
+                    midKey = new byte[0];
+                }
+            } else {
+                if (midKey == null || midKey.length < len) {
+                    midKey = new byte[len];
+                }
+                UIO.readFully(readable, midKey, len);
+            }
+           
+            int cmp = IndexUtil.compare(midKey, 0, len, key, 0, key.length);
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {

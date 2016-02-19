@@ -23,26 +23,30 @@ public class LABEnvironmentNGTest {
         try {
             root = Files.createTempDir();
             System.out.println("root" + root.getAbsolutePath());
-            LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 4, 8, 8);
+            LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+                new LABValueMerger(), false, 4, 8, 8);
 
             ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1);
             indexTest(index);
 
-            env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8, 8);
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABValueMerger(),
+                true, 4, 8, 8);
 
             index = env.open("foo", 4096, 1000, -1, -1, -1);
             indexTest(index);
 
             env.shutdown();
 
-            env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8, 8);
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABValueMerger(),
+                true, 4, 8, 8);
             env.rename("foo", "bar");
             index = env.open("bar", 4096, 1000, -1, -1, -1);
 
             indexTest(index);
 
             env.shutdown();
-            env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8, 8);
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABValueMerger(),
+                true, 4, 8, 8);
             env.remove("bar");
         } catch (Throwable x) {
             System.out.println("________________________________________________________");
@@ -101,14 +105,17 @@ public class LABEnvironmentNGTest {
     public void testEnvWithMemMap() throws Exception {
 
         File root = Files.createTempDir();
-        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8, 8);
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            new LABValueMerger(), true, 4, 8, 8);
 
         ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1);
         indexTest(index);
 
         env.shutdown();
 
-        env = new LABEnvironment(root, new LABValueMerger(), true, 4, 8, 8);
+        env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
+            root, new LABValueMerger(), true, 4,
+            8, 8);
 
         index = env.open("foo", 4096, 1000, -1, -1, -1);
         indexTest(index);

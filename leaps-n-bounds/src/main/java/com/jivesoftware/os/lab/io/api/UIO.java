@@ -557,7 +557,7 @@ public class UIO {
         System.arraycopy(value, 0, destination, offset, value.length);
     }
 
-    private static void readFully(IReadable readable, byte[] into, int length) throws IOException {
+    public static void readFully(IReadable readable, byte[] into, int length) throws IOException {
         int read = readable.read(into, 0, length);
         if (read != length) {
             throw new IOException("Failed to fully. Only had " + read + " needed " + length);

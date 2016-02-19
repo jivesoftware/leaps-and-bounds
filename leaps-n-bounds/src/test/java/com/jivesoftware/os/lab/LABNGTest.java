@@ -22,7 +22,8 @@ public class LABNGTest {
 
         boolean fsync = true;
         File root = Files.createTempDir();
-        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 1, 2, 8);
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            new LABValueMerger(), false, 1, 2, 8);
 
         ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1);
 

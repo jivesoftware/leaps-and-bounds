@@ -26,7 +26,8 @@ public class LABEnvironmentConcurrenyNGTest {
     public void testConcurrencyMethod() throws Exception {
 
         File root = Files.createTempDir();
-        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), false, 4, 10, 8);
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            new LABValueMerger(), false, 4, 10, 8);
 
         concurentTest(env);
     }
@@ -35,7 +36,8 @@ public class LABEnvironmentConcurrenyNGTest {
     public void testConcurrencyWithMemMapMethod() throws Exception {
 
         File root = Files.createTempDir();
-        LABEnvironment env = new LABEnvironment(root, new LABValueMerger(), true, 4, 10, 8);
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            new LABValueMerger(), true, 4, 10, 8);
 
         concurentTest(env);
     }
