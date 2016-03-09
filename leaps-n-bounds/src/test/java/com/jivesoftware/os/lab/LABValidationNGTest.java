@@ -159,7 +159,7 @@ public class LABValidationNGTest {
             int readerId = r;
             readerFutures.add(readers.submit(() -> {
                 try {
-                    int overRun = 10;
+                    int overRun = 25;
                     while (running.get() > 0 || overRun > 0) {
                         long maxId = nextId.get();
                         Set<Long> found = new HashSet<>();
@@ -194,6 +194,7 @@ public class LABValidationNGTest {
                             passed.incrementAndGet();
                             System.out.println("PASSED: " + found.size() + "  vs " + maxId);
                             log.add("PASSED: " + found.size() + "  vs " + maxId);
+                            failed.set(0);
                         } else {
                             failed.incrementAndGet();
                             List<Long> missing = new ArrayList<>();
