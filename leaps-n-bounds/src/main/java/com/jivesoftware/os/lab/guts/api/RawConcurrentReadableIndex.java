@@ -17,7 +17,7 @@ public interface RawConcurrentReadableIndex {
 
     byte[] maxKey();
 
-    ReadIndex reader() throws Exception;
+    ReadIndex acquireReader() throws Exception;
 
     void destroy() throws Exception;
 

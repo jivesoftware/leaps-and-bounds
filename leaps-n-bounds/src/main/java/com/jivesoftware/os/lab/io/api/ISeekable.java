@@ -13,6 +13,6 @@ public interface ISeekable extends IFilePointer {
      * @param position
      * @throws IOException
      */
-    public void seek(long position) throws IOException;
+    void seek(long position) throws IOException;
 
 }

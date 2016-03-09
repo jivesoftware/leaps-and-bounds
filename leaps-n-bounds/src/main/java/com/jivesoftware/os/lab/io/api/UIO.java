@@ -25,7 +25,6 @@ import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.Iterator;
 
 public class UIO {
@@ -568,15 +567,6 @@ public class UIO {
         System.arraycopy(from, offset, into, 0, length);
     }
 
-    public static void main(String[] args) {
-        for (byte[] i : iterateOnSplits(new byte[]{1, 2, 3, 4, 5}, new byte[]{9, 8, 7, 6, 5}, false, 1)) {
-            System.out.println(Arrays.toString(i));
-        }
-
-        for (byte[] i : iterateOnSplits(new byte[]{1, 2, 3, 4, 5}, new byte[]{1, 2, 3, 4, 5}, true, 1)) {
-            System.out.println(Arrays.toString(i));
-        }
-    }
 
     /**
      * Lex key range splittting Copied from HBase
@@ -613,12 +603,8 @@ public class UIO {
         if (diffBI.compareTo(splitsBI) < 0) {
             byte[] aPaddedAdditional = new byte[aPadded.length + 1];
             byte[] bPaddedAdditional = new byte[bPadded.length + 1];
-            for (int i = 0; i < aPadded.length; i++) {
-                aPaddedAdditional[i] = aPadded[i];
-            }
-            for (int j = 0; j < bPadded.length; j++) {
-                bPaddedAdditional[j] = bPadded[j];
-            }
+            System.arraycopy(aPadded, 0, aPaddedAdditional, 0, aPadded.length);
+            System.arraycopy(bPadded, 0, bPaddedAdditional, 0, bPadded.length);
             aPaddedAdditional[aPadded.length] = 0;
             bPaddedAdditional[bPadded.length] = 0;
             return iterateOnSplits(aPaddedAdditional, bPaddedAdditional, inclusive, num);

@@ -96,17 +96,12 @@ public class IndexFile implements ICloseable {
             public void append(byte[] b, int _offset, int _len) throws IOException {
                 writer.write(b, _offset, _len);
                 size.addAndGet(_len);
-                //IndexFile.this.write(b, _offset, _len);
-                //int wrote = fileChannel.write(ByteBuffer.wrap(b, _offset, _len), position);
-                //position = size.addAndGet(wrote);
             }
 
             @Override
             public void flush(boolean fsync) throws IOException {
-                //IndexFile.this.flush(fsync);
                 if (fsync) {
                     writer.getFD().sync();
-                    //fileChannel.force(false);
                 }
             }
 
@@ -125,13 +120,6 @@ public class IndexFile implements ICloseable {
             public long getFilePointer() throws IOException {
                 return length();
             }
-
-//            @Override
-//            public void write(ByteBuffer... byteBuffers) throws IOException {
-//                fileChannel.position(position);
-//                long wrote = fileChannel.write(byteBuffers);
-//                position = size.addAndGet(wrote);
-//            }
 
         };
     }

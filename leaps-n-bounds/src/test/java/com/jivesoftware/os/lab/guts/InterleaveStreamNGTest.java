@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
+import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,34 +107,45 @@ public class InterleaveStreamNGTest {
 
         RawMemoryIndex[] memoryIndexes = new RawMemoryIndex[indexes];
         NextRawEntry[] nextRawEntrys = new NextRawEntry[indexes];
-        for (int wi = 0; wi < indexes; wi++) {
+        ReadIndex[] readerIndexs = new ReadIndex[indexes];
+        try {
+            for (int wi = 0; wi < indexes; wi++) {
 
-            int i = (indexes - 1) - wi;
+                int i = (indexes - 1) - wi;
 
-            memoryIndexes[i] = new RawMemoryIndex(destroy, new SimpleRawEntry());
-            IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
-            System.out.println("Index " + i);
-            NextRawEntry nextRawEntry = memoryIndexes[i].reader().rowScan();
-            while (nextRawEntry.next((rawEntry, offset, length) -> {
-                System.out.println(SimpleRawEntry.toString(rawEntry));
-                return true;
-            }) == NextRawEntry.Next.more);
+                memoryIndexes[i] = new RawMemoryIndex(destroy, new SimpleRawEntry());
+                IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
+                System.out.println("Index " + i);
+
+                readerIndexs[wi] = memoryIndexes[i].acquireReader();
+                NextRawEntry nextRawEntry = readerIndexs[wi].rowScan();
+                while (nextRawEntry.next((rawEntry, offset, length) -> {
+                    System.out.println(SimpleRawEntry.toString(rawEntry));
+                    return true;
+                }) == NextRawEntry.Next.more);
+                System.out.println("\n");
+
+                nextRawEntrys[i] = readerIndexs[wi].rowScan();
+            }
+
+            InterleaveStream ips = new InterleaveStream(nextRawEntrys);
+
+            List<Expected> expected = new ArrayList<>();
+            System.out.println("Expected:");
+            for (Map.Entry<byte[], byte[]> entry : desired.entrySet()) {
+                expected.add(new Expected(UIO.bytesLong(entry.getKey()), SimpleRawEntry.value(entry.getValue())));
+                System.out.println(UIO.bytesLong(entry.getKey()) + " timestamp:" + SimpleRawEntry.value(entry.getValue()));
+            }
             System.out.println("\n");
 
-            nextRawEntrys[i] = memoryIndexes[i].reader().rowScan();
+            assertExpected(ips, expected);
+        } finally {
+            for (ReadIndex readerIndex : readerIndexs) {
+                if (readerIndex != null) {
+                    readerIndex.release();
+                }
+            }
         }
-
-        InterleaveStream ips = new InterleaveStream(nextRawEntrys);
-
-        List<Expected> expected = new ArrayList<>();
-        System.out.println("Expected:");
-        for (Map.Entry<byte[], byte[]> entry : desired.entrySet()) {
-            expected.add(new Expected(UIO.bytesLong(entry.getKey()), SimpleRawEntry.value(entry.getValue())));
-            System.out.println(UIO.bytesLong(entry.getKey()) + " timestamp:" + SimpleRawEntry.value(entry.getValue()));
-        }
-        System.out.println("\n");
-
-        assertExpected(ips, expected);
 
     }
 

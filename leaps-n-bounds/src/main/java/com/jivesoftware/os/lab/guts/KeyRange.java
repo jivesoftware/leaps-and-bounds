@@ -18,13 +18,6 @@ public class KeyRange implements Comparable<KeyRange> {
         this.end = end;
     }
 
-    public boolean intersects(KeyRange range) {
-
-        Comparator<byte[]> c = UnsignedBytes.lexicographicalComparator();
-        return c.compare(start, range.end) <= 0 && c.compare(range.start, end) <= 0;
-    }
-
-
     boolean contains(KeyRange range) {
         Comparator<byte[]> c = UnsignedBytes.lexicographicalComparator();
         return c.compare(start, range.start) <= 0 && c.compare(end, range.end) >= 0;

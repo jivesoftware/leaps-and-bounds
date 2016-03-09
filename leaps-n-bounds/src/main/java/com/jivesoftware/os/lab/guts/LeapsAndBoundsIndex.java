@@ -87,7 +87,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
     // you must call release on this reader! Try to only use it as long have you have to!
     @Override
-    public ReadIndex reader() throws Exception {
+    public ReadIndex acquireReader() throws Exception {
         hideABone.acquire();
         if (disposed.get()) {
             hideABone.release();
@@ -129,11 +129,10 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
                 }
                 leaps = Leaps.read(readableIndex, lengthBuffer);
             }
-            ReadLeapsAndBoundsIndex i = new ReadLeapsAndBoundsIndex(disposed, hideABone, leaps, leapsCache, footer, () -> {
+            ReadLeapsAndBoundsIndex i = new ReadLeapsAndBoundsIndex(hideABone, leaps, leapsCache, footer, () -> {
                 return index.reader(null, index.length(), false);
             });
 
-            hideABone.release();
             return i;
         } catch (IOException | RuntimeException x) {
             hideABone.release();

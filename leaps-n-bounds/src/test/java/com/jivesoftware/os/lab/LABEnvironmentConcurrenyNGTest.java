@@ -121,13 +121,10 @@ public class LABEnvironmentConcurrenyNGTest {
             f.get();
         }
 
-        env.shutdown();
+        writers.shutdown();
+        readers.shutdown();
         System.out.println("ALL DONE");
-
-        writers.shutdownNow();
-        readers.shutdownNow();
-
-        //Thread.sleep(Integer.MAX_VALUE);
+        env.shutdown();
     }
 
 }

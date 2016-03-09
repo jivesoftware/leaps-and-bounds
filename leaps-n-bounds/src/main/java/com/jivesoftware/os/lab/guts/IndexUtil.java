@@ -46,7 +46,6 @@ public class IndexUtil {
     }
 
     public static GetRaw get(ReadIndex[] indexes) throws Exception {
-
         GetRaw[] pointGets = new GetRaw[indexes.length];
         for (int i = 0; i < pointGets.length; i++) {
             pointGets[i] = indexes[i].get();
@@ -73,7 +72,7 @@ public class IndexUtil {
     public static int calculateIdealMaxLeaps(long entryCount, int entriesBetweenLeaps) {
         int approximateLeapCount = (int) Math.max(1, entryCount / entriesBetweenLeaps);
         int maxLeaps = (int) (Math.log(approximateLeapCount) / Math.log(2));
-        return maxLeaps;
+        return 1 + maxLeaps;
     }
 
     /**

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -32,13 +33,11 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class LAB implements ValueIndex {
 
-    static private class CommitLock {
-    }
-
     static private class CompactLock {
     }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+    private static final int numPermits = 1024;
 
     private final ExecutorService destroy;
     private final ExecutorService compact;
@@ -46,7 +45,7 @@ public class LAB implements ValueIndex {
     private final int minDebt;
     private final int maxDebt;
     private final RangeStripedCompactableIndexes rangeStripedCompactableIndexes;
-    private final CommitLock commitLock = new CommitLock();
+    private final Semaphore commitSemaphore = new Semaphore(numPermits, true); // TODO expose?
     private final CompactLock compactLock = new CompactLock();
     private final AtomicLong ongoingCompactions = new AtomicLong();
 
@@ -139,26 +138,6 @@ public class LAB implements ValueIndex {
         return false;
     }
 
-    @Override
-    public boolean append(Values values) throws Exception {
-        long[] count = {memoryIndex.count()};
-
-        boolean appended = memoryIndex.append((stream) -> {
-            return values.consume((key, timestamp, tombstoned, version, value) -> {
-                count[0]++;
-                if (count[0] > maxUpdatesBeforeFlush) { //  TODO flush on memory pressure.
-                    count[0] = memoryIndex.count();
-                    if (count[0] > maxUpdatesBeforeFlush) { //  TODO flush on memory pressure.
-                        commit(true); // TODO hmmm
-                    }
-                }
-                byte[] rawEntry = toRawEntry(key, timestamp, tombstoned, version, value);
-                return stream.stream(rawEntry, 0, rawEntry.length);
-            });
-        });
-        return appended;
-    }
-
     private boolean tx(byte[] from, byte[] to, ReaderTx tx) throws Exception {
 
         ReadIndex memoryIndexReader = null;
@@ -167,17 +146,20 @@ public class LAB implements ValueIndex {
             while (true) {
                 RawMemoryIndex memoryIndexStackCopy;
                 RawMemoryIndex flushingMemoryIndexStackCopy;
-                synchronized (commitLock) {
+
+                commitSemaphore.acquire();
+                try {
                     memoryIndexStackCopy = memoryIndex;
                     flushingMemoryIndexStackCopy = flushingMemoryIndex;
+                } finally {
+                    commitSemaphore.release();
                 }
 
-                memoryIndexReader = memoryIndexStackCopy.reader();
-                if (memoryIndexReader != null && memoryIndexReader.acquire()) {
-
+                memoryIndexReader = memoryIndexStackCopy.acquireReader();
+                if (memoryIndexReader != null) {
                     if (flushingMemoryIndexStackCopy != null) {
-                        flushingMemoryIndexReader = flushingMemoryIndexStackCopy.reader();
-                        if (flushingMemoryIndexReader != null && flushingMemoryIndexReader.acquire()) {
+                        flushingMemoryIndexReader = flushingMemoryIndexStackCopy.acquireReader();
+                        if (flushingMemoryIndexReader != null) {
                             break;
                         } else {
                             memoryIndexReader.release();
@@ -214,11 +196,36 @@ public class LAB implements ValueIndex {
     }
 
     @Override
+    public boolean append(Values values) throws Exception {
+
+        boolean appended;
+        commitSemaphore.acquire();
+        try {
+            appended = memoryIndex.append((stream) -> {
+                return values.consume((key, timestamp, tombstoned, version, value) -> {
+                    byte[] rawEntry = toRawEntry(key, timestamp, tombstoned, version, value);
+                    return stream.stream(rawEntry, 0, rawEntry.length);
+                });
+            });
+
+        } finally {
+            commitSemaphore.release();
+        }
+
+        if (memoryIndex.count() > maxUpdatesBeforeFlush) {
+            commit(true);
+        }
+        return appended;
+    }
+
+    @Override
     public List<Future<Object>> commit(boolean fsync) throws Exception {
+
         if (corrrupt) {
             throw new LABIndexCorruptedException();
         }
-        synchronized (commitLock) {
+        commitSemaphore.acquire(numPermits);
+        try {
             if (memoryIndex.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -226,11 +233,30 @@ public class LAB implements ValueIndex {
             flushingMemoryIndex = stackCopy;
             memoryIndex = new RawMemoryIndex(destroy, valueMerger);
             rangeStripedCompactableIndexes.append(stackCopy, fsync);
+
+//            rangeStripedCompactableIndexes.tx(null, null, new ReaderTx() {
+//                @Override
+//                public boolean tx(ReadIndex[] readIndexs) throws Exception {
+//
+//                    NextRawEntry rowScan = IndexUtil.rowScan(readIndexs);
+//                    while (rowScan.next(new RawEntryStream() {
+//                        @Override
+//                        public boolean stream(byte[] rawEntry, int offset, int length) throws Exception {
+//                            System.out.println("BALLS:" + UIO.bytesLong(rawEntry, 4));
+//                            return true;
+//                        }
+//                    }) == Next.more);
+//                    return true;
+//                }
+//            });
             flushingMemoryIndex = null;
             stackCopy.destroy();
+        } finally {
+            commitSemaphore.release(numPermits);
         }
 
         return compact(fsync);
+        //return Collections.emptyList();
     }
 
     public List<Future<Object>> compact(boolean fsync) throws Exception {
@@ -247,6 +273,16 @@ public class LAB implements ValueIndex {
             }
             List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(minDebt, fsync);
             if (compactors != null && !compactors.isEmpty()) {
+
+//                Set<Long> pre = new HashSet<>();
+//                rowScan(new ValueStream() {
+//                    @Override
+//                    public boolean stream(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception {
+//                        pre.add(UIO.bytesLong(key));
+//                        return true;
+//                    }
+//                });
+//                System.out.println(" >> " + pre.size() + " Premerge:" + pre);
                 if (awaitable == null) {
                     awaitable = new ArrayList<>(compactors.size());
                 }
@@ -269,6 +305,22 @@ public class LAB implements ValueIndex {
                     });
                     awaitable.add(future);
                 }
+
+//                for (Future<Object> future : awaitable) {
+//                    future.get();
+//                }
+
+//                Set<Long> post = new HashSet<>();
+//                rowScan(new ValueStream() {
+//                    @Override
+//                    public boolean stream(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception {
+//                        if (payload != null) {
+//                            post.add(UIO.bytesLong(key));
+//                        }
+//                        return true;
+//                    }
+//                });
+//                System.out.println(" << " + post.size() + " PostMerge:" + post);
             }
 
             if (debt >= maxDebt) {

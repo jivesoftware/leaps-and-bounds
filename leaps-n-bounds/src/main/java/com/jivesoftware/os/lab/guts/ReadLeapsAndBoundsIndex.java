@@ -9,27 +9,23 @@ import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author jonathan.colt
  */
 public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
-    private final AtomicBoolean disposed;
     private final Semaphore hideABone;
     private final Leaps leaps;
     private final ConcurrentLHash<Leaps> leapsCache;
     private final Footer footer;
     private final Callable<IReadable> readable;
 
-    public ReadLeapsAndBoundsIndex(AtomicBoolean disposed,
-        Semaphore hideABone,
+    public ReadLeapsAndBoundsIndex(Semaphore hideABone,
         Leaps leaps,
         ConcurrentLHash<Leaps> leapsCache,
         Footer footer,
         Callable<IReadable> readable) {
-        this.disposed = disposed;
         this.hideABone = hideABone;
         this.leaps = leaps;
         this.leapsCache = leapsCache;
@@ -38,13 +34,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     }
 
     @Override
-    public boolean acquire() throws InterruptedException {
-        hideABone.acquire();
-        if (disposed.get()) {
-            hideABone.release();
-            return false;
-        }
-        return true;
+    public String toString() {
+        return "ReadLeapsAndBoundsIndex{" + "footer=" + footer + '}';
     }
 
     @Override

@@ -22,10 +22,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class CompactableIndexes {
 
-    void split(boolean fsync) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
     static private class IndexesLock {
     }
 
@@ -232,6 +228,7 @@ public class CompactableIndexes {
         @Override
         public Void call() throws Exception {
             while (true) {
+                ReadIndex[] readers = new ReadIndex[all.length];
                 try {
                     int splitLength = all.length;
                     long worstCaseCount = 0;
@@ -240,9 +237,9 @@ public class CompactableIndexes {
                     byte[] minKey = null;
                     byte[] maxKey = null;
                     for (int i = 0; i < all.length; i++) {
-                        ReadIndex readIndex = all[i].reader();
-                        worstCaseCount += readIndex.count();
-                        feeders[i] = readIndex.rowScan();
+                        readers[i] = all[i].acquireReader();
+                        worstCaseCount += readers[i].count();
+                        feeders[i] = readers[i].rowScan();
                         IndexRangeId id = all[i].id();
                         if (join == null) {
                             join = new IndexRangeId(id.start, id.end, id.generation + 1);
@@ -343,29 +340,35 @@ public class CompactableIndexes {
                                 IndexRangeId id = catchup.id();
                                 LABAppenableIndex catupLeftAppenableIndex = leftHalfIndexFactory.createIndex(id, catchup.count());
                                 LABAppenableIndex catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
-                                InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchup.reader().rowScan()});
+                                ReadIndex catchupReader = catchup.acquireReader();
+                                try {
+                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()});
 
-                                LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
-                                catupLeftAppenableIndex.append((leftStream) -> {
-                                    return catchupRightAppenableIndex.append((rightStream) -> {
-                                        return catchupFeedInterleaver.stream((rawEntry, offset, length) -> {
-                                            if (UnsignedBytes.lexicographicalComparator().compare(rawEntry, middle) < 0) {
-                                                if (!leftStream.stream(rawEntry, offset, length)) {
+                                    LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
+                                    catupLeftAppenableIndex.append((leftStream) -> {
+                                        return catchupRightAppenableIndex.append((rightStream) -> {
+                                            return catchupFeedInterleaver.stream((rawEntry, offset, length) -> {
+                                                if (UnsignedBytes.lexicographicalComparator().compare(rawEntry, middle) < 0) {
+                                                    if (!leftStream.stream(rawEntry, offset, length)) {
+                                                        return false;
+                                                    }
+                                                } else if (!rightStream.stream(rawEntry, offset, length)) {
                                                     return false;
                                                 }
-                                            } else if (!rightStream.stream(rawEntry, offset, length)) {
-                                                return false;
-                                            }
-                                            return true;
+                                                return true;
+                                            });
                                         });
                                     });
-                                });
+                                } finally {
+                                    catchupReader.release();
+                                }
 
                                 LOG.info("Catchup splitting is flushing for a middle of:" + Arrays.toString(middle));
                                 catupLeftAppenableIndex.closeAppendable(fsync);
                                 catchupRightAppenableIndex.closeAppendable(fsync);
 
                                 commitRanges.add(0, id);
+
                             }
                         }
                     }
@@ -375,6 +378,12 @@ public class CompactableIndexes {
                         Arrays.fill(merging, false);
                     }
                     throw x;
+                } finally {
+                    for (ReadIndex reader : readers) {
+                        if (reader != null) {
+                            reader.release();
+                        }
+                    }
                 }
             }
         }
@@ -486,21 +495,17 @@ public class CompactableIndexes {
         @Override
         public Void call() throws Exception {
             LeapsAndBoundsIndex index = null;
+            ReadIndex[] readers = new ReadIndex[mergeSet.length];
             try {
-
-//                LOG.info("Merging: counts:{} gens:{}...",
-//                    TieredCompaction.range(counts, mergeRange.offset, mergeRange.length),
-//                    Arrays.toString(generations)
-//                );
 
                 long startMerge = System.currentTimeMillis();
 
                 long worstCaseCount = 0;
                 NextRawEntry[] feeders = new NextRawEntry[mergeSet.length];
                 for (int i = 0; i < feeders.length; i++) {
-                    ReadIndex readIndex = mergeSet[i].reader();
-                    worstCaseCount += readIndex.count();
-                    feeders[i] = readIndex.rowScan();
+                    readers[i] = mergeSet[i].acquireReader();
+                    worstCaseCount += readers[i].count();
+                    feeders[i] = readers[i].rowScan();
                 }
 
                 LABAppenableIndex appenableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
@@ -512,6 +517,7 @@ public class CompactableIndexes {
 
                 index = commitIndex.commit(Arrays.asList(mergeRangeId));
 
+                long ts = System.currentTimeMillis();
                 synchronized (indexesLock) {
                     int newLength = (indexes.length - mergeSet.length) + 1;
                     boolean[] updateMerging = new boolean[newLength];
@@ -566,6 +572,12 @@ public class CompactableIndexes {
                     }
                     merging = updateMerging;
                 }
+            } finally {
+                for (ReadIndex reader : readers) {
+                    if (reader != null) {
+                        reader.release();
+                    }
+                }
             }
 
             return null;
@@ -575,47 +587,42 @@ public class CompactableIndexes {
 
     public boolean tx(ReaderTx tx) throws Exception {
 
-        long cacheVersion = -1;
         RawConcurrentReadableIndex[] stackIndexes;
 
         ReadIndex[] readIndexs = null;
-        TRY_AGAIN:
+        START_OVER:
         while (true) {
-            if (readIndexs == null || cacheVersion < version) {
-
-                START_OVER:
-                while (true) {
-                    long stackVersion = version;
-                    synchronized (indexesLock) {
-                        stackIndexes = indexes;
-                        cacheVersion = stackVersion;
-                    }
-                    readIndexs = new ReadIndex[stackIndexes.length];
-                    for (int i = 0; i < readIndexs.length; i++) {
-                        readIndexs[i] = stackIndexes[i].reader();
-                        if (readIndexs[i] == null) {
-                            continue START_OVER;
-                        }
-                    }
-                    break;
-                }
+            synchronized (indexesLock) {
+                stackIndexes = indexes;
             }
-            for (int i = 0; i < readIndexs.length; i++) {
-                ReadIndex readIndex = readIndexs[i];
-                if (!readIndex.acquire()) {
-                    for (int j = 0; j < i; j++) {
-                        readIndexs[j].release();
+            readIndexs = new ReadIndex[stackIndexes.length];
+            try {
+                for (int i = 0; i < readIndexs.length; i++) {
+                    readIndexs[i] = stackIndexes[i].acquireReader();
+                    if (readIndexs[i] == null) {
+                        releaseReaders(readIndexs);
+                        continue START_OVER;
                     }
-                    continue TRY_AGAIN;
                 }
+            } catch (Exception x) {
+                releaseReaders(readIndexs);
+                throw x;
             }
             break;
         }
+
         try {
             return tx.tx(readIndexs);
         } finally {
-            for (ReadIndex readIndex : readIndexs) {
-                readIndex.release();
+            releaseReaders(readIndexs);
+        }
+    }
+
+    private void releaseReaders(ReadIndex[] readIndexs) {
+        for (int i = 0; i < readIndexs.length; i++) {
+            if (readIndexs[i] != null) {
+                readIndexs[i].release();
+                readIndexs[i] = null;
             }
         }
     }

@@ -5,6 +5,7 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
+import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -89,39 +90,49 @@ public class IndexNGTest {
         ArrayList<byte[]> keys = new ArrayList<>(desired.navigableKeySet());
 
         int[] index = new int[1];
-        NextRawEntry rowScan = walIndex.reader().rowScan();
-        RawEntryStream stream = (rawEntry, offset, length) -> {
-            System.out.println("rowScan:" + SimpleRawEntry.key(rawEntry));
-            Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
-            index[0]++;
-            return true;
-        };
-        while (rowScan.next(stream) == NextRawEntry.Next.more);
-
+        ReadIndex reader = walIndex.acquireReader();
+        try {
+            NextRawEntry rowScan = reader.rowScan();
+            RawEntryStream stream = (rawEntry, offset, length) -> {
+                System.out.println("rowScan:" + SimpleRawEntry.key(rawEntry));
+                Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
+                index[0]++;
+                return true;
+            };
+            while (rowScan.next(stream) == NextRawEntry.Next.more);
+        } finally {
+            reader.release();
+            reader = null;
+        }
         System.out.println("Point Get");
         for (int i = 0; i < count * step; i++) {
             long k = i;
-            GetRaw getRaw = walIndex.reader().get();
-            byte[] key = UIO.longBytes(k);
-            stream = (rawEntry, offset, length) -> {
+            reader = walIndex.acquireReader();
+            try {
+                GetRaw getRaw = reader.get();
+                byte[] key = UIO.longBytes(k);
+                RawEntryStream stream = (rawEntry, offset, length) -> {
 
-                System.out.println("Got: " + SimpleRawEntry.toString(rawEntry));
-                if (rawEntry != null) {
-                    byte[] rawKey = UIO.longBytes(SimpleRawEntry.key(rawEntry));
-                    Assert.assertEquals(rawKey, key);
-                    byte[] d = desired.get(key);
-                    if (d == null) {
-                        Assert.fail();
+                    System.out.println("Got: " + SimpleRawEntry.toString(rawEntry));
+                    if (rawEntry != null) {
+                        byte[] rawKey = UIO.longBytes(SimpleRawEntry.key(rawEntry));
+                        Assert.assertEquals(rawKey, key);
+                        byte[] d = desired.get(key);
+                        if (d == null) {
+                            Assert.fail();
+                        } else {
+                            Assert.assertEquals(SimpleRawEntry.value(rawEntry), SimpleRawEntry.value(d));
+                        }
                     } else {
-                        Assert.assertEquals(SimpleRawEntry.value(rawEntry), SimpleRawEntry.value(d));
+                        Assert.assertFalse(desired.containsKey(key));
                     }
-                } else {
-                    Assert.assertFalse(desired.containsKey(key));
-                }
-                return rawEntry != null;
-            };
+                    return rawEntry != null;
+                };
 
-            Assert.assertEquals(getRaw.get(key, stream), desired.containsKey(key));
+                Assert.assertEquals(getRaw.get(key, stream), desired.containsKey(key));
+            } finally {
+                reader.release();
+            }
         }
 
         System.out.println("Ranges");
@@ -129,7 +140,7 @@ public class IndexNGTest {
             int _i = i;
 
             int[] streamed = new int[1];
-            stream = (entry, offset, length) -> {
+            RawEntryStream stream = (entry, offset, length) -> {
                 if (entry != null) {
                     System.out.println("Streamed:" + SimpleRawEntry.toString(entry));
                     streamed[0]++;
@@ -138,24 +149,34 @@ public class IndexNGTest {
             };
 
             System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
-            NextRawEntry rangeScan = walIndex.reader().rangeScan(keys.get(_i), keys.get(_i + 3));
-            while (rangeScan.next(stream) == NextRawEntry.Next.more);
-            Assert.assertEquals(3, streamed[0]);
+            reader = walIndex.acquireReader();
+            try {
+                NextRawEntry rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
+                while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                Assert.assertEquals(3, streamed[0]);
+            } finally {
+                reader.release();
+            }
 
         }
 
         for (int i = 0; i < keys.size() - 3; i++) {
             int _i = i;
             int[] streamed = new int[1];
-            stream = (entry, offset, length) -> {
+            RawEntryStream stream = (entry, offset, length) -> {
                 if (entry != null) {
                     streamed[0]++;
                 }
                 return SimpleRawEntry.value(entry) != -1;
             };
-            NextRawEntry rangeScan = walIndex.reader().rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3));
-            while (rangeScan.next(stream) == NextRawEntry.Next.more);
-            Assert.assertEquals(2, streamed[0]);
+            reader = walIndex.acquireReader();
+            try {
+                NextRawEntry rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3));
+                while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                Assert.assertEquals(2, streamed[0]);
+            } finally {
+                reader.release();
+            }
 
         }
     }

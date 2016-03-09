@@ -81,6 +81,8 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
+//                        System.out.println("readToWrite:" + UIO.bytesLong(next.getKey()));
+
                         boolean more = stream.stream(next.getValue(), 0, next.getValue().length);
                         return more ? Next.more : Next.stopped;
                     }
@@ -119,16 +121,6 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             @Override
             public void release() {
                 hideABone.release();
-            }
-
-            @Override
-            public boolean acquire() throws InterruptedException {
-                hideABone.acquire();
-                if (disposed.get()) {
-                    hideABone.release();
-                    return false;
-                }
-                return true;
             }
         };
     }
@@ -172,25 +164,23 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
         });
     }
 
-    // you must call release on this reader! Try to only use it as long have you have to!
+    // you must call release on this reader! Try to only use it as long as you have to!
     @Override
-    public ReadIndex reader() throws Exception {
+    public ReadIndex acquireReader() throws Exception {
         hideABone.acquire();
         if (disposed.get()) {
             hideABone.release();
             return null;
         }
-        hideABone.release();
         return reader;
     }
 
     @Override
     public void destroy() throws Exception {
         destroy.submit(() -> {
-
             hideABone.acquire(numBones);
-            disposed.set(true);
             try {
+                disposed.set(true);
                 index.clear();
             } finally {
                 hideABone.release(numBones);

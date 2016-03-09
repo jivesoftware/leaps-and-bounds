@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
+import java.util.Arrays;
+
 /**
  *
  * @author jonathan.colt
@@ -22,6 +24,12 @@ public class MergeRange {
 
     @Override
     public String toString() {
-        return "MergeRange{" + "generation=" + generation + ", offset=" + offset + ", length=" + length + ", minKey=" + minKey + ", maxKey=" + maxKey + '}';
+        return "MergeRange{"
+            + "generation=" + generation
+            + ", offset=" + offset
+            + ", length=" + length
+            + ", minKey=" + Arrays.toString(minKey)
+            + ", maxKey=" + Arrays.toString(maxKey)
+            + '}';
     }
 }

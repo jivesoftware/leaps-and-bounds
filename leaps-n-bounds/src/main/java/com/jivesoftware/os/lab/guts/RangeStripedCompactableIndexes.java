@@ -115,6 +115,22 @@ public class RangeStripedCompactableIndexes {
         }
     }
 
+    @Override
+    public String toString() {
+        return "RangeStripedCompactableIndexes{"
+            + "largestStripeId=" + largestStripeId
+            + ", largestIndexId=" + largestIndexId
+            + ", root=" + root
+            + ", indexName=" + indexName
+            + ", useMemMap=" + useMemMap
+            + ", entriesBetweenLeaps=" + entriesBetweenLeaps
+            + ", splitWhenKeysTotalExceedsNBytes=" + splitWhenKeysTotalExceedsNBytes
+            + ", splitWhenValuesTotalExceedsNBytes=" + splitWhenValuesTotalExceedsNBytes
+            + ", splitWhenValuesAndKeysTotalExceedsNBytes=" + splitWhenValuesAndKeysTotalExceedsNBytes
+            + ", concurrency=" + concurrency
+            + '}';
+    }
+
     private Stripe loadStripe(File stripeRoot) throws Exception {
         if (stripeRoot.isDirectory()) {
             File activeDir = new File(stripeRoot, "active");
@@ -200,11 +216,6 @@ public class RangeStripedCompactableIndexes {
         private final File root;
         private final String indexName;
         private final long stripeId;
-        /*private final File stripeRoot;
-        private final File indexRoot;
-        private final File splittingRoot;
-        private final File mergingRoot;
-        private final File commitingRoot;*/
         private final CompactableIndexes compactableIndexes;
 
         public FileBackMergableIndexs(ExecutorService destroy,
@@ -264,9 +275,14 @@ public class RangeStripedCompactableIndexes {
             IndexFile indexFile = new IndexFile(commitingIndexFile, "rw", useMemMap);
             LABAppenableIndex appendableIndex = new LABAppenableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
             appendableIndex.append((stream) -> {
-                NextRawEntry rangeScan = index.reader().rangeScan(minKey, maxKey);
-                while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
-                return true;
+                ReadIndex reader = index.acquireReader();
+                try {
+                    NextRawEntry rangeScan = reader.rangeScan(minKey, maxKey);
+                    while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                    return true;
+                } finally {
+                    reader.release();
+                }
             });
             appendableIndex.closeAppendable(fsync);
 
@@ -372,7 +388,7 @@ public class RangeStripedCompactableIndexes {
                                     .lexicographicalComparator());
                                 copyOfIndexes.putAll(indexes);
 
-                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext(); ) {
+                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext();) {
                                     Map.Entry<byte[], FileBackMergableIndexs> next = iterator.next();
                                     if (next.getValue() == self) {
                                         iterator.remove();

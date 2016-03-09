@@ -6,8 +6,6 @@ package com.jivesoftware.os.lab.guts.api;
  */
 public interface ReadIndex {
 
-    boolean acquire() throws InterruptedException;
-
     void release();
 
     GetRaw get() throws Exception;

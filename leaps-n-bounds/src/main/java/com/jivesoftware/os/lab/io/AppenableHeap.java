@@ -58,9 +58,9 @@ public class AppenableHeap implements IAppendOnly {
     @Override
     public void append(byte _b[], int _offset, int _len) throws IOException {
         if (fp + _len > bytes.length) {
-            bytes = grow(bytes, Math.max((int) ((fp + _len) - bytes.length), bytes.length));
+            bytes = grow(bytes, Math.max(((fp + _len) - bytes.length), bytes.length));
         }
-        System.arraycopy(_b, _offset, bytes, (int) fp, _len);
+        System.arraycopy(_b, _offset, bytes, fp, _len);
         fp += _len;
         maxLength = Math.max(maxLength, fp);
     }

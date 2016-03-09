@@ -4,6 +4,7 @@ import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  *
@@ -25,6 +26,18 @@ public class Footer {
         this.valuesSizeInBytes = valuesSizeInBytes;
         this.minKey = minKey;
         this.maxKey = maxKey;
+    }
+
+    @Override
+    public String toString() {
+        return "Footer{"
+            + "leapCount=" + leapCount
+            + ", count=" + count
+            + ", keysSizeInBytes=" + keysSizeInBytes
+            + ", valuesSizeInBytes=" + valuesSizeInBytes
+            + ", minKey=" + Arrays.toString(minKey)
+            + ", maxKey=" + Arrays.toString(maxKey)
+            + '}';
     }
 
     void write(IAppendOnly writeable, byte[] lengthBuffer) throws IOException {

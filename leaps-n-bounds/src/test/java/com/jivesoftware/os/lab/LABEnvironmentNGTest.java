@@ -105,22 +105,30 @@ public class LABEnvironmentNGTest {
     public void testEnvWithMemMap() throws Exception {
 
         File root = Files.createTempDir();
+        System.out.println("Created root");
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
             new LABValueMerger(), true, 4, 8, 8);
+        System.out.println("Created env");
 
         ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1);
+        System.out.println("Open env");
         indexTest(index);
+        System.out.println("Indexed");
 
         env.shutdown();
+        System.out.println("Shutdown");
 
         env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             root, new LABValueMerger(), true, 4,
             8, 8);
+        System.out.println("Recreate env");
 
         index = env.open("foo", 4096, 1000, -1, -1, -1);
+        System.out.println("Re-open env");
         indexTest(index);
-
+        System.out.println("Re-indexed");
         env.shutdown();
+        System.out.println("Re-shutdown");
 
     }
 
@@ -134,8 +142,7 @@ public class LABEnvironmentNGTest {
         int commitCount = 34;
         int batchCount = 3_000;
         int getCount = 0;
-        boolean fsync = true;
-
+       
         long mainStart = System.currentTimeMillis();
         Random rand = new Random(12345);
         for (int c = 0; c < commitCount; c++) {

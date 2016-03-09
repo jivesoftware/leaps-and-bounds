@@ -30,15 +30,15 @@ public interface IFiler extends IReadable, IWriteable {
     /**
      *
      */
-    final public static String cRead = "r";
+    String cRead = "r";
     /**
      *
      */
-    final public static String cWrite = "rw";
+    String cWrite = "rw";
     /**
      *
      */
-    final public static String cReadWrite = "rw";
+    String cReadWrite = "rw";
 
     /**
      *
@@ -46,19 +46,19 @@ public interface IFiler extends IReadable, IWriteable {
      * @return
      * @throws IOException
      */
-    public long skip(long position) throws IOException;
+    long skip(long position) throws IOException;
 
     /**
      *
      * @param len
      * @throws IOException
      */
-    public void setLength(long len) throws IOException;
+    void setLength(long len) throws IOException;
 
     /**
      *
      * @throws IOException
      */
-    public void eof() throws IOException;
+    void eof() throws IOException;
 
 }

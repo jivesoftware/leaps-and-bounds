@@ -1,6 +1,9 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
+import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
+import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -14,14 +17,120 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import static com.jivesoftware.os.lab.guts.SimpleRawEntry.rawEntry;
 
 /**
  *
  * @author jonathan.colt
  */
 public class CompactableIndexsNGTest {
+
+    private static OrderIdProvider timeProvider = new OrderIdProviderImpl(new ConstantWriterIdProvider(1));
+
+    @Test(enabled = true)
+    public void testPointGets() throws Exception {
+
+        ExecutorService destroy = Executors.newSingleThreadExecutor();
+        CompactableIndexes indexs = new CompactableIndexes();
+        AtomicLong id = new AtomicLong();
+//        int[] counts = new int[1000];
+//        Random rand = new Random(1234);
+//        for (int i = 0; i < counts.length; i++) {
+//            counts[i] = 1 + rand.nextInt(5);
+//
+//        }
+        int[] counts = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
+        for (int wi = 0; wi < counts.length; wi++) {
+            int ci = wi;
+            File file = File.createTempFile("a-index-" + wi, ".tmp");
+            IndexFile indexFile = new IndexFile(file, "rw", false);
+            IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
+
+            int entriesBetweenLeaps = 2;
+            int maxLeaps = IndexUtil.calculateIdealMaxLeaps(counts[ci], entriesBetweenLeaps);
+            LABAppenableIndex write = new LABAppenableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
+
+            write.append((stream) -> {
+                for (int i = 0; i < counts[ci]; i++) {
+                    long time = timeProvider.nextId();
+                    byte[] rawEntry = rawEntry(id.incrementAndGet(), time);
+                    if (!stream.stream(rawEntry, 0, rawEntry.length)) {
+                        break;
+                    }
+                }
+                return true;
+            });
+
+            write.closeAppendable(true);
+
+            indexFile = new IndexFile(file, "r", false);
+            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
+        }
+
+        for (int i = 1; i <= id.get(); i++) {
+            long g = i;
+            byte[] k = UIO.longBytes(i);
+            boolean[] passed = {false};
+            System.out.println("Get:" + i);
+            indexs.tx(new ReaderTx() {
+                @Override
+                public boolean tx(ReadIndex[] readIndexs) throws Exception {
+
+//                    GetRaw getRaw = IndexUtil.get(readIndexs);
+//                    getRaw.get(k, new RawEntryStream() {
+//                        @Override
+//                        public boolean stream(byte[] rawEntry, int offset, int length) throws Exception {
+//                            System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry, 4));
+//                            if (UIO.bytesLong(rawEntry, 4) != g) {
+//                                passed[0] = true;
+//                            }
+//                            return true;
+//                        }
+//                    });
+//                    GetRaw[] pointGets = new GetRaw[readIndexs.length];
+//                    for (int i = 0; i < pointGets.length; i++) {
+//                        pointGets[i] = readIndexs[i].get();
+//                    }
+//
+//                    for (GetRaw raw : pointGets) {
+//                        System.out.println("\tIndex:" + raw);
+//                        raw.get(k, new RawEntryStream() {
+//                            @Override
+//                            public boolean stream(byte[] rawEntry, int offset, int length) throws Exception {
+//                                System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry, 4));
+//                                if (UIO.bytesLong(rawEntry, 4) == g) {
+//                                    passed[0] = true;
+//                                }
+//                                return true;
+//                            }
+//                        });
+//                    }
+                    for (ReadIndex raw : readIndexs) {
+                        System.out.println("\tIndex:" + raw);
+                        raw.get().get(k, new RawEntryStream() {
+                            @Override
+                            public boolean stream(byte[] rawEntry, int offset, int length) throws Exception {
+                                System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry, 4));
+                                if (UIO.bytesLong(rawEntry, 4) == g) {
+                                    passed[0] = true;
+                                }
+                                return true;
+                            }
+                        });
+                    }
+                    return true;
+                }
+            });
+            if (!passed[0]) {
+                Assert.fail();
+            }
+        }
+
+    }
 
     @Test(enabled = false)
     public void testConcurrentMerges() throws Exception {

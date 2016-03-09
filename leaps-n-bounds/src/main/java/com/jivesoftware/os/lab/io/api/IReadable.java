@@ -31,7 +31,7 @@ public interface IReadable extends ICloseable, ISeekable {
      *
      * @return @throws IOException
      */
-    public int read() throws IOException;
+    int read() throws IOException;
 
     /**
      *
@@ -39,7 +39,7 @@ public interface IReadable extends ICloseable, ISeekable {
      * @return
      * @throws IOException
      */
-    public int read(byte b[]) throws IOException;
+    int read(byte b[]) throws IOException;
 
     /**
      *
@@ -49,5 +49,5 @@ public interface IReadable extends ICloseable, ISeekable {
      * @return
      * @throws IOException
      */
-    public int read(byte b[], int _offset, int _len) throws IOException;
+    int read(byte b[], int _offset, int _len) throws IOException;
 }
