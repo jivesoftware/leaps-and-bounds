@@ -9,9 +9,9 @@ import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 import java.util.Arrays;
 
-import static com.jivesoftware.os.lab.guts.LABAppenableIndex.ENTRY;
-import static com.jivesoftware.os.lab.guts.LABAppenableIndex.FOOTER;
-import static com.jivesoftware.os.lab.guts.LABAppenableIndex.LEAP;
+import static com.jivesoftware.os.lab.guts.LABAppendableIndex.ENTRY;
+import static com.jivesoftware.os.lab.guts.LABAppendableIndex.FOOTER;
+import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
 import static com.jivesoftware.os.lab.io.api.UIO.readLength;
 
 /**

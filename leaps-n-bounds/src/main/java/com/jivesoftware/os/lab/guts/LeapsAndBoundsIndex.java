@@ -13,8 +13,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.jivesoftware.os.lab.guts.LABAppenableIndex.FOOTER;
-import static com.jivesoftware.os.lab.guts.LABAppenableIndex.LEAP;
+import static com.jivesoftware.os.lab.guts.LABAppendableIndex.FOOTER;
+import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
 
 /**
  * @author jonathan.colt

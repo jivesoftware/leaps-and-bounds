@@ -24,13 +24,13 @@ import java.io.IOException;
  * All of the methods are intentionally left unsynchronized. Up to caller to do the right thing using the Object returned by lock()
  *
  */
-public class AppenableHeap implements IAppendOnly {
+public class AppendableHeap implements IAppendOnly {
 
     private byte[] bytes = new byte[0];
     private int fp = 0;
     private int maxLength = 0;
 
-    public AppenableHeap(int size) {
+    public AppendableHeap(int size) {
         bytes = new byte[size];
         maxLength = 0;
     }

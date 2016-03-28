@@ -12,7 +12,7 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.io.AppenableHeap;
+import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -51,7 +51,7 @@ public class LAB implements ValueIndex {
 
     private volatile RawMemoryIndex memoryIndex;
     private volatile RawMemoryIndex flushingMemoryIndex;
-    private volatile boolean corrrupt = false;
+    private volatile boolean corrupt = false;
 
     private final LABValueMerger valueMerger = new LABValueMerger();
 
@@ -221,7 +221,7 @@ public class LAB implements ValueIndex {
     @Override
     public List<Future<Object>> commit(boolean fsync) throws Exception {
 
-        if (corrrupt) {
+        if (corrupt) {
             throw new LABIndexCorruptedException();
         }
         commitSemaphore.acquire(numPermits);
@@ -268,7 +268,7 @@ public class LAB implements ValueIndex {
 
         List<Future<Object>> awaitable = null;
         while (true) {
-            if (corrrupt) {
+            if (corrupt) {
                 throw new LABIndexCorruptedException();
             }
             List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(minDebt, fsync);
@@ -294,7 +294,7 @@ public class LAB implements ValueIndex {
                             compactor.call();
                         } catch (Exception x) {
                             LOG.error("Failed to compact " + rangeStripedCompactableIndexes, x);
-                            corrrupt = true;
+                            corrupt = true;
                         } finally {
                             synchronized (compactLock) {
                                 ongoingCompactions.decrementAndGet();
@@ -346,7 +346,7 @@ public class LAB implements ValueIndex {
             + ", minDebt=" + minDebt
             + ", maxDebt=" + maxDebt
             + ", ongoingCompactions=" + ongoingCompactions
-            + ", corrrupt=" + corrrupt
+            + ", corrupt=" + corrupt
             + ", valueMerger=" + valueMerger
             + '}';
     }
@@ -399,7 +399,7 @@ public class LAB implements ValueIndex {
 
     private static byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws IOException {
 
-        AppenableHeap indexEntryFiler = new AppenableHeap(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
+        AppendableHeap indexEntryFiler = new AppendableHeap(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
         byte[] lengthBuffer = new byte[4];
         UIO.writeByteArray(indexEntryFiler, key, "key", lengthBuffer);
         UIO.writeLong(indexEntryFiler, timestamp, "timestamp");

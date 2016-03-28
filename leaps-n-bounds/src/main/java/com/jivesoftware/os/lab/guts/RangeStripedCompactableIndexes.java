@@ -266,19 +266,19 @@ public class RangeStripedCompactableIndexes {
             File commitingRoot = new File(stripeRoot, "commiting");
             FileUtils.forceMkdir(commitingRoot);
 
-            LOG.debug("Commiting memory index (" + index.count() + ") to on disk index." + activeRoot);
+            LOG.debug("Commiting memory index ({}) to on disk index: {}", index.count(), activeRoot);
 
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(index.count(), entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
             File commitingIndexFile = indexRangeId.toFile(commitingRoot);
             FileUtils.deleteQuietly(commitingIndexFile);
             IndexFile indexFile = new IndexFile(commitingIndexFile, "rw", useMemMap);
-            LABAppenableIndex appendableIndex = new LABAppenableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
+            LABAppendableIndex appendableIndex = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
             appendableIndex.append((stream) -> {
                 ReadIndex reader = index.acquireReader();
                 try {
                     NextRawEntry rangeScan = reader.rangeScan(minKey, maxKey);
-                    while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                    while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
                     return true;
                 } finally {
                     reader.release();
@@ -350,9 +350,9 @@ public class RangeStripedCompactableIndexes {
                         FileUtils.deleteQuietly(splitIntoDir);
                         FileUtils.forceMkdir(splitIntoDir);
                         File splittingIndexFile = id.toFile(splitIntoDir);
-                        LOG.info("Creating new index for split:" + splittingIndexFile);
+                        LOG.info("Creating new index for split: {}", splittingIndexFile);
                         IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
-                        LABAppenableIndex writeLeapsAndBoundsIndex = new LABAppenableIndex(id,
+                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
                             entriesBetweenLeaps);
@@ -363,9 +363,9 @@ public class RangeStripedCompactableIndexes {
                         FileUtils.deleteQuietly(splitIntoDir);
                         FileUtils.forceMkdir(splitIntoDir);
                         File splittingIndexFile = id.toFile(splitIntoDir);
-                        LOG.info("Creating new index for split:" + splittingIndexFile);
+                        LOG.info("Creating new index for split: {}", splittingIndexFile);
                         IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
-                        LABAppenableIndex writeLeapsAndBoundsIndex = new LABAppenableIndex(id,
+                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
                             entriesBetweenLeaps);
@@ -375,7 +375,7 @@ public class RangeStripedCompactableIndexes {
                         File leftActive = new File(left, "active");
                         File right = new File(indexRoot, String.valueOf(nextStripeIdRight));
                         File rightActive = new File(right, "active");
-                        LOG.info("Commiting split:" + stripeRoot + " became:" + left + " and " + right);
+                        LOG.info("Commiting split:{} became left:{} right:{}", stripeRoot, left, right);
 
                         try {
                             FileUtils.moveDirectory(new File(splittingRoot, String.valueOf(nextStripeIdLeft)), leftActive);
@@ -388,7 +388,7 @@ public class RangeStripedCompactableIndexes {
                                     .lexicographicalComparator());
                                 copyOfIndexes.putAll(indexes);
 
-                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext();) {
+                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext(); ) {
                                     Map.Entry<byte[], FileBackMergableIndexs> next = iterator.next();
                                     if (next.getValue() == self) {
                                         iterator.remove();
@@ -413,12 +413,12 @@ public class RangeStripedCompactableIndexes {
                             FileUtils.deleteQuietly(commitingRoot);
                             FileUtils.deleteQuietly(splittingRoot);
 
-                            LOG.info("Completed split:" + stripeRoot + " became:" + left + " and " + right);
+                            LOG.info("Completed split:{} became left:{} right:{}", stripeRoot, left, right);
                             return null;
                         } catch (Exception x) {
                             FileUtils.deleteQuietly(left);
                             FileUtils.deleteQuietly(right);
-                            LOG.error("Failed to split:" + stripeRoot + " became:" + left + " and " + right, x);
+                            LOG.error("Failed to split:{} became left:{} right:{}", new Object[] { stripeRoot, left, right }, x);
                             throw x;
                         }
                     }, fsync);
@@ -442,7 +442,7 @@ public class RangeStripedCompactableIndexes {
                 File mergingIndexFile = id.toFile(mergingRoot);
                 FileUtils.deleteQuietly(mergingIndexFile);
                 IndexFile indexFile = new IndexFile(mergingIndexFile, "rw", useMemMap);
-                LABAppenableIndex writeLeapsAndBoundsIndex = new LABAppenableIndex(id,
+                LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                     indexFile,
                     maxLeaps,
                     entriesBetweenLeaps);

@@ -35,7 +35,7 @@ public class IndexNGTest {
 
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
-        LABAppenableIndex write = new LABAppenableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
+        LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
             64, 10);
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
@@ -75,7 +75,7 @@ public class IndexNGTest {
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
-        LABAppenableIndex disIndex = new LABAppenableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
+        LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
             64, 10);
 
         disIndex.append(memoryIndex);

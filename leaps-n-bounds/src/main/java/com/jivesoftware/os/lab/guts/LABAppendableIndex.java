@@ -1,16 +1,18 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.google.common.base.Preconditions;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
-import com.jivesoftware.os.lab.io.AppenableHeap;
+import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * @author jonathan.colt
  */
-public class LABAppenableIndex implements RawAppendableIndex {
+public class LABAppendableIndex implements RawAppendableIndex {
 
     public static final byte ENTRY = 0;
     public static final byte LEAP = 1;
@@ -36,7 +38,7 @@ public class LABAppenableIndex implements RawAppendableIndex {
 
     private final IAppendOnly appendOnly;
 
-    public LABAppenableIndex(IndexRangeId indexRangeId,
+    public LABAppendableIndex(IndexRangeId indexRangeId,
         IndexFile index,
         int maxLeaps,
         int updatesBetweenLeaps) throws IOException {
@@ -61,7 +63,7 @@ public class LABAppenableIndex implements RawAppendableIndex {
     @Override
     public boolean append(RawEntries rawEntries) throws Exception {
 
-        AppenableHeap entryBuffer = new AppenableHeap(1024);
+        AppendableHeap entryBuffer = new AppendableHeap(1024);
         rawEntries.consume((rawEntry, offset, length) -> {
 
             //entryBuffer.reset();
@@ -124,6 +126,9 @@ public class LABAppenableIndex implements RawAppendableIndex {
 
     @Override
     public void closeAppendable(boolean fsync) throws IOException {
+        if (firstKey == null || lastKey == null) {
+            throw new IllegalStateException("Tried to close appendable index without a key range: " + this);
+        }
         if (updatesSinceLeap > 0) {
             long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
             System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
@@ -139,13 +144,15 @@ public class LABAppenableIndex implements RawAppendableIndex {
 
     @Override
     public String toString() {
-        return "WriteLeapsAndBoundsIndex{"
-            + "indexRangeId=" + indexRangeId
-            + ", index=" + index
-            + ", maxLeaps=" + maxLeaps
-            + ", updatesBetweenLeaps=" + updatesBetweenLeaps
-            + ", count=" + count
-            + '}';
+        return "LABAppendableIndex{" +
+            "indexRangeId=" + indexRangeId +
+            ", index=" + index +
+            ", maxLeaps=" + maxLeaps +
+            ", updatesBetweenLeaps=" + updatesBetweenLeaps +
+            ", updatesSinceLeap=" + updatesSinceLeap +
+            ", leapCount=" + leapCount +
+            ", count=" + count +
+            '}';
     }
 
 }

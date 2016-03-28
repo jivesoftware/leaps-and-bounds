@@ -52,7 +52,7 @@ public class CompactableIndexsNGTest {
 
             int entriesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(counts[ci], entriesBetweenLeaps);
-            LABAppenableIndex write = new LABAppenableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
+            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
 
             write.append((stream) -> {
                 for (int i = 0; i < counts[ci]; i++) {
@@ -156,7 +156,7 @@ public class CompactableIndexsNGTest {
                 IndexFile indexFile = new IndexFile(file, "rw", false);
                 IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-                LABAppenableIndex write = new LABAppenableIndex(indexRangeId, indexFile, 64, 2);
+                LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2);
                 IndexTestUtils.append(rand, write, 0, step, count, desired);
                 write.closeAppendable(fsync);
 
@@ -177,7 +177,7 @@ public class CompactableIndexsNGTest {
                 (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppenableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
+                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
                 },
                 (ids) -> {
                     return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), 8);
@@ -213,7 +213,7 @@ public class CompactableIndexsNGTest {
             IndexFile indexFile = new IndexFile(indexFiler, "rw", false);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-            LABAppenableIndex write = new LABAppenableIndex(indexRangeId, indexFile, 64, 2);
+            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2);
             IndexTestUtils.append(rand, write, 0, step, count, desired);
             write.closeAppendable(fsync);
 
@@ -243,7 +243,7 @@ public class CompactableIndexsNGTest {
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppenableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
+                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
                 }, (ids) -> {
                     return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), 8);
                 }));

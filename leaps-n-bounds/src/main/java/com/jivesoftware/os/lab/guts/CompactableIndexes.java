@@ -266,8 +266,8 @@ public class CompactableIndexes {
                         return null;
                     } else {
                         byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1)).get(1);
-                        LABAppenableIndex leftAppenableIndex = leftHalfIndexFactory.createIndex(join, worstCaseCount - 1);
-                        LABAppenableIndex rightAppenableIndex = rightHalfIndexFactory.createIndex(join, worstCaseCount - 1);
+                        LABAppendableIndex leftAppenableIndex = leftHalfIndexFactory.createIndex(join, worstCaseCount - 1);
+                        LABAppendableIndex rightAppenableIndex = rightHalfIndexFactory.createIndex(join, worstCaseCount - 1);
                         InterleaveStream feedInterleaver = new InterleaveStream(feeders);
 
                         LOG.info("Splitting with a middle of:" + Arrays.toString(middle));
@@ -338,8 +338,8 @@ public class CompactableIndexes {
 
                             for (RawConcurrentReadableIndex catchup : catchupMergeSet) {
                                 IndexRangeId id = catchup.id();
-                                LABAppenableIndex catupLeftAppenableIndex = leftHalfIndexFactory.createIndex(id, catchup.count());
-                                LABAppenableIndex catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
+                                LABAppendableIndex catupLeftAppenableIndex = leftHalfIndexFactory.createIndex(id, catchup.count());
+                                LABAppendableIndex catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
                                 ReadIndex catchupReader = catchup.acquireReader();
                                 try {
                                     InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()});
@@ -508,7 +508,7 @@ public class CompactableIndexes {
                     feeders[i] = readers[i].rowScan();
                 }
 
-                LABAppenableIndex appenableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
+                LABAppendableIndex appenableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
                 InterleaveStream feedInterleaver = new InterleaveStream(feeders);
                 appenableIndex.append((stream) -> {
                     return feedInterleaver.stream(stream);

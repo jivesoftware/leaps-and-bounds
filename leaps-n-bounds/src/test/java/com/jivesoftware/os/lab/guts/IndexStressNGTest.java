@@ -61,7 +61,7 @@ public class IndexStressNGTest {
                                 long m = merge.incrementAndGet();
                                 int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
-                                return new LABAppenableIndex(id, new IndexFile(mergingFile, "rw", true),
+                                return new LABAppendableIndex(id, new IndexFile(mergingFile, "rw", true),
                                     maxLeaps, entriesBetweenLeaps);
                             },
                             (ids) -> {
@@ -165,7 +165,7 @@ public class IndexStressNGTest {
             File indexFiler = File.createTempFile("s-index-merged-" + b, ".tmp");
 
             long startMerge = System.currentTimeMillis();
-            LABAppenableIndex write = new LABAppenableIndex(id,
+            LABAppendableIndex write = new LABAppendableIndex(id,
                 new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps);
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.closeAppendable(fsync);
