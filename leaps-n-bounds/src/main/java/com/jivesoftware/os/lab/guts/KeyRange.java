@@ -19,12 +19,16 @@ public class KeyRange implements Comparable<KeyRange> {
     }
 
     boolean contains(KeyRange range) {
+        if (start == null || end == null) {
+            return false;
+        }
         Comparator<byte[]> c = UnsignedBytes.lexicographicalComparator();
         return c.compare(start, range.start) <= 0 && c.compare(end, range.end) >= 0;
     }
 
     @Override
     public int compareTo(KeyRange o) {
+        
         int c = UnsignedBytes.lexicographicalComparator().compare(start, o.start);
         if (c == 0) {
             c = UnsignedBytes.lexicographicalComparator().compare(o.end, end); // reversed

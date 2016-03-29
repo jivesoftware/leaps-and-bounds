@@ -2,9 +2,9 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
-import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
@@ -190,13 +190,18 @@ public class RangeStripedCompactableIndexes {
                     }
                     IndexFile indexFile = new IndexFile(file, "rw", useMemMap);
                     LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, concurrency);
-                    if (keyRange == null) {
-                        keyRange = new KeyRange(lab.minKey(), lab.maxKey());
+                    if (lab.minKey() != null && lab.maxKey() != null) {
+                        if (keyRange == null) {
+                            keyRange = new KeyRange(lab.minKey(), lab.maxKey());
+                        } else {
+                            keyRange.join(new KeyRange(lab.minKey(), lab.maxKey()));
+                        }
+                        if (!mergeableIndexes.append(lab)) {
+                            throw new RuntimeException("Bueller");
+                        }
                     } else {
-                        keyRange.join(new KeyRange(lab.minKey(), lab.maxKey()));
-                    }
-                    if (!mergeableIndexes.append(lab)) {
-                        throw new RuntimeException("Bueller");
+                        lab.closeReadable();
+                        indexFile.getFile().delete();
                     }
                 }
                 if (keyRange != null) {
@@ -388,7 +393,7 @@ public class RangeStripedCompactableIndexes {
                                     .lexicographicalComparator());
                                 copyOfIndexes.putAll(indexes);
 
-                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext(); ) {
+                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext();) {
                                     Map.Entry<byte[], FileBackMergableIndexs> next = iterator.next();
                                     if (next.getValue() == self) {
                                         iterator.remove();
@@ -418,7 +423,7 @@ public class RangeStripedCompactableIndexes {
                         } catch (Exception x) {
                             FileUtils.deleteQuietly(left);
                             FileUtils.deleteQuietly(right);
-                            LOG.error("Failed to split:{} became left:{} right:{}", new Object[] { stripeRoot, left, right }, x);
+                            LOG.error("Failed to split:{} became left:{} right:{}", new Object[]{stripeRoot, left, right}, x);
                             throw x;
                         }
                     }, fsync);
