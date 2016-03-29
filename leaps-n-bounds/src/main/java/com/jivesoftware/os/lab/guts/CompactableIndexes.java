@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
+import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
@@ -29,8 +31,8 @@ public class CompactableIndexes {
 
     // newest to oldest
     private final IndexesLock indexesLock = new IndexesLock();
-    private volatile boolean[] merging = new boolean[0];
-    private volatile RawConcurrentReadableIndex[] indexes = new RawConcurrentReadableIndex[0];
+    private volatile boolean[] merging = new boolean[0]; // is volatile for reference changes not value changes.
+    private volatile RawConcurrentReadableIndex[] indexes = new RawConcurrentReadableIndex[0];  // is volatile for reference changes not value changes.
     private volatile long version;
     private volatile boolean disposed = false;
     private final AtomicLong compactorCheckVersion = new AtomicLong();
@@ -119,18 +121,6 @@ public class CompactableIndexes {
 
     }
 
-    public static interface SplitterBuilder {
-
-        Callable<Void> build(boolean fsync, SplitterBuilderCallback splitterBuilderCallback) throws Exception;
-
-        public static interface SplitterBuilderCallback {
-
-            Void call(IndexFactory leftHalfIndexFactory,
-                IndexFactory rightHalfIndexFactory,
-                CommitIndex commitIndex,
-                boolean fsync) throws Exception;
-        }
-    }
 
     private boolean splittable(
         long splittableIfKeysLargerThanBytes,
@@ -389,15 +379,6 @@ public class CompactableIndexes {
         }
     }
 
-    public static interface MergerBuilder {
-
-        Callable<Void> build(int minimumRun, boolean fsync, MergerBuilderCallback callback) throws Exception;
-
-        public static interface MergerBuilderCallback {
-
-            Callable<Void> build(int minimumRun, boolean fsync, IndexFactory indexFactory, CommitIndex commitIndex) throws Exception;
-        }
-    }
 
     private Merger buildMerger(int minimumRun, IndexFactory indexFactory, CommitIndex commitIndex, boolean fsync) throws Exception {
         boolean[] mergingCopy;

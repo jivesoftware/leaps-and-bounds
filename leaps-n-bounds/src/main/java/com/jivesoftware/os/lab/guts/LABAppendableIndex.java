@@ -1,13 +1,11 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.google.common.base.Preconditions;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * @author jonathan.colt

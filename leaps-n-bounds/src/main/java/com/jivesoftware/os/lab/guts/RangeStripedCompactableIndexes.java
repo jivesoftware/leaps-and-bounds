@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
-import com.jivesoftware.os.lab.guts.CompactableIndexes.MergerBuilder;
-import com.jivesoftware.os.lab.guts.CompactableIndexes.SplitterBuilder;
+import com.jivesoftware.os.lab.guts.api.MergerBuilder;
+import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -209,14 +209,14 @@ public class RangeStripedCompactableIndexes {
 
     private class FileBackMergableIndexs implements SplitterBuilder, MergerBuilder {
 
-        private final ExecutorService destroy;
-        private final AtomicLong largestStripeId;
-        private final AtomicLong largestIndexId;
+        final ExecutorService destroy;
+        final AtomicLong largestStripeId;
+        final AtomicLong largestIndexId;
 
-        private final File root;
-        private final String indexName;
-        private final long stripeId;
-        private final CompactableIndexes compactableIndexes;
+        final File root;
+        final String indexName;
+        final long stripeId;
+        final CompactableIndexes compactableIndexes;
 
         public FileBackMergableIndexs(ExecutorService destroy,
             AtomicLong largestStripeId,
@@ -247,7 +247,7 @@ public class RangeStripedCompactableIndexes {
             FileUtils.deleteQuietly(splittingRoot);
         }
 
-        private void append(RawMemoryIndex rawMemoryIndex, byte[] minKey, byte[] maxKey) throws Exception {
+        void append(RawMemoryIndex rawMemoryIndex, byte[] minKey, byte[] maxKey) throws Exception {
 
             LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawMemoryIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, useMemMap);
             compactableIndexes.append(lab);
@@ -299,23 +299,23 @@ public class RangeStripedCompactableIndexes {
             return reopenedIndex;
         }
 
-        private boolean tx(ReaderTx tx) throws Exception {
+        boolean tx(ReaderTx tx) throws Exception {
             return compactableIndexes.tx(tx);
         }
 
-        private long count() throws Exception {
+        long count() throws Exception {
             return compactableIndexes.count();
         }
 
-        private void close() throws Exception {
+        void close() throws Exception {
             compactableIndexes.close();
         }
 
-        private int debt(int minMergeDebt) {
+        int debt(int minMergeDebt) {
             return compactableIndexes.debt(minMergeDebt);
         }
 
-        private Callable<Void> compactor(int minMergeDebt, boolean fsync) throws Exception {
+        Callable<Void> compactor(int minMergeDebt, boolean fsync) throws Exception {
             return compactableIndexes.compactor(
                 splitWhenKeysTotalExceedsNBytes,
                 splitWhenValuesTotalExceedsNBytes,

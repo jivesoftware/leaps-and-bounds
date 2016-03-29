@@ -31,6 +31,10 @@ public class UIO {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
+    private UIO() {
+    }
+
+
     /**
      *
      * @param _filer

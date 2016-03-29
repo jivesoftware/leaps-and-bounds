@@ -6,6 +6,9 @@ package com.jivesoftware.os.lab.guts;
  */
 public class TieredCompaction {
 
+    private TieredCompaction() {
+    }
+
     public static MergeRange getMergeRange(int minimumRun,
         boolean[] mergingCopy,
         long[] indexCounts,
