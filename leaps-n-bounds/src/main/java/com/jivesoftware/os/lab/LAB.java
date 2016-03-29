@@ -226,29 +226,13 @@ public class LAB implements ValueIndex {
         }
         commitSemaphore.acquire(numPermits);
         try {
-            if (memoryIndex.isEmpty()) {
+            RawMemoryIndex stackCopy = memoryIndex;
+            if (stackCopy.isEmpty()) {
                 return Collections.emptyList();
             }
-            RawMemoryIndex stackCopy = memoryIndex;
             flushingMemoryIndex = stackCopy;
             memoryIndex = new RawMemoryIndex(destroy, valueMerger);
             rangeStripedCompactableIndexes.append(stackCopy, fsync);
-
-//            rangeStripedCompactableIndexes.tx(null, null, new ReaderTx() {
-//                @Override
-//                public boolean tx(ReadIndex[] readIndexs) throws Exception {
-//
-//                    NextRawEntry rowScan = IndexUtil.rowScan(readIndexs);
-//                    while (rowScan.next(new RawEntryStream() {
-//                        @Override
-//                        public boolean stream(byte[] rawEntry, int offset, int length) throws Exception {
-//                            System.out.println("BALLS:" + UIO.bytesLong(rawEntry, 4));
-//                            return true;
-//                        }
-//                    }) == Next.more);
-//                    return true;
-//                }
-//            });
             flushingMemoryIndex = null;
             stackCopy.destroy();
         } finally {
