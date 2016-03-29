@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
-import com.jivesoftware.os.lab.LABValueMerger;
+import com.jivesoftware.os.lab.LABRawEntryMarshaller;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -52,6 +52,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
+            new SimpleRawEntryMarshaller(),
             8);
 
         int count = 0;
@@ -102,7 +103,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 }
                 int longKey = rand.nextInt(i);
                 byte[] longAsBytes = UIO.longBytes(longKey);
-                indexs.tx(longAsBytes, longAsBytes, acquire -> {
+                indexs.tx(longAsBytes, longAsBytes, -1, -1, acquire -> {
                     GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {
@@ -147,7 +148,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         for (int b = 0; b < numBatches; b++) {
 
-            RawMemoryIndex index = new RawMemoryIndex(destroy, new LABValueMerger());
+            RawMemoryIndex index = new RawMemoryIndex(destroy, new LABRawEntryMarshaller());
             long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
             indexs.append(index, fsync);
 

@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ScanFromFp;
 import com.jivesoftware.os.lab.io.api.IReadable;
@@ -20,6 +21,7 @@ import static com.jivesoftware.os.lab.io.api.UIO.readLength;
  */
 public class ActiveScan implements ScanFromFp {
 
+    private final RawEntryMarshaller mergeRawEntry;
     private final Leaps leaps;
     private final ConcurrentLHash<Leaps> leapsCache;
     private final Footer footer;
@@ -29,7 +31,14 @@ public class ActiveScan implements ScanFromFp {
     private long activeFp = Long.MAX_VALUE;
     private boolean activeResult;
 
-    public ActiveScan(Leaps leaps, ConcurrentLHash<Leaps> leapsCache, Footer footer, IReadable readable, byte[] lengthBuffer) {
+    public ActiveScan(RawEntryMarshaller mergeRawEntry,
+        Leaps leaps,
+        ConcurrentLHash<Leaps> leapsCache,
+        Footer footer,
+        IReadable readable,
+        byte[] lengthBuffer) {
+
+        this.mergeRawEntry = mergeRawEntry;
         this.leaps = leaps;
         this.leapsCache = leapsCache;
         this.footer = footer;
@@ -47,8 +56,7 @@ public class ActiveScan implements ScanFromFp {
         int type;
         while ((type = readable.read()) >= 0) {
             if (type == ENTRY) {
-                int length = UIO.readInt(readable, "entryLength", lengthBuffer);
-                int entryLength = length - 4;
+                int entryLength = mergeRawEntry.entryLength(readable, lengthBuffer);
                 if (entryBuffer == null || entryBuffer.length < entryLength) {
                     entryBuffer = new byte[entryLength];
                 }
@@ -134,7 +142,7 @@ public class ActiveScan implements ScanFromFp {
                 }
                 UIO.readFully(readable, midKey, len);
             }
-           
+
             int cmp = IndexUtil.compare(midKey, 0, len, key, 0, key.length);
             if (cmp < 0) {
                 low = mid + 1;

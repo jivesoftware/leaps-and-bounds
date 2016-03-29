@@ -27,7 +27,7 @@ public class LABEnvironmentConcurrenyNGTest {
 
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            new LABValueMerger(), false, 4, 10, 8);
+            new LABRawEntryMarshaller(), false, 4, 10, 8);
 
         concurentTest(env);
     }
@@ -37,7 +37,7 @@ public class LABEnvironmentConcurrenyNGTest {
 
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            new LABValueMerger(), true, 4, 10, 8);
+            new LABRawEntryMarshaller(), true, 4, 10, 8);
 
         concurentTest(env);
     }

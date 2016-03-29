@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.jivesoftware.os.lab.guts.SimpleRawEntry.rawEntry;
+import static com.jivesoftware.os.lab.guts.SimpleRawEntryMarshaller.rawEntry;
 
 /**
  *
@@ -30,6 +30,7 @@ import static com.jivesoftware.os.lab.guts.SimpleRawEntry.rawEntry;
 public class CompactableIndexsNGTest {
 
     private static OrderIdProvider timeProvider = new OrderIdProviderImpl(new ConstantWriterIdProvider(1));
+    private final SimpleRawEntryMarshaller simpleRawEntry = new SimpleRawEntryMarshaller();
 
     @Test(enabled = true)
     public void testPointGets() throws Exception {
@@ -52,7 +53,7 @@ public class CompactableIndexsNGTest {
 
             int entriesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(counts[ci], entriesBetweenLeaps);
-            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
+            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps, simpleRawEntry);
 
             write.append((stream) -> {
                 for (int i = 0; i < counts[ci]; i++) {
@@ -68,7 +69,7 @@ public class CompactableIndexsNGTest {
             write.closeAppendable(true);
 
             indexFile = new IndexFile(file, "r", false);
-            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
+            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
         }
 
         for (int i = 1; i <= id.get(); i++) {
@@ -156,12 +157,12 @@ public class CompactableIndexsNGTest {
                 IndexFile indexFile = new IndexFile(file, "rw", false);
                 IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-                LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2);
+                LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry);
                 IndexTestUtils.append(rand, write, 0, step, count, desired);
                 write.closeAppendable(fsync);
 
                 indexFile = new IndexFile(file, "r", false);
-                indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
+                indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
 
             }
             Thread.sleep(10);
@@ -177,10 +178,10 @@ public class CompactableIndexsNGTest {
                 (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
+                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry);
                 },
                 (ids) -> {
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), 8);
+                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), simpleRawEntry, 8);
                 }));
 
         if (compactor != null) {
@@ -213,12 +214,12 @@ public class CompactableIndexsNGTest {
             IndexFile indexFile = new IndexFile(indexFiler, "rw", false);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2);
+            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry);
             IndexTestUtils.append(rand, write, 0, step, count, desired);
             write.closeAppendable(fsync);
 
             indexFile = new IndexFile(indexFiler, "r", false);
-            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
+            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
         }
 
         indexs.tx((ReadIndex[] readIndexs) -> {
@@ -226,7 +227,7 @@ public class CompactableIndexsNGTest {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
                 RawEntryStream stream = (rawEntry, offset, length) -> {
-                    System.out.println(" Found:" + SimpleRawEntry.toString(rawEntry));
+                    System.out.println(" Found:" + SimpleRawEntryMarshaller.toString(rawEntry));
                     return true;
                 };
                 while (rowScan.next(stream) == NextRawEntry.Next.more);
@@ -243,9 +244,9 @@ public class CompactableIndexsNGTest {
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps);
+                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry);
                 }, (ids) -> {
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), 8);
+                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), simpleRawEntry, 8);
                 }));
 
         if (compactor != null) {
@@ -259,7 +260,7 @@ public class CompactableIndexsNGTest {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
                 RawEntryStream stream = (rawEntry, offset, length) -> {
-                    System.out.println(" Found:" + SimpleRawEntry.toString(rawEntry));
+                    System.out.println(" Found:" + SimpleRawEntryMarshaller.toString(rawEntry));
                     return true;
                 };
                 while (rowScan.next(stream) == NextRawEntry.Next.more);
@@ -270,7 +271,7 @@ public class CompactableIndexsNGTest {
         indexs = new CompactableIndexes();
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         IndexFile indexFile = new IndexFile(indexFiler, "r", false);
-        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, 8));
+        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
 
         assertions(indexs, count, step, desired);
     }
@@ -287,9 +288,9 @@ public class CompactableIndexsNGTest {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired);
             AtomicBoolean failed = new AtomicBoolean();
             RawEntryStream stream = (rawEntry, offset, length) -> {
-                System.out.println("Expected:key:" + UIO.bytesLong(keys.get(index[0])) + " Found:" + SimpleRawEntry.toString(rawEntry));
+                System.out.println("Expected:key:" + UIO.bytesLong(keys.get(index[0])) + " Found:" + SimpleRawEntryMarshaller.toString(rawEntry));
                 //Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
-                if (UIO.bytesLong(keys.get(index[0])) != SimpleRawEntry.key(rawEntry)) {
+                if (UIO.bytesLong(keys.get(index[0])) != SimpleRawEntryMarshaller.key(rawEntry)) {
                     failed.set(true);
                 }
                 index[0]++;
@@ -309,16 +310,16 @@ public class CompactableIndexsNGTest {
                 GetRaw getRaw = IndexUtil.get(acquired);
                 byte[] key = UIO.longBytes(k);
                 RawEntryStream stream = (rawEntry, offset, length) -> {
-                    System.out.println("->" + SimpleRawEntry.key(rawEntry) + " " + SimpleRawEntry.value(rawEntry) + " " + offset + " " + length);
+                    System.out.println("->" + SimpleRawEntryMarshaller.key(rawEntry) + " " + SimpleRawEntryMarshaller.value(rawEntry) + " " + offset + " " + length);
                     if (rawEntry != null) {
-                        System.out.println("Got: " + SimpleRawEntry.toString(rawEntry));
-                        byte[] rawKey = UIO.longBytes(SimpleRawEntry.key(rawEntry));
+                        System.out.println("Got: " + SimpleRawEntryMarshaller.toString(rawEntry));
+                        byte[] rawKey = UIO.longBytes(SimpleRawEntryMarshaller.key(rawEntry));
                         Assert.assertEquals(rawKey, key);
                         byte[] d = desired.get(key);
                         if (d == null) {
                             Assert.fail();
                         } else {
-                            Assert.assertEquals(SimpleRawEntry.value(rawEntry), SimpleRawEntry.value(d));
+                            Assert.assertEquals(SimpleRawEntryMarshaller.value(rawEntry), SimpleRawEntryMarshaller.value(d));
                         }
                     } else {
                         Assert.assertFalse(desired.containsKey(key), "Desired doesn't contain:" + UIO.bytesLong(key));
@@ -337,8 +338,8 @@ public class CompactableIndexsNGTest {
 
                 int[] streamed = new int[1];
                 RawEntryStream stream = (rawEntry, offset, length) -> {
-                    if (SimpleRawEntry.value(rawEntry) > -1) {
-                        System.out.println("Streamed:" + SimpleRawEntry.toString(rawEntry));
+                    if (SimpleRawEntryMarshaller.value(rawEntry) > -1) {
+                        System.out.println("Streamed:" + SimpleRawEntryMarshaller.toString(rawEntry));
                         streamed[0]++;
                     }
                     return true;
@@ -359,7 +360,7 @@ public class CompactableIndexsNGTest {
                 int _i = i;
                 int[] streamed = new int[1];
                 RawEntryStream stream = (rawEntry, offset, length) -> {
-                    if (SimpleRawEntry.value(rawEntry) > -1) {
+                    if (SimpleRawEntryMarshaller.value(rawEntry) > -1) {
                         streamed[0]++;
                     }
                     return true;

@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
-import com.jivesoftware.os.lab.api.MergeRawEntry;
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
@@ -30,13 +30,14 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
     private final ExecutorService destroy;
-    private final MergeRawEntry merger;
+    private final RawEntryMarshaller merger;
 
     private final int numBones = Short.MAX_VALUE;
     private final Semaphore hideABone = new Semaphore(numBones, true);
     private final ReadIndex reader;
+    private volatile TimestampAndVersion maxTimestampAndVersion = TimestampAndVersion.NULL;
 
-    public RawMemoryIndex(ExecutorService destroy, MergeRawEntry merger) {
+    public RawMemoryIndex(ExecutorService destroy, RawEntryMarshaller merger) {
         this.destroy = destroy;
         this.merger = merger;
         this.reader = new ReadIndex() {
@@ -155,13 +156,25 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             index.compute(key, (k, v) -> {
                 if (v == null) {
                     approximateCount.incrementAndGet();
+                    long timestamp = merger.timestamp(rawEntry, 0, rawEntry.length);
+                    long version = merger.version(rawEntry, 0, rawEntry.length);
+                    if (maxTimestampAndVersion.compare(timestamp, version) < 0) {
+                        maxTimestampAndVersion = new TimestampAndVersion(timestamp, version);
+                    }
                     return rawEntry;
                 } else {
-                    return merger.merge(v, rawEntry);
+                    byte[] merged = merger.merge(v, rawEntry);
+                    long timestamp = merger.timestamp(merged, 0, merged.length);
+                    long version = merger.version(merged, 0, merged.length);
+                    if (maxTimestampAndVersion.compare(timestamp, version) < 0) {
+                        maxTimestampAndVersion = new TimestampAndVersion(timestamp, version);
+                    }
+                    return merged;
                 }
             });
             return true;
         });
+
     }
 
     // you must call release on this reader! Try to only use it as long as you have to!
@@ -230,6 +243,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     @Override
     public byte[] maxKey() {
         return index.lastKey();
+    }
+
+    @Override
+    public TimestampAndVersion maxTimestampAndVersion() {
+        return maxTimestampAndVersion;
     }
 
 }

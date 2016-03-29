@@ -21,7 +21,8 @@ import org.testng.annotations.Test;
  */
 public class IndexStressNGTest {
 
-    NumberFormat format = NumberFormat.getInstance();
+    private final NumberFormat format = NumberFormat.getInstance();
+    private final SimpleRawEntryMarshaller simpleRawEntry = new SimpleRawEntryMarshaller();
 
     @Test(enabled = false)
     public void stress() throws Exception {
@@ -62,11 +63,11 @@ public class IndexStressNGTest {
                                 int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
                                 return new LABAppendableIndex(id, new IndexFile(mergingFile, "rw", true),
-                                    maxLeaps, entriesBetweenLeaps);
+                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry);
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
-                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true), 8);
+                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true), simpleRawEntry, 8);
                             }));
                     if (compactor != null) {
                         waitForDebtToDrain.incrementAndGet();
@@ -166,12 +167,12 @@ public class IndexStressNGTest {
 
             long startMerge = System.currentTimeMillis();
             LABAppendableIndex write = new LABAppendableIndex(id,
-                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps);
+                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps, simpleRawEntry);
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.closeAppendable(fsync);
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
-            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true), 8));
+            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true), simpleRawEntry, 8));
 
             count += batchSize;
 

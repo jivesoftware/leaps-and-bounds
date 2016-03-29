@@ -41,9 +41,9 @@ public class InterleaveStreamNGTest {
     private void assertExpected(InterleaveStream ips, List<Expected> expected) throws Exception {
         while (ips.next((rawEntry, offset, length) -> {
             Expected expect = expected.remove(0);
-            System.out.println("key:" + SimpleRawEntry.key(rawEntry) + " vs" + expect.key + " value:" + SimpleRawEntry.value(rawEntry) + " vs " + expect.value);
-            Assert.assertEquals(SimpleRawEntry.key(rawEntry), expect.key);
-            Assert.assertEquals(SimpleRawEntry.value(rawEntry), expect.value);
+            System.out.println("key:" + SimpleRawEntryMarshaller.key(rawEntry) + " vs" + expect.key + " value:" + SimpleRawEntryMarshaller.value(rawEntry) + " vs " + expect.value);
+            Assert.assertEquals(SimpleRawEntryMarshaller.key(rawEntry), expect.key);
+            Assert.assertEquals(SimpleRawEntryMarshaller.value(rawEntry), expect.value);
             return true;
         }) == NextRawEntry.Next.more);
         Assert.assertTrue(expected.isEmpty());
@@ -113,14 +113,14 @@ public class InterleaveStreamNGTest {
 
                 int i = (indexes - 1) - wi;
 
-                memoryIndexes[i] = new RawMemoryIndex(destroy, new SimpleRawEntry());
+                memoryIndexes[i] = new RawMemoryIndex(destroy, new SimpleRawEntryMarshaller());
                 IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
                 System.out.println("Index " + i);
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
                 NextRawEntry nextRawEntry = readerIndexs[wi].rowScan();
                 while (nextRawEntry.next((rawEntry, offset, length) -> {
-                    System.out.println(SimpleRawEntry.toString(rawEntry));
+                    System.out.println(SimpleRawEntryMarshaller.toString(rawEntry));
                     return true;
                 }) == NextRawEntry.Next.more);
                 System.out.println("\n");
@@ -133,8 +133,8 @@ public class InterleaveStreamNGTest {
             List<Expected> expected = new ArrayList<>();
             System.out.println("Expected:");
             for (Map.Entry<byte[], byte[]> entry : desired.entrySet()) {
-                expected.add(new Expected(UIO.bytesLong(entry.getKey()), SimpleRawEntry.value(entry.getValue())));
-                System.out.println(UIO.bytesLong(entry.getKey()) + " timestamp:" + SimpleRawEntry.value(entry.getValue()));
+                expected.add(new Expected(UIO.bytesLong(entry.getKey()), SimpleRawEntryMarshaller.value(entry.getValue())));
+                System.out.println(UIO.bytesLong(entry.getKey()) + " timestamp:" + SimpleRawEntryMarshaller.value(entry.getValue()));
             }
             System.out.println("\n");
 
@@ -168,7 +168,7 @@ public class InterleaveStreamNGTest {
         int[] index = {0};
         return (stream) -> {
             if (index[0] < keys.length) {
-                byte[] rawEntry = SimpleRawEntry.rawEntry(keys[index[0]], values[index[0]]);
+                byte[] rawEntry = SimpleRawEntryMarshaller.rawEntry(keys[index[0]], values[index[0]]);
                 if (!stream.stream(rawEntry, 0, rawEntry.length)) {
                     return Next.stopped;
                 }

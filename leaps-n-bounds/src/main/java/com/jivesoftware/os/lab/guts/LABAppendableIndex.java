@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.io.AppendableHeap;
@@ -20,6 +21,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final IndexFile index;
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
+    private final RawEntryMarshaller mergeRawEntry;
 
     private final byte[] lengthBuffer = new byte[4];
 
@@ -34,17 +36,22 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private long keysSizeInBytes;
     private long valuesSizeInBytes;
 
+    private long maxTimestamp = -1;
+    private long maxTimestampVersion = -1;
+
     private final IAppendOnly appendOnly;
 
     public LABAppendableIndex(IndexRangeId indexRangeId,
         IndexFile index,
         int maxLeaps,
-        int updatesBetweenLeaps) throws IOException {
+        int updatesBetweenLeaps,
+        RawEntryMarshaller mergeRawEntry) throws IOException {
 
         this.indexRangeId = indexRangeId;
         this.index = index;
         this.maxLeaps = maxLeaps;
         this.updatesBetweenLeaps = updatesBetweenLeaps;
+        this.mergeRawEntry = mergeRawEntry;
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
         this.appendOnly = index.appender();
     }
@@ -68,19 +75,21 @@ public class LABAppendableIndex implements RawAppendableIndex {
             long fp = appendOnly.getFilePointer();
             startOfEntryIndex[updatesSinceLeap] = fp + 1 + 4 + entryBuffer.length();
             UIO.writeByte(entryBuffer, ENTRY, "type");
-            int entryLength = 4 + length + 4;
-            UIO.writeInt(entryBuffer, entryLength, "entryLength", lengthBuffer);
-            entryBuffer.append(rawEntry, offset, length);
-            UIO.writeInt(entryBuffer, entryLength, "entryLength", lengthBuffer);
 
-            //appendOnly.append(entryBuffer.leakBytes(), 0, (int) entryBuffer.length());
-
-            int keyLength = UIO.bytesInt(rawEntry, offset);
-            byte[] key = new byte[keyLength];
-            System.arraycopy(rawEntry, 4, key, 0, keyLength);
-
+            mergeRawEntry.writeRawEntry(rawEntry, offset, length, entryBuffer, lengthBuffer);
+            byte[] key = mergeRawEntry.key(rawEntry, offset, length);
+            int keyLength = key.length;
             keysSizeInBytes += keyLength;
             valuesSizeInBytes += rawEntry.length - keyLength;
+
+            long rawEntryTimestamp = mergeRawEntry.timestamp(rawEntry, offset, length);
+            if (rawEntryTimestamp > -1 && maxTimestamp < rawEntryTimestamp) {
+                maxTimestamp = rawEntryTimestamp;
+                maxTimestampVersion = mergeRawEntry.version(rawEntry, offset, length);
+            } else {
+                maxTimestamp = rawEntryTimestamp;
+                maxTimestampVersion = mergeRawEntry.version(rawEntry, offset, length);
+            }
 
             if (firstKey == null) {
                 firstKey = key;
@@ -135,22 +144,23 @@ public class LABAppendableIndex implements RawAppendableIndex {
         }
 
         UIO.writeByte(appendOnly, FOOTER, "type");
-        new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, firstKey, lastKey).write(appendOnly, lengthBuffer);
+        new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, firstKey, lastKey, new TimestampAndVersion(maxTimestamp, maxTimestampVersion))
+            .write(appendOnly, lengthBuffer);
         appendOnly.flush(fsync);
         index.close();
     }
 
     @Override
     public String toString() {
-        return "LABAppendableIndex{" +
-            "indexRangeId=" + indexRangeId +
-            ", index=" + index +
-            ", maxLeaps=" + maxLeaps +
-            ", updatesBetweenLeaps=" + updatesBetweenLeaps +
-            ", updatesSinceLeap=" + updatesSinceLeap +
-            ", leapCount=" + leapCount +
-            ", count=" + count +
-            '}';
+        return "LABAppendableIndex{"
+            + "indexRangeId=" + indexRangeId
+            + ", index=" + index
+            + ", maxLeaps=" + maxLeaps
+            + ", updatesBetweenLeaps=" + updatesBetweenLeaps
+            + ", updatesSinceLeap=" + updatesSinceLeap
+            + ", leapCount=" + leapCount
+            + ", count=" + count
+            + '}';
     }
 
 }

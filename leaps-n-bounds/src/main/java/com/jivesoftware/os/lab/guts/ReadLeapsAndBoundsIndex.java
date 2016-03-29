@@ -9,6 +9,7 @@ import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 
 /**
  * @author jonathan.colt
@@ -16,17 +17,20 @@ import java.util.concurrent.Semaphore;
 public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     private final Semaphore hideABone;
+    private final RawEntryMarshaller mergeRawEntry;
     private final Leaps leaps;
     private final ConcurrentLHash<Leaps> leapsCache;
     private final Footer footer;
     private final Callable<IReadable> readable;
 
     public ReadLeapsAndBoundsIndex(Semaphore hideABone,
+        RawEntryMarshaller mergeRawEntry,
         Leaps leaps,
         ConcurrentLHash<Leaps> leapsCache,
         Footer footer,
         Callable<IReadable> readable) {
         this.hideABone = hideABone;
+        this.mergeRawEntry = mergeRawEntry;
         this.leaps = leaps;
         this.leapsCache = leapsCache;
         this.footer = footer;
@@ -47,12 +51,12 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     public GetRaw get() throws Exception {
 
         // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
-        return new Gets(new ActiveScan(leaps, leapsCache, footer, readable.call(), new byte[8]));
+        return new Gets(new ActiveScan(mergeRawEntry, leaps, leapsCache, footer, readable.call(), new byte[8]));
     }
 
     @Override
     public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
-        ActiveScan activeScan = new ActiveScan(leaps, leapsCache, footer, readable.call(), new byte[8]);
+        ActiveScan activeScan = new ActiveScan(mergeRawEntry, leaps, leapsCache, footer, readable.call(), new byte[8]);
         activeScan.reset();
         long fp = activeScan.getInclusiveStartOfRow(from, false);
         if (fp < 0) {
@@ -84,7 +88,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public NextRawEntry rowScan() throws Exception {
-        ActiveScan activeScan = new ActiveScan(leaps, leapsCache, footer, readable.call(), new byte[8]);
+        ActiveScan activeScan = new ActiveScan(mergeRawEntry, leaps, leapsCache, footer, readable.call(), new byte[8]);
         activeScan.reset();
         return (stream) -> {
             activeScan.next(0, stream);

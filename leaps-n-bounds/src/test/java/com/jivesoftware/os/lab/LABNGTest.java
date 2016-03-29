@@ -23,7 +23,7 @@ public class LABNGTest {
         boolean fsync = true;
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            new LABValueMerger(), false, 1, 2, 8);
+            new LABRawEntryMarshaller(), false, 1, 2, 8);
 
         ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1);
 
@@ -67,9 +67,9 @@ public class LABNGTest {
         index.commit(fsync);
 
         index.append((stream) -> {
-            stream.stream(UIO.longBytes(1), System.currentTimeMillis(), true, 0, UIO.longBytes(1));
-            stream.stream(UIO.longBytes(2), System.currentTimeMillis(), true, 0, UIO.longBytes(2));
-            stream.stream(UIO.longBytes(3), System.currentTimeMillis(), true, 0, UIO.longBytes(3));
+            stream.stream(UIO.longBytes(1), System.currentTimeMillis(), true, 1, UIO.longBytes(1));
+            stream.stream(UIO.longBytes(2), System.currentTimeMillis(), true, 1, UIO.longBytes(2));
+            stream.stream(UIO.longBytes(3), System.currentTimeMillis(), true, 1, UIO.longBytes(3));
             return true;
         });
 

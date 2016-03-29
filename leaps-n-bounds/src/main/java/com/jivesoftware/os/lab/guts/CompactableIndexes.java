@@ -1,14 +1,14 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
-import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
+import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -37,6 +37,7 @@ public class CompactableIndexes {
     private volatile boolean disposed = false;
     private final AtomicLong compactorCheckVersion = new AtomicLong();
     private final AtomicBoolean compacting = new AtomicBoolean();
+    private volatile TimestampAndVersion maxTimestampAndVersion;
 
     public boolean append(RawConcurrentReadableIndex index) {
         synchronized (indexesLock) {
@@ -55,9 +56,25 @@ public class CompactableIndexes {
 
             merging = prependToMerging;
             indexes = prependToIndexes;
+            refreshMaxTimestamp(prependToIndexes);
             version++;
         }
         return true;
+    }
+
+    private void refreshMaxTimestamp(RawConcurrentReadableIndex[] concurrentReadableIndexs) {
+        TimestampAndVersion timestampAndVersion = TimestampAndVersion.NULL;
+        for (RawConcurrentReadableIndex rawConcurrentReadableIndex : concurrentReadableIndexs) {
+            TimestampAndVersion other = rawConcurrentReadableIndex.maxTimestampAndVersion();
+            if (timestampAndVersion.compare(other.maxTimestamp, other.maxTimestampVersion) < 0) {
+                timestampAndVersion = other;
+            }
+        }
+        maxTimestampAndVersion = timestampAndVersion;
+    }
+
+    public TimestampAndVersion maxTimeStampAndVersion() {
+        return maxTimestampAndVersion;
     }
 
     public int debt(int mergableIfDebtLargerThan) {
@@ -120,7 +137,6 @@ public class CompactableIndexes {
         }
 
     }
-
 
     private boolean splittable(
         long splittableIfKeysLargerThanBytes,
@@ -299,6 +315,7 @@ public class CompactableIndexes {
                                     }
                                     version++;
                                     indexes = new RawConcurrentReadableIndex[0]; // TODO go handle null so that thread wait rety higher up
+                                    refreshMaxTimestamp(indexes);
                                     merging = new boolean[0];
                                     disposed = true;
                                     LOG.info("All done splitting :) for a middle of:" + Arrays.toString(middle));
@@ -378,7 +395,6 @@ public class CompactableIndexes {
             }
         }
     }
-
 
     private Merger buildMerger(int minimumRun, IndexFactory indexFactory, CommitIndex commitIndex, boolean fsync) throws Exception {
         boolean[] mergingCopy;
@@ -523,6 +539,7 @@ public class CompactableIndexes {
 
                     merging = updateMerging;
                     indexes = updateIndexes;
+                    refreshMaxTimestamp(updateIndexes);
                     version++;
                 }
 

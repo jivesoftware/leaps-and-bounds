@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
@@ -43,6 +44,7 @@ public class RangeStripedCompactableIndexes {
     private final long splitWhenKeysTotalExceedsNBytes;
     private final long splitWhenValuesTotalExceedsNBytes;
     private final long splitWhenValuesAndKeysTotalExceedsNBytes;
+    private final RawEntryMarshaller mergeRawEntry;
     private final int concurrency;
     private final Semaphore appendSemaphore = new Semaphore(Short.MAX_VALUE, true);
 
@@ -54,6 +56,7 @@ public class RangeStripedCompactableIndexes {
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
+        RawEntryMarshaller mergeRawEntry,
         int concurrency) throws Exception {
 
         this.destroy = destroy;
@@ -64,6 +67,7 @@ public class RangeStripedCompactableIndexes {
         this.splitWhenKeysTotalExceedsNBytes = splitWhenKeysTotalExceedsNBytes;
         this.splitWhenValuesTotalExceedsNBytes = splitWhenValuesTotalExceedsNBytes;
         this.splitWhenValuesAndKeysTotalExceedsNBytes = splitWhenValuesAndKeysTotalExceedsNBytes;
+        this.mergeRawEntry = mergeRawEntry;
         this.concurrency = concurrency;
         this.indexes = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
 
@@ -113,6 +117,18 @@ public class RangeStripedCompactableIndexes {
                 }
             }
         }
+    }
+
+
+    public TimestampAndVersion maxTimeStampAndVersion() {
+        TimestampAndVersion max = TimestampAndVersion.NULL;
+        for (FileBackMergableIndexs indexs : indexes.values()) {
+            TimestampAndVersion other = indexs.compactableIndexes.maxTimeStampAndVersion();
+            if (max.compare(other.maxTimestamp, other.maxTimestampVersion) < 1) {
+                max = other;
+            }
+        }
+        return max;
     }
 
     @Override
@@ -189,7 +205,7 @@ public class RangeStripedCompactableIndexes {
                         continue;
                     }
                     IndexFile indexFile = new IndexFile(file, "rw", useMemMap);
-                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, concurrency);
+                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, mergeRawEntry, concurrency);
                     if (lab.minKey() != null && lab.maxKey() != null) {
                         if (keyRange == null) {
                             keyRange = new KeyRange(lab.minKey(), lab.maxKey());
@@ -278,7 +294,7 @@ public class RangeStripedCompactableIndexes {
             File commitingIndexFile = indexRangeId.toFile(commitingRoot);
             FileUtils.deleteQuietly(commitingIndexFile);
             IndexFile indexFile = new IndexFile(commitingIndexFile, "rw", useMemMap);
-            LABAppendableIndex appendableIndex = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps);
+            LABAppendableIndex appendableIndex = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps, mergeRawEntry);
             appendableIndex.append((stream) -> {
                 ReadIndex reader = index.acquireReader();
                 try {
@@ -298,7 +314,7 @@ public class RangeStripedCompactableIndexes {
         private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId) throws Exception {
             FileUtils.moveFile(commitingIndexFile, commitedIndexFile);
             LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy,
-                indexRangeId, new IndexFile(commitedIndexFile, "r", useMemMap), concurrency);
+                indexRangeId, new IndexFile(commitedIndexFile, "r", useMemMap), mergeRawEntry, concurrency);
             reopenedIndex.flush(true);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
             return reopenedIndex;
@@ -360,7 +376,8 @@ public class RangeStripedCompactableIndexes {
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
-                            entriesBetweenLeaps);
+                            entriesBetweenLeaps,
+                            mergeRawEntry);
                         return writeLeapsAndBoundsIndex;
                     }, (IndexRangeId id, long worstCaseCount) -> {
                         int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
@@ -373,7 +390,8 @@ public class RangeStripedCompactableIndexes {
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
-                            entriesBetweenLeaps);
+                            entriesBetweenLeaps,
+                            mergeRawEntry);
                         return writeLeapsAndBoundsIndex;
                     }, (ids) -> {
                         File left = new File(indexRoot, String.valueOf(nextStripeIdLeft));
@@ -450,7 +468,8 @@ public class RangeStripedCompactableIndexes {
                 LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                     indexFile,
                     maxLeaps,
-                    entriesBetweenLeaps);
+                    entriesBetweenLeaps,
+                    mergeRawEntry);
                 return writeLeapsAndBoundsIndex;
             }, (ids) -> {
                 File mergedIndexFile = ids.get(0).toFile(mergingRoot);
@@ -544,7 +563,12 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public boolean tx(byte[] from, byte[] to, ReaderTx tx) throws Exception {
+    public boolean tx(byte[] from,
+        byte[] to,
+        long newerThanTimestamp,
+        long newerThanTimestampVersion,
+        ReaderTx tx) throws Exception {
+
         if (indexes.isEmpty()) {
             return tx.tx(new ReadIndex[0]);
         }
@@ -573,6 +597,9 @@ public class RangeStripedCompactableIndexes {
             return tx.tx(new ReadIndex[0]);
         } else {
             for (FileBackMergableIndexs index : map.values()) {
+                if (index.compactableIndexes.maxTimeStampAndVersion().compare(newerThanTimestamp, newerThanTimestampVersion) < 0) {
+                    continue;
+                }
                 if (!index.tx(tx)) {
                     return false;
                 }

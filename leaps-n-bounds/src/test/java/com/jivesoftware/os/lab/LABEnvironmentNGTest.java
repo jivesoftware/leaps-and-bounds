@@ -24,12 +24,12 @@ public class LABEnvironmentNGTest {
             root = Files.createTempDir();
             System.out.println("root" + root.getAbsolutePath());
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                new LABValueMerger(), false, 4, 8, 8);
+                new LABRawEntryMarshaller(), false, 4, 8, 8);
 
             ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1);
             indexTest(index);
 
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABValueMerger(),
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABRawEntryMarshaller(),
                 true, 4, 8, 8);
 
             index = env.open("foo", 4096, 1000, -1, -1, -1);
@@ -37,7 +37,7 @@ public class LABEnvironmentNGTest {
 
             env.shutdown();
 
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABValueMerger(),
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABRawEntryMarshaller(),
                 true, 4, 8, 8);
             env.rename("foo", "bar");
             index = env.open("bar", 4096, 1000, -1, -1, -1);
@@ -45,7 +45,7 @@ public class LABEnvironmentNGTest {
             indexTest(index);
 
             env.shutdown();
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABValueMerger(),
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABRawEntryMarshaller(),
                 true, 4, 8, 8);
             env.remove("bar");
         } catch (Throwable x) {
@@ -107,7 +107,7 @@ public class LABEnvironmentNGTest {
         File root = Files.createTempDir();
         System.out.println("Created root");
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            new LABValueMerger(), true, 4, 8, 8);
+            new LABRawEntryMarshaller(), true, 4, 8, 8);
         System.out.println("Created env");
 
         ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1);
@@ -119,7 +119,7 @@ public class LABEnvironmentNGTest {
         System.out.println("Shutdown");
 
         env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-            root, new LABValueMerger(), true, 4,
+            root, new LABRawEntryMarshaller(), true, 4,
             8, 8);
         System.out.println("Recreate env");
 

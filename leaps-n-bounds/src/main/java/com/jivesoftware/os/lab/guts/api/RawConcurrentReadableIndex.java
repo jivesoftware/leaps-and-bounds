@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts.api;
 
 import com.jivesoftware.os.lab.guts.IndexRangeId;
+import com.jivesoftware.os.lab.guts.TimestampAndVersion;
 import java.io.IOException;
 
 /**
@@ -32,5 +33,7 @@ public interface RawConcurrentReadableIndex {
     long keysSizeInBytes() throws IOException;
 
     long valuesSizeInBytes() throws IOException;
+
+    TimestampAndVersion maxTimestampAndVersion();
 
 }

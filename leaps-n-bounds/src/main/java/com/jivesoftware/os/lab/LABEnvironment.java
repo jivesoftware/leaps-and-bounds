@@ -18,7 +18,7 @@ public class LABEnvironment {
     private final File rootFile;
     private final ExecutorService compact;
     private final ExecutorService destroy;
-    private final LABValueMerger valueMerger;
+    private final LABRawEntryMarshaller valueMerger;
     private final boolean useMemMap;
     private final int minMergeDebt;
     private final int maxMergeDebt;
@@ -37,7 +37,7 @@ public class LABEnvironment {
     public LABEnvironment(ExecutorService compact,
         final ExecutorService destroy,
         File rootFile,
-        LABValueMerger valueMerger,
+        LABRawEntryMarshaller valueMerger,
         boolean useMemMap,
         int minMergeDebt,
         int maxMergeDebt,

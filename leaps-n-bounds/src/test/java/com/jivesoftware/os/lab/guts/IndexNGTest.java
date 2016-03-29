@@ -22,6 +22,8 @@ import org.testng.annotations.Test;
  */
 public class IndexNGTest {
 
+    private final SimpleRawEntryMarshaller simpleRawEntry = new SimpleRawEntryMarshaller();
+
     @Test(enabled = true)
     public void testLeapDisk() throws Exception {
 
@@ -36,12 +38,12 @@ public class IndexNGTest {
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
         LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10);
+            64, 10, simpleRawEntry);
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), 8), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, 8), count, step, desired);
     }
 
     @Test(enabled = false)
@@ -53,7 +55,7 @@ public class IndexNGTest {
         int step = 10;
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new SimpleRawEntry());
+        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new SimpleRawEntryMarshaller());
 
         IndexTestUtils.append(new Random(), walIndex, 0, step, count, desired);
         assertions(walIndex, count, step, desired);
@@ -68,7 +70,7 @@ public class IndexNGTest {
         int count = 10;
         int step = 10;
 
-        RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy, new SimpleRawEntry());
+        RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy, new SimpleRawEntryMarshaller());
 
         IndexTestUtils.append(new Random(), memoryIndex, 0, step, count, desired);
         assertions(memoryIndex, count, step, desired);
@@ -76,12 +78,12 @@ public class IndexNGTest {
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
         LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10);
+            64, 10, simpleRawEntry);
 
         disIndex.append(memoryIndex);
         disIndex.closeAppendable(false);
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), 8), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, 8), count, step, desired);
 
     }
 
@@ -94,8 +96,8 @@ public class IndexNGTest {
         try {
             NextRawEntry rowScan = reader.rowScan();
             RawEntryStream stream = (rawEntry, offset, length) -> {
-                System.out.println("rowScan:" + SimpleRawEntry.key(rawEntry));
-                Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
+                System.out.println("rowScan:" + SimpleRawEntryMarshaller.key(rawEntry));
+                Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntryMarshaller.key(rawEntry));
                 index[0]++;
                 return true;
             };
@@ -113,15 +115,15 @@ public class IndexNGTest {
                 byte[] key = UIO.longBytes(k);
                 RawEntryStream stream = (rawEntry, offset, length) -> {
 
-                    System.out.println("Got: " + SimpleRawEntry.toString(rawEntry));
+                    System.out.println("Got: " + SimpleRawEntryMarshaller.toString(rawEntry));
                     if (rawEntry != null) {
-                        byte[] rawKey = UIO.longBytes(SimpleRawEntry.key(rawEntry));
+                        byte[] rawKey = UIO.longBytes(SimpleRawEntryMarshaller.key(rawEntry));
                         Assert.assertEquals(rawKey, key);
                         byte[] d = desired.get(key);
                         if (d == null) {
                             Assert.fail();
                         } else {
-                            Assert.assertEquals(SimpleRawEntry.value(rawEntry), SimpleRawEntry.value(d));
+                            Assert.assertEquals(SimpleRawEntryMarshaller.value(rawEntry), SimpleRawEntryMarshaller.value(d));
                         }
                     } else {
                         Assert.assertFalse(desired.containsKey(key));
@@ -142,7 +144,7 @@ public class IndexNGTest {
             int[] streamed = new int[1];
             RawEntryStream stream = (entry, offset, length) -> {
                 if (entry != null) {
-                    System.out.println("Streamed:" + SimpleRawEntry.toString(entry));
+                    System.out.println("Streamed:" + SimpleRawEntryMarshaller.toString(entry));
                     streamed[0]++;
                 }
                 return true;
@@ -167,7 +169,7 @@ public class IndexNGTest {
                 if (entry != null) {
                     streamed[0]++;
                 }
-                return SimpleRawEntry.value(entry) != -1;
+                return SimpleRawEntryMarshaller.value(entry) != -1;
             };
             reader = walIndex.acquireReader();
             try {

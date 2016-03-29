@@ -13,9 +13,9 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
 import junit.framework.Assert;
 
-import static com.jivesoftware.os.lab.guts.SimpleRawEntry.key;
-import static com.jivesoftware.os.lab.guts.SimpleRawEntry.rawEntry;
-import static com.jivesoftware.os.lab.guts.SimpleRawEntry.value;
+import static com.jivesoftware.os.lab.guts.SimpleRawEntryMarshaller.key;
+import static com.jivesoftware.os.lab.guts.SimpleRawEntryMarshaller.rawEntry;
+import static com.jivesoftware.os.lab.guts.SimpleRawEntryMarshaller.value;
 
 /**
  * @author jonathan.colt

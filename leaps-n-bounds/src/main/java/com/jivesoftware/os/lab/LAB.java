@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.Values;
@@ -12,12 +13,9 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.io.AppendableHeap;
-import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -53,9 +51,9 @@ public class LAB implements ValueIndex {
     private volatile RawMemoryIndex flushingMemoryIndex;
     private volatile boolean corrupt = false;
 
-    private final LABValueMerger valueMerger = new LABValueMerger();
+    private final RawEntryMarshaller valueMerger;
 
-    public LAB(LABValueMerger valueMerger,
+    public LAB(RawEntryMarshaller valueMerger,
         ExecutorService compact,
         ExecutorService destroy,
         File root,
@@ -70,6 +68,7 @@ public class LAB implements ValueIndex {
         long splitWhenValuesAndKeysTotalExceedsNBytes,
         int concurrency) throws Exception {
 
+        this.valueMerger = valueMerger;
         this.compact = compact;
         this.destroy = destroy;
         this.maxUpdatesBeforeFlush = maxUpdatesBeforeFlush;
@@ -82,6 +81,7 @@ public class LAB implements ValueIndex {
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
+            valueMerger,
             concurrency);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
@@ -92,14 +92,10 @@ public class LAB implements ValueIndex {
         return rangeStripedCompactableIndexes.debt(minDebt);
     }
 
-    /*
-    public <R> R get(byte[] from, to, KeyStream keys, ValueTx<R> tx) throws Exception {
-        // TODO multi get keys
-    }
-     */
+    // TODO multi get keys
     @Override
     public boolean get(byte[] key, ValueStream stream) throws Exception {
-        return tx(key, key, (readIndexes) -> {
+        return tx(key, key, -1, -1, (readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
             return rawToReal(key, getRaw, stream);
         });
@@ -107,14 +103,14 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
-        return tx(from, to, (readIndexes) -> {
+        return tx(from, to, -1, -1, (readIndexes) -> {
             return rawToReal(IndexUtil.rangeScan(readIndexes, from, to), stream);
         });
     }
 
     @Override
     public boolean rowScan(ValueStream stream) throws Exception {
-        return tx(null, null, (readIndexes) -> {
+        return tx(null, null, -1, -1, (readIndexes) -> {
             return rawToReal(IndexUtil.rowScan(readIndexes), stream);
         });
     }
@@ -138,7 +134,11 @@ public class LAB implements ValueIndex {
         return false;
     }
 
-    private boolean tx(byte[] from, byte[] to, ReaderTx tx) throws Exception {
+    private boolean tx(byte[] from,
+        byte[] to,
+        long newerThanTimestamp,
+        long newerThanTimestampVersion,
+        ReaderTx tx) throws Exception {
 
         ReadIndex memoryIndexReader = null;
         ReadIndex flushingMemoryIndexReader = null;
@@ -155,33 +155,54 @@ public class LAB implements ValueIndex {
                     commitSemaphore.release();
                 }
 
-                memoryIndexReader = memoryIndexStackCopy.acquireReader();
-                if (memoryIndexReader != null) {
-                    if (flushingMemoryIndexStackCopy != null) {
+                if (hasNewerThan(memoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+
+                    memoryIndexReader = memoryIndexStackCopy.acquireReader();
+                    if (memoryIndexReader != null) {
+                        if (flushingMemoryIndexStackCopy != null) {
+                            if (hasNewerThan(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+                                flushingMemoryIndexReader = flushingMemoryIndexStackCopy.acquireReader();
+                                if (flushingMemoryIndexReader != null) {
+                                    break;
+                                } else {
+                                    memoryIndexReader.release();
+                                    memoryIndexReader = null;
+                                }
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                } else if (flushingMemoryIndexStackCopy != null) {
+                    if (hasNewerThan(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
                         flushingMemoryIndexReader = flushingMemoryIndexStackCopy.acquireReader();
                         if (flushingMemoryIndexReader != null) {
                             break;
-                        } else {
-                            memoryIndexReader.release();
-                            memoryIndexReader = null;
                         }
-                    } else {
-                        break;
                     }
+                } else {
+                    break;
                 }
+
             }
 
             ReadIndex reader = memoryIndexReader;
             ReadIndex flushingReader = flushingMemoryIndexReader;
-            return rangeStripedCompactableIndexes.tx(from, to, acquired -> {
+            return rangeStripedCompactableIndexes.tx(from, to, newerThanTimestamp, newerThanTimestampVersion, acquired -> {
 
+                int active = (reader == null) ? 0 : 1;
                 int flushing = (flushingReader == null) ? 0 : 1;
-                ReadIndex[] indexes = new ReadIndex[acquired.length + 1 + flushing];
-                indexes[0] = reader;
-                if (flushingReader != null) {
-                    indexes[1] = flushingReader;
+                ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
+                int i = 0;
+                if (reader != null) {
+                    indexes[i] = reader;
+                    i++;
                 }
-                System.arraycopy(acquired, 0, indexes, 1 + flushing, acquired.length);
+                if (flushingReader != null) {
+                    indexes[i] = flushingReader;
+                    i++;
+                }
+                System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
                 return tx.tx(indexes);
             });
         } finally {
@@ -195,6 +216,10 @@ public class LAB implements ValueIndex {
 
     }
 
+    private static boolean hasNewerThan(RawMemoryIndex memoryIndexStackCopy, long newerThanTimestamp, long newerThanTimestampVersion) {
+        return memoryIndexStackCopy.maxTimestampAndVersion().compare(newerThanTimestamp, newerThanTimestampVersion) > 0;
+    }
+
     @Override
     public boolean append(Values values) throws Exception {
 
@@ -203,8 +228,26 @@ public class LAB implements ValueIndex {
         try {
             appended = memoryIndex.append((stream) -> {
                 return values.consume((key, timestamp, tombstoned, version, value) -> {
-                    byte[] rawEntry = toRawEntry(key, timestamp, tombstoned, version, value);
-                    return stream.stream(rawEntry, 0, rawEntry.length);
+                    byte[] rawEntry = valueMerger.toRawEntry(key, timestamp, tombstoned, version, value);
+
+                    RawMemoryIndex copy = flushingMemoryIndex;
+                    if ((copy != null && hasNewerThan(copy, timestamp, version))
+                        || rangeStripedCompactableIndexes.maxTimeStampAndVersion().compare(timestamp, version) > 0) {
+                        tx(key, key, timestamp, version, (readIndexes) -> {
+                            GetRaw getRaw = IndexUtil.get(readIndexes);
+                            return getRaw.get(key, (rawEntry1, offset, length) -> {
+                                long rawEntryTimestamp = valueMerger.timestamp(rawEntry1, offset, length);
+                                long rawEntryVersion = valueMerger.version(rawEntry1, offset, length);
+                                if (rawEntryTimestamp >= timestamp && rawEntryVersion > version) {
+                                    return stream.stream(rawEntry1, offset, length);
+                                }
+                                return false;
+                            });
+                        });
+                        return true;
+                    } else {
+                        return stream.stream(rawEntry, 0, rawEntry.length);
+                    }
                 });
             });
 
@@ -293,7 +336,6 @@ public class LAB implements ValueIndex {
 //                for (Future<Object> future : awaitable) {
 //                    future.get();
 //                }
-
 //                Set<Long> post = new HashSet<>();
 //                rowScan(new ValueStream() {
 //                    @Override
@@ -335,14 +377,14 @@ public class LAB implements ValueIndex {
             + '}';
     }
 
-    private static boolean rawToReal(byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
-        return getRaw.get(key, (rawEntry, offset, length) -> streamRawEntry(valueStream, rawEntry, offset));
+    private boolean rawToReal(byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
+        return getRaw.get(key, (rawEntry, offset, length) -> valueMerger.streamRawEntry(valueStream, rawEntry, offset));
     }
 
-    private static boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
+    private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
         while (true) {
             Next next = nextRawEntry.next((rawEntry, offset, length) -> {
-                return streamRawEntry(valueStream, rawEntry, offset);
+                return valueMerger.streamRawEntry(valueStream, rawEntry, offset);
             });
             if (next == Next.stopped) {
                 return false;
@@ -352,44 +394,4 @@ public class LAB implements ValueIndex {
         }
     }
 
-    private static boolean streamRawEntry(ValueStream stream, byte[] rawEntry, int offset) throws Exception {
-        if (rawEntry == null) {
-            return stream.stream(null, -1, false, -1, null);
-        }
-        int o = offset;
-        int keyLength = UIO.bytesInt(rawEntry, o);
-        o += 4;
-        byte[] k = new byte[keyLength];
-        System.arraycopy(rawEntry, o, k, 0, keyLength);
-        o += keyLength;
-        long timestamp = UIO.bytesLong(rawEntry, o);
-        o += 8;
-        boolean tombstone = rawEntry[o] != 0;
-        if (tombstone) {
-            return stream.stream(null, -1, false, -1, null);
-        }
-        o++;
-        long version = UIO.bytesLong(rawEntry, o);
-        o += 8;
-
-        int payloadLength = UIO.bytesInt(rawEntry, o);
-        o += 4;
-        byte[] payload = new byte[payloadLength];
-        System.arraycopy(rawEntry, o, payload, 0, payloadLength);
-        o += payloadLength;
-
-        return stream.stream(k, timestamp, tombstone, version, payload);
-    }
-
-    private static byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws IOException {
-
-        AppendableHeap indexEntryFiler = new AppendableHeap(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
-        byte[] lengthBuffer = new byte[4];
-        UIO.writeByteArray(indexEntryFiler, key, "key", lengthBuffer);
-        UIO.writeLong(indexEntryFiler, timestamp, "timestamp");
-        UIO.writeByte(indexEntryFiler, tombstoned ? (byte) 1 : (byte) 0, "tombstone");
-        UIO.writeLong(indexEntryFiler, version, "version");
-        UIO.writeByteArray(indexEntryFiler, payload, "payload", lengthBuffer);
-        return indexEntryFiler.getBytes();
-    }
 }
