@@ -27,7 +27,7 @@ public class LABEnvironmentConcurrenyNGTest {
 
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            new LABRawEntryMarshaller(), false, 4, 10, 8);
+            false, 4, 10, 8);
 
         concurentTest(env);
     }
@@ -37,12 +37,12 @@ public class LABEnvironmentConcurrenyNGTest {
 
         File root = Files.createTempDir();
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            new LABRawEntryMarshaller(), true, 4, 10, 8);
+            true, 4, 10, 8);
 
         concurentTest(env);
     }
 
-    private void concurentTest(LABEnvironment env) throws InterruptedException, Exception, ExecutionException {
+    private void concurentTest(LABEnvironment env) throws Exception {
         int writerCount = 16;
         int readerCount = 16;
 
@@ -60,7 +60,7 @@ public class LABEnvironmentConcurrenyNGTest {
         ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
 
         Random rand = new Random(12345);
-        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0);
+        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, new LABRawEntryMarshaller());
         AtomicLong running = new AtomicLong();
         List<Future> writerFutures = new ArrayList<>();
         for (int i = 0; i < writerCount; i++) {

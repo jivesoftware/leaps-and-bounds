@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import java.io.File;
 import java.io.IOException;
@@ -10,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LABEnvironment {
@@ -18,7 +18,6 @@ public class LABEnvironment {
     private final File rootFile;
     private final ExecutorService compact;
     private final ExecutorService destroy;
-    private final LABRawEntryMarshaller valueMerger;
     private final boolean useMemMap;
     private final int minMergeDebt;
     private final int maxMergeDebt;
@@ -37,7 +36,6 @@ public class LABEnvironment {
     public LABEnvironment(ExecutorService compact,
         final ExecutorService destroy,
         File rootFile,
-        LABRawEntryMarshaller valueMerger,
         boolean useMemMap,
         int minMergeDebt,
         int maxMergeDebt,
@@ -45,7 +43,6 @@ public class LABEnvironment {
         this.compact = compact;
         this.destroy = destroy;
         this.rootFile = rootFile;
-        this.valueMerger = valueMerger;
         this.useMemMap = useMemMap;
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
@@ -57,7 +54,8 @@ public class LABEnvironment {
         int maxUpdatesBeforeFlush,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
-        long splitWhenValuesAndKeysTotalExceedsNBytes) throws Exception {
+        long splitWhenValuesAndKeysTotalExceedsNBytes,
+        RawEntryMarshaller valueMerger) throws Exception {
         return new LAB(valueMerger,
             compact,
             destroy,

@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.testng.annotations.Test;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LABEnvironmentNGTest {
@@ -24,28 +23,28 @@ public class LABEnvironmentNGTest {
             root = Files.createTempDir();
             System.out.println("root" + root.getAbsolutePath());
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                new LABRawEntryMarshaller(), false, 4, 8, 8);
+                false, 4, 8, 8);
 
-            ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1);
+            ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
             indexTest(index);
 
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABRawEntryMarshaller(),
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, 4, 8, 8);
 
-            index = env.open("foo", 4096, 1000, -1, -1, -1);
+            index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
             indexTest(index);
 
             env.shutdown();
 
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABRawEntryMarshaller(),
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, 4, 8, 8);
             env.rename("foo", "bar");
-            index = env.open("bar", 4096, 1000, -1, -1, -1);
+            index = env.open("bar", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
 
             indexTest(index);
 
             env.shutdown();
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root, new LABRawEntryMarshaller(),
+            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, 4, 8, 8);
             env.remove("bar");
         } catch (Throwable x) {
@@ -107,10 +106,10 @@ public class LABEnvironmentNGTest {
         File root = Files.createTempDir();
         System.out.println("Created root");
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            new LABRawEntryMarshaller(), true, 4, 8, 8);
+            true, 4, 8, 8);
         System.out.println("Created env");
 
-        ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1);
+        ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
         System.out.println("Open env");
         indexTest(index);
         System.out.println("Indexed");
@@ -119,11 +118,10 @@ public class LABEnvironmentNGTest {
         System.out.println("Shutdown");
 
         env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-            root, new LABRawEntryMarshaller(), true, 4,
-            8, 8);
+            root, true, 4, 8, 8);
         System.out.println("Recreate env");
 
-        index = env.open("foo", 4096, 1000, -1, -1, -1);
+        index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
         System.out.println("Re-open env");
         indexTest(index);
         System.out.println("Re-indexed");
@@ -132,7 +130,7 @@ public class LABEnvironmentNGTest {
 
     }
 
-    private void indexTest(ValueIndex index) throws Exception, InterruptedException {
+    private void indexTest(ValueIndex index) throws Exception {
 
         AtomicLong version = new AtomicLong();
         AtomicLong value = new AtomicLong();
@@ -142,7 +140,7 @@ public class LABEnvironmentNGTest {
         int commitCount = 34;
         int batchCount = 3_000;
         int getCount = 0;
-       
+
         long mainStart = System.currentTimeMillis();
         Random rand = new Random(12345);
         for (int c = 0; c < commitCount; c++) {
