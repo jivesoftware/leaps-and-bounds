@@ -1,8 +1,7 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -12,7 +11,7 @@ import java.io.IOException;
  *
  * @author jonathan.colt
  */
-public class LABRawEntryMarshaller implements RawEntryMarshaller {
+public class LABRawHide implements Rawhide {
 
     @Override
     public byte[] merge(byte[] current, byte[] adding) {
@@ -70,18 +69,20 @@ public class LABRawEntryMarshaller implements RawEntryMarshaller {
         return stream.stream(k, timestamp, tombstone, version, payload);
     }
 
-    // TODO move this onto MergeRawEntry
     @Override
     public byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws IOException {
 
-        AppendableHeap indexEntryFiler = new AppendableHeap(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
-        byte[] lengthBuffer = new byte[4];
-        UIO.writeByteArray(indexEntryFiler, key, "key", lengthBuffer);
-        UIO.writeLong(indexEntryFiler, timestamp, "timestamp");
-        UIO.writeByte(indexEntryFiler, tombstoned ? (byte) 1 : (byte) 0, "tombstone");
-        UIO.writeLong(indexEntryFiler, version, "version");
-        UIO.writeByteArray(indexEntryFiler, payload, "payload", lengthBuffer);
-        return indexEntryFiler.getBytes();
+        byte[] rawEntry = new byte[LABUtils.rawArrayLength(key) + 8 + 1 + 8 + LABUtils.rawArrayLength(payload)];
+        int o = 0;
+        o = LABUtils.writeByteArray(key, rawEntry, o);
+        UIO.longBytes(timestamp, rawEntry, o);
+        o += 8;
+        rawEntry[o] = tombstoned ? (byte) 1 : (byte) 0;
+        o++;
+        UIO.longBytes(version, rawEntry, o);
+        o += 8;
+        LABUtils.writeByteArray(payload, rawEntry, o);
+        return rawEntry;
     }
 
     @Override

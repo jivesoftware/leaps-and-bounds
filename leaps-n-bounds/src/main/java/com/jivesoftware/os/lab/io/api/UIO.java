@@ -34,7 +34,6 @@ public class UIO {
     private UIO() {
     }
 
-
     /**
      *
      * @param _filer
@@ -556,8 +555,16 @@ public class UIO {
         return 1L << _chunkPower;
     }
 
-    public static void bytes(byte[] value, byte[] destination, int offset) {
-        System.arraycopy(value, 0, destination, offset, value.length);
+    public static int writeBytes(byte[] value, byte[] destination, int offset) {
+        if (value != null) {
+            System.arraycopy(value, 0, destination, offset, value.length);
+            return value.length;
+        }
+        return 0;
+    }
+
+    public static void readBytes(byte[] source, int offset, byte[] value) {
+        System.arraycopy(source, offset, value, 0, value.length);
     }
 
     public static void readFully(IReadable readable, byte[] into, int length) throws IOException {
@@ -570,7 +577,6 @@ public class UIO {
     private static void readFully(byte[] from, int offset, byte[] into, int length) throws IOException {
         System.arraycopy(from, offset, into, 0, length);
     }
-
 
     /**
      * Lex key range splittting Copied from HBase

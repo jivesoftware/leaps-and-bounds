@@ -7,7 +7,7 @@ import com.jivesoftware.os.lab.io.api.IReadable;
  *
  * @author jonathan.colt
  */
-public interface RawEntryMarshaller {
+public interface Rawhide {
 
     byte[] merge(byte[] current, byte[] adding);
 

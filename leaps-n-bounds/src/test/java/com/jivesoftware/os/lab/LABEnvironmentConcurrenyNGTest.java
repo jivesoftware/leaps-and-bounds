@@ -60,7 +60,7 @@ public class LABEnvironmentConcurrenyNGTest {
         ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
 
         Random rand = new Random(12345);
-        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, new LABRawEntryMarshaller());
+        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, new LABRawHide());
         AtomicLong running = new AtomicLong();
         List<Future> writerFutures = new ArrayList<>();
         for (int i = 0; i < writerCount; i++) {

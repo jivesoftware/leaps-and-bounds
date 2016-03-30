@@ -1,18 +1,18 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
+import com.jivesoftware.os.lab.api.Rawhide;
 
 /**
  *
  * @author jonathan.colt
  */
-public class SimpleRawEntryMarshaller implements RawEntryMarshaller {
+public class SimpleRawEntryMarshaller implements Rawhide {
 
     public static String toString(byte[] rawEntry) {
         return "key:" + key(rawEntry) + " value:" + value(rawEntry);

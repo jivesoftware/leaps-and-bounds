@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
@@ -31,16 +31,16 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
     private final ExecutorService destroy;
-    private final RawEntryMarshaller merger;
+    private final Rawhide rawhide;
 
     private final int numBones = Short.MAX_VALUE;
     private final Semaphore hideABone = new Semaphore(numBones, true);
     private final ReadIndex reader;
     private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
 
-    public RawMemoryIndex(ExecutorService destroy, RawEntryMarshaller merger) {
+    public RawMemoryIndex(ExecutorService destroy, Rawhide rawhide) {
         this.destroy = destroy;
-        this.merger = merger;
+        this.rawhide = rawhide;
         this.reader = new ReadIndex() {
 
             @Override
@@ -160,10 +160,10 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                     approximateCount.incrementAndGet();
                     merged = rawEntry;
                 } else {
-                    merged = merger.merge(v, rawEntry);
+                    merged = rawhide.merge(v, rawEntry);
                 }
-                long timestamp = merger.timestamp(merged, 0, merged.length);
-                long version = merger.version(merged, 0, merged.length);
+                long timestamp = rawhide.timestamp(merged, 0, merged.length);
+                long version = rawhide.version(merged, 0, merged.length);
                 updateMaxTimestampAndVersion(timestamp, version);
                 return merged;
             });
@@ -174,7 +174,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private void updateMaxTimestampAndVersion(long timestamp, long version) {
         TimestampAndVersion existing = maxTimestampAndVersion.get();
         TimestampAndVersion update = new TimestampAndVersion(timestamp, version);
-        while (merger.isNewerThan(timestamp, version, existing.maxTimestamp, existing.maxTimestampVersion)) {
+        while (rawhide.isNewerThan(timestamp, version, existing.maxTimestamp, existing.maxTimestampVersion)) {
             if (maxTimestampAndVersion.compareAndSet(existing, update)) {
                 break;
             } else {

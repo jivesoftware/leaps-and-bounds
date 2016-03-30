@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.io.AppendableHeap;
@@ -21,7 +21,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final IndexFile index;
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
-    private final RawEntryMarshaller mergeRawEntry;
+    private final Rawhide rawhide;
 
     private final byte[] lengthBuffer = new byte[4];
 
@@ -45,13 +45,13 @@ public class LABAppendableIndex implements RawAppendableIndex {
         IndexFile index,
         int maxLeaps,
         int updatesBetweenLeaps,
-        RawEntryMarshaller mergeRawEntry) throws IOException {
+        Rawhide rawhide) throws IOException {
 
         this.indexRangeId = indexRangeId;
         this.index = index;
         this.maxLeaps = maxLeaps;
         this.updatesBetweenLeaps = updatesBetweenLeaps;
-        this.mergeRawEntry = mergeRawEntry;
+        this.rawhide = rawhide;
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
         this.appendOnly = index.appender();
     }
@@ -76,19 +76,19 @@ public class LABAppendableIndex implements RawAppendableIndex {
             startOfEntryIndex[updatesSinceLeap] = fp + 1 + 4 + entryBuffer.length();
             UIO.writeByte(entryBuffer, ENTRY, "type");
 
-            mergeRawEntry.writeRawEntry(rawEntry, offset, length, entryBuffer, lengthBuffer);
-            byte[] key = mergeRawEntry.key(rawEntry, offset, length);
+            rawhide.writeRawEntry(rawEntry, offset, length, entryBuffer, lengthBuffer);
+            byte[] key = rawhide.key(rawEntry, offset, length);
             int keyLength = key.length;
             keysSizeInBytes += keyLength;
             valuesSizeInBytes += rawEntry.length - keyLength;
 
-            long rawEntryTimestamp = mergeRawEntry.timestamp(rawEntry, offset, length);
+            long rawEntryTimestamp = rawhide.timestamp(rawEntry, offset, length);
             if (rawEntryTimestamp > -1 && maxTimestamp < rawEntryTimestamp) {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = mergeRawEntry.version(rawEntry, offset, length);
+                maxTimestampVersion = rawhide.version(rawEntry, offset, length);
             } else {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = mergeRawEntry.version(rawEntry, offset, length);
+                maxTimestampVersion = rawhide.version(rawEntry, offset, length);
             }
 
             if (firstKey == null) {

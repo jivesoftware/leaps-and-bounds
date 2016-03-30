@@ -2,7 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
 import com.google.common.primitives.UnsignedBytes;
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
@@ -31,7 +31,7 @@ public class CompactableIndexes {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     // newest to oldest
-    private final RawEntryMarshaller valueMerger;
+    private final Rawhide rawhide;
     private final IndexesLock indexesLock = new IndexesLock();
     private volatile boolean[] merging = new boolean[0]; // is volatile for reference changes not value changes.
     private volatile RawConcurrentReadableIndex[] indexes = new RawConcurrentReadableIndex[0];  // is volatile for reference changes not value changes.
@@ -41,8 +41,8 @@ public class CompactableIndexes {
     private final AtomicBoolean compacting = new AtomicBoolean();
     private volatile TimestampAndVersion maxTimestampAndVersion;
 
-    public CompactableIndexes(RawEntryMarshaller valueMerger) {
-        this.valueMerger = valueMerger;
+    public CompactableIndexes(Rawhide rawhide) {
+        this.rawhide = rawhide;
     }
 
     public boolean append(RawConcurrentReadableIndex index) {
@@ -72,7 +72,7 @@ public class CompactableIndexes {
         TimestampAndVersion timestampAndVersion = TimestampAndVersion.NULL;
         for (RawConcurrentReadableIndex rawConcurrentReadableIndex : concurrentReadableIndexs) {
             TimestampAndVersion other = rawConcurrentReadableIndex.maxTimestampAndVersion();
-            if (valueMerger.isNewerThan(other.maxTimestamp,
+            if (rawhide.isNewerThan(other.maxTimestamp,
                 other.maxTimestampVersion,
                 timestampAndVersion.maxTimestamp,
                 timestampAndVersion.maxTimestampVersion)) {

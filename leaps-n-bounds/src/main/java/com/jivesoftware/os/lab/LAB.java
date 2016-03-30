@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.Values;
@@ -52,9 +52,9 @@ public class LAB implements ValueIndex {
     private volatile RawMemoryIndex flushingMemoryIndex;
     private volatile boolean corrupt = false;
 
-    private final RawEntryMarshaller valueMerger;
+    private final Rawhide rawhide;
 
-    public LAB(RawEntryMarshaller valueMerger,
+    public LAB(Rawhide rawhide,
         ExecutorService compact,
         ExecutorService destroy,
         File root,
@@ -69,11 +69,11 @@ public class LAB implements ValueIndex {
         long splitWhenValuesAndKeysTotalExceedsNBytes,
         int concurrency) throws Exception {
 
-        this.valueMerger = valueMerger;
+        this.rawhide = rawhide;
         this.compact = compact;
         this.destroy = destroy;
         this.maxUpdatesBeforeFlush = maxUpdatesBeforeFlush;
-        this.memoryIndex = new RawMemoryIndex(destroy, valueMerger);
+        this.memoryIndex = new RawMemoryIndex(destroy, rawhide);
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
             root,
             indexName,
@@ -82,7 +82,7 @@ public class LAB implements ValueIndex {
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
-            valueMerger,
+            rawhide,
             concurrency);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
@@ -219,7 +219,7 @@ public class LAB implements ValueIndex {
 
     private boolean mightContain(RawMemoryIndex memoryIndexStackCopy, long newerThanTimestamp, long newerThanTimestampVersion) {
         TimestampAndVersion timestampAndVersion = memoryIndexStackCopy.maxTimestampAndVersion();
-        return valueMerger.mightContain(timestampAndVersion.maxTimestamp,
+        return rawhide.mightContain(timestampAndVersion.maxTimestamp,
             timestampAndVersion.maxTimestampVersion,
             newerThanTimestamp,
             newerThanTimestampVersion);
@@ -227,7 +227,7 @@ public class LAB implements ValueIndex {
 
     private boolean isNewerThan(long timestamp, long timestampVersion, RawMemoryIndex memoryIndexStackCopy) {
         TimestampAndVersion timestampAndVersion = memoryIndexStackCopy.maxTimestampAndVersion();
-        return valueMerger.isNewerThan(timestamp,
+        return rawhide.isNewerThan(timestamp,
             timestampVersion,
             timestampAndVersion.maxTimestamp,
             timestampAndVersion.maxTimestampVersion);
@@ -240,12 +240,12 @@ public class LAB implements ValueIndex {
         try {
             appended = memoryIndex.append((stream) -> {
                 return values != null && values.consume((key, timestamp, tombstoned, version, value) -> {
-                    byte[] rawEntry = valueMerger.toRawEntry(key, timestamp, tombstoned, version, value);
+                    byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
 
                     RawMemoryIndex copy = flushingMemoryIndex;
                     TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
                     if ((copy == null || isNewerThan(timestamp, version, copy))
-                        && valueMerger.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
+                        && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
                         return stream.stream(rawEntry, 0, rawEntry.length);
                     } else {
                         tx(key, key, timestamp, version, (readIndexes) -> {
@@ -254,9 +254,9 @@ public class LAB implements ValueIndex {
                                 if (existingEntry == null) {
                                     return stream.stream(rawEntry, 0, rawEntry.length);
                                 } else {
-                                    long existingTimestamp = valueMerger.timestamp(existingEntry, offset, length);
-                                    long existingVersion = valueMerger.version(existingEntry, offset, length);
-                                    if (valueMerger.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
+                                    long existingTimestamp = rawhide.timestamp(existingEntry, offset, length);
+                                    long existingVersion = rawhide.version(existingEntry, offset, length);
+                                    if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
                                         return stream.stream(rawEntry, 0, rawEntry.length);
                                     }
                                 }
@@ -291,7 +291,7 @@ public class LAB implements ValueIndex {
                 return Collections.emptyList();
             }
             flushingMemoryIndex = stackCopy;
-            memoryIndex = new RawMemoryIndex(destroy, valueMerger);
+            memoryIndex = new RawMemoryIndex(destroy, rawhide);
             rangeStripedCompactableIndexes.append(stackCopy, fsync);
             flushingMemoryIndex = null;
             stackCopy.destroy();
@@ -390,18 +390,18 @@ public class LAB implements ValueIndex {
             + ", maxDebt=" + maxDebt
             + ", ongoingCompactions=" + ongoingCompactions
             + ", corrupt=" + corrupt
-            + ", valueMerger=" + valueMerger
+            + ", valueMerger=" + rawhide
             + '}';
     }
 
     private boolean rawToReal(byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
-        return getRaw.get(key, (rawEntry, offset, length) -> valueMerger.streamRawEntry(valueStream, rawEntry, offset));
+        return getRaw.get(key, (rawEntry, offset, length) -> rawhide.streamRawEntry(valueStream, rawEntry, offset));
     }
 
     private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
         while (true) {
             Next next = nextRawEntry.next((rawEntry, offset, length) -> {
-                return valueMerger.streamRawEntry(valueStream, rawEntry, offset);
+                return rawhide.streamRawEntry(valueStream, rawEntry, offset);
             });
             if (next == Next.stopped) {
                 return false;

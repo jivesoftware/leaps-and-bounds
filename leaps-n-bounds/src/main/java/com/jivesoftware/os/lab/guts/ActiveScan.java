@@ -2,7 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ScanFromFp;
 import com.jivesoftware.os.lab.io.api.IReadable;
@@ -21,7 +21,7 @@ import static com.jivesoftware.os.lab.io.api.UIO.readLength;
  */
 public class ActiveScan implements ScanFromFp {
 
-    private final RawEntryMarshaller mergeRawEntry;
+    private final Rawhide rawhide;
     private final Leaps leaps;
     private final ConcurrentLHash<Leaps> leapsCache;
     private final Footer footer;
@@ -31,14 +31,14 @@ public class ActiveScan implements ScanFromFp {
     private long activeFp = Long.MAX_VALUE;
     private boolean activeResult;
 
-    public ActiveScan(RawEntryMarshaller mergeRawEntry,
+    public ActiveScan(Rawhide rawhide,
         Leaps leaps,
         ConcurrentLHash<Leaps> leapsCache,
         Footer footer,
         IReadable readable,
         byte[] lengthBuffer) {
 
-        this.mergeRawEntry = mergeRawEntry;
+        this.rawhide = rawhide;
         this.leaps = leaps;
         this.leapsCache = leapsCache;
         this.footer = footer;
@@ -56,7 +56,7 @@ public class ActiveScan implements ScanFromFp {
         int type;
         while ((type = readable.read()) >= 0) {
             if (type == ENTRY) {
-                int entryLength = mergeRawEntry.entryLength(readable, lengthBuffer);
+                int entryLength = rawhide.entryLength(readable, lengthBuffer);
                 if (entryBuffer == null || entryBuffer.length < entryLength) {
                     entryBuffer = new byte[entryLength];
                 }

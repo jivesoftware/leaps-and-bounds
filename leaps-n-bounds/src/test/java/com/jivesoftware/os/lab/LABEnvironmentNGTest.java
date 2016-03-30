@@ -25,13 +25,13 @@ public class LABEnvironmentNGTest {
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 false, 4, 8, 8);
 
-            ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
+            ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawHide());
             indexTest(index);
 
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, 4, 8, 8);
 
-            index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
+            index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawHide());
             indexTest(index);
 
             env.shutdown();
@@ -39,7 +39,7 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, 4, 8, 8);
             env.rename("foo", "bar");
-            index = env.open("bar", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
+            index = env.open("bar", 4096, 1000, -1, -1, -1, new LABRawHide());
 
             indexTest(index);
 
@@ -109,7 +109,7 @@ public class LABEnvironmentNGTest {
             true, 4, 8, 8);
         System.out.println("Created env");
 
-        ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
+        ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawHide());
         System.out.println("Open env");
         indexTest(index);
         System.out.println("Indexed");
@@ -121,7 +121,7 @@ public class LABEnvironmentNGTest {
             root, true, 4, 8, 8);
         System.out.println("Recreate env");
 
-        index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawEntryMarshaller());
+        index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawHide());
         System.out.println("Re-open env");
         indexTest(index);
         System.out.println("Re-indexed");

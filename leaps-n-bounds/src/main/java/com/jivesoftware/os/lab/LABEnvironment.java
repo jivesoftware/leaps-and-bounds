@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.jivesoftware.os.lab.api.RawEntryMarshaller;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import java.io.File;
 import java.io.IOException;
@@ -55,8 +55,8 @@ public class LABEnvironment {
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
-        RawEntryMarshaller valueMerger) throws Exception {
-        return new LAB(valueMerger,
+        Rawhide rawhide) throws Exception {
+        return new LAB(rawhide,
             compact,
             destroy,
             rootFile,
