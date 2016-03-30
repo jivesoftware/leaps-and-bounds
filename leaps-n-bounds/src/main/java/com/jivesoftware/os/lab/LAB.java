@@ -9,6 +9,7 @@ import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.guts.RawMemoryIndex;
 import com.jivesoftware.os.lab.guts.ReaderTx;
+import com.jivesoftware.os.lab.guts.TimestampAndVersion;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
@@ -155,12 +156,12 @@ public class LAB implements ValueIndex {
                     commitSemaphore.release();
                 }
 
-                if (hasNewerThan(memoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+                if (mightContain(memoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
 
                     memoryIndexReader = memoryIndexStackCopy.acquireReader();
                     if (memoryIndexReader != null) {
                         if (flushingMemoryIndexStackCopy != null) {
-                            if (hasNewerThan(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+                            if (mightContain(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
                                 flushingMemoryIndexReader = flushingMemoryIndexStackCopy.acquireReader();
                                 if (flushingMemoryIndexReader != null) {
                                     break;
@@ -174,7 +175,7 @@ public class LAB implements ValueIndex {
                         }
                     }
                 } else if (flushingMemoryIndexStackCopy != null) {
-                    if (hasNewerThan(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+                    if (mightContain(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
                         flushingMemoryIndexReader = flushingMemoryIndexStackCopy.acquireReader();
                         if (flushingMemoryIndexReader != null) {
                             break;
@@ -216,37 +217,53 @@ public class LAB implements ValueIndex {
 
     }
 
-    private static boolean hasNewerThan(RawMemoryIndex memoryIndexStackCopy, long newerThanTimestamp, long newerThanTimestampVersion) {
-        return memoryIndexStackCopy.maxTimestampAndVersion().compare(newerThanTimestamp, newerThanTimestampVersion) > 0;
+    private boolean mightContain(RawMemoryIndex memoryIndexStackCopy, long newerThanTimestamp, long newerThanTimestampVersion) {
+        TimestampAndVersion timestampAndVersion = memoryIndexStackCopy.maxTimestampAndVersion();
+        return valueMerger.mightContain(timestampAndVersion.maxTimestamp,
+            timestampAndVersion.maxTimestampVersion,
+            newerThanTimestamp,
+            newerThanTimestampVersion);
+    }
+
+    private boolean isNewerThan(long timestamp, long timestampVersion, RawMemoryIndex memoryIndexStackCopy) {
+        TimestampAndVersion timestampAndVersion = memoryIndexStackCopy.maxTimestampAndVersion();
+        return valueMerger.isNewerThan(timestamp,
+            timestampVersion,
+            timestampAndVersion.maxTimestamp,
+            timestampAndVersion.maxTimestampVersion);
     }
 
     @Override
     public boolean append(Values values) throws Exception {
-
         boolean appended;
         commitSemaphore.acquire();
         try {
             appended = memoryIndex.append((stream) -> {
-                return values.consume((key, timestamp, tombstoned, version, value) -> {
+                return values != null && values.consume((key, timestamp, tombstoned, version, value) -> {
                     byte[] rawEntry = valueMerger.toRawEntry(key, timestamp, tombstoned, version, value);
 
                     RawMemoryIndex copy = flushingMemoryIndex;
-                    if ((copy != null && hasNewerThan(copy, timestamp, version))
-                        || rangeStripedCompactableIndexes.maxTimeStampAndVersion().compare(timestamp, version) > 0) {
+                    TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
+                    if ((copy == null || isNewerThan(timestamp, version, copy))
+                        && valueMerger.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
+                        return stream.stream(rawEntry, 0, rawEntry.length);
+                    } else {
                         tx(key, key, timestamp, version, (readIndexes) -> {
                             GetRaw getRaw = IndexUtil.get(readIndexes);
-                            return getRaw.get(key, (rawEntry1, offset, length) -> {
-                                long rawEntryTimestamp = valueMerger.timestamp(rawEntry1, offset, length);
-                                long rawEntryVersion = valueMerger.version(rawEntry1, offset, length);
-                                if (rawEntryTimestamp >= timestamp && rawEntryVersion > version) {
-                                    return stream.stream(rawEntry1, offset, length);
+                            return getRaw.get(key, (existingEntry, offset, length) -> {
+                                if (existingEntry == null) {
+                                    return stream.stream(rawEntry, 0, rawEntry.length);
+                                } else {
+                                    long existingTimestamp = valueMerger.timestamp(existingEntry, offset, length);
+                                    long existingVersion = valueMerger.version(existingEntry, offset, length);
+                                    if (valueMerger.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
+                                        return stream.stream(rawEntry, 0, rawEntry.length);
+                                    }
                                 }
                                 return false;
                             });
                         });
                         return true;
-                    } else {
-                        return stream.stream(rawEntry, 0, rawEntry.length);
                     }
                 });
             });

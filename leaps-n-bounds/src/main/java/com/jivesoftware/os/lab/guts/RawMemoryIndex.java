@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author jonathan.colt
@@ -35,7 +36,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final int numBones = Short.MAX_VALUE;
     private final Semaphore hideABone = new Semaphore(numBones, true);
     private final ReadIndex reader;
-    private volatile TimestampAndVersion maxTimestampAndVersion = TimestampAndVersion.NULL;
+    private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
 
     public RawMemoryIndex(ExecutorService destroy, RawEntryMarshaller merger) {
         this.destroy = destroy;
@@ -154,27 +155,32 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             byte[] key = new byte[keyLength];
             System.arraycopy(rawEntry, 4, key, 0, keyLength);
             index.compute(key, (k, v) -> {
+                byte[] merged;
                 if (v == null) {
                     approximateCount.incrementAndGet();
-                    long timestamp = merger.timestamp(rawEntry, 0, rawEntry.length);
-                    long version = merger.version(rawEntry, 0, rawEntry.length);
-                    if (maxTimestampAndVersion.compare(timestamp, version) < 0) {
-                        maxTimestampAndVersion = new TimestampAndVersion(timestamp, version);
-                    }
-                    return rawEntry;
+                    merged = rawEntry;
                 } else {
-                    byte[] merged = merger.merge(v, rawEntry);
-                    long timestamp = merger.timestamp(merged, 0, merged.length);
-                    long version = merger.version(merged, 0, merged.length);
-                    if (maxTimestampAndVersion.compare(timestamp, version) < 0) {
-                        maxTimestampAndVersion = new TimestampAndVersion(timestamp, version);
-                    }
-                    return merged;
+                    merged = merger.merge(v, rawEntry);
                 }
+                long timestamp = merger.timestamp(merged, 0, merged.length);
+                long version = merger.version(merged, 0, merged.length);
+                updateMaxTimestampAndVersion(timestamp, version);
+                return merged;
             });
             return true;
         });
+    }
 
+    private void updateMaxTimestampAndVersion(long timestamp, long version) {
+        TimestampAndVersion existing = maxTimestampAndVersion.get();
+        TimestampAndVersion update = new TimestampAndVersion(timestamp, version);
+        while (merger.isNewerThan(timestamp, version, existing.maxTimestamp, existing.maxTimestampVersion)) {
+            if (maxTimestampAndVersion.compareAndSet(existing, update)) {
+                break;
+            } else {
+                existing = maxTimestampAndVersion.get();
+            }
+        }
     }
 
     // you must call release on this reader! Try to only use it as long as you have to!
@@ -247,7 +253,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public TimestampAndVersion maxTimestampAndVersion() {
-        return maxTimestampAndVersion;
+        return maxTimestampAndVersion.get();
     }
 
 }

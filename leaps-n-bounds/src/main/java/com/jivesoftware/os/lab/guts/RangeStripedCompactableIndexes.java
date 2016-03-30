@@ -124,7 +124,7 @@ public class RangeStripedCompactableIndexes {
         TimestampAndVersion max = TimestampAndVersion.NULL;
         for (FileBackMergableIndexs indexs : indexes.values()) {
             TimestampAndVersion other = indexs.compactableIndexes.maxTimeStampAndVersion();
-            if (max.compare(other.maxTimestamp, other.maxTimestampVersion) < 1) {
+            if (mergeRawEntry.isNewerThan(other.maxTimestamp, other.maxTimestampVersion, max.maxTimestamp, max.maxTimestampVersion)) {
                 max = other;
             }
         }
@@ -196,7 +196,7 @@ public class RangeStripedCompactableIndexes {
                  2/1-3-2 x,y,z
                  - delete 0/*
                  */
-                CompactableIndexes mergeableIndexes = new CompactableIndexes();
+                CompactableIndexes mergeableIndexes = new CompactableIndexes(mergeRawEntry);
                 KeyRange keyRange = null;
                 for (IndexRangeId range : ranges) {
                     File file = range.toFile(activeDir);
@@ -507,7 +507,7 @@ public class RangeStripedCompactableIndexes {
                     root,
                     indexName,
                     stripeId,
-                    new CompactableIndexes());
+                    new CompactableIndexes(mergeRawEntry));
                 synchronized (copyIndexOnWrite) {
                     ConcurrentSkipListMap<byte[], FileBackMergableIndexs> copyOfIndexes = new ConcurrentSkipListMap<>(
                         UnsignedBytes.lexicographicalComparator());
@@ -597,11 +597,14 @@ public class RangeStripedCompactableIndexes {
             return tx.tx(new ReadIndex[0]);
         } else {
             for (FileBackMergableIndexs index : map.values()) {
-                if (index.compactableIndexes.maxTimeStampAndVersion().compare(newerThanTimestamp, newerThanTimestampVersion) < 0) {
-                    continue;
-                }
-                if (!index.tx(tx)) {
-                    return false;
+                TimestampAndVersion timestampAndVersion = index.compactableIndexes.maxTimeStampAndVersion();
+                if (mergeRawEntry.mightContain(timestampAndVersion.maxTimestamp,
+                    timestampAndVersion.maxTimestampVersion,
+                    newerThanTimestamp,
+                    newerThanTimestampVersion)) {
+                    if (!index.tx(tx)) {
+                        return false;
+                    }
                 }
             }
         }

@@ -8,20 +8,12 @@ public class TimestampAndVersion {
 
     public static final TimestampAndVersion NULL = new TimestampAndVersion(-1, -1);
 
-    final long maxTimestamp;
-    final long maxTimestampVersion;
+    public final long maxTimestamp;
+    public final long maxTimestampVersion;
 
     public TimestampAndVersion(long maxTimestamp, long maxTimestampVersion) {
         this.maxTimestamp = maxTimestamp;
         this.maxTimestampVersion = maxTimestampVersion;
-    }
-
-    public int compare(long otherMaxTimestamp, long otherMaxTimestampVersion) {
-        int c = Long.compare(maxTimestamp, otherMaxTimestamp);
-        if (c != 0) {
-            return c;
-        }
-        return Long.compare(maxTimestampVersion, otherMaxTimestampVersion);
     }
 
     @Override

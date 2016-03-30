@@ -113,4 +113,22 @@ public class SimpleRawEntryMarshaller implements RawEntryMarshaller {
         System.arraycopy(rawEntry, 4, key, 0, keyLength);
         return key;
     }
+
+    @Override
+    public boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
+        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) >= 0;
+    }
+
+    @Override
+    public boolean isNewerThan(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
+        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) > 0;
+    }
+
+    private static int compare(long timestamp, long timestampVersion, long otherTimestamp, long otherTimestampVersion) {
+        int c = Long.compare(timestamp, otherTimestamp);
+        if (c != 0) {
+            return c;
+        }
+        return Long.compare(timestampVersion, otherTimestampVersion);
+    }
 }

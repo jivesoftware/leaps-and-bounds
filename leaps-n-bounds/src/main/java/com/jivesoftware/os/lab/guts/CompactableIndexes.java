@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.api.RawEntryMarshaller;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
@@ -30,6 +31,7 @@ public class CompactableIndexes {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     // newest to oldest
+    private final RawEntryMarshaller valueMerger;
     private final IndexesLock indexesLock = new IndexesLock();
     private volatile boolean[] merging = new boolean[0]; // is volatile for reference changes not value changes.
     private volatile RawConcurrentReadableIndex[] indexes = new RawConcurrentReadableIndex[0];  // is volatile for reference changes not value changes.
@@ -38,6 +40,10 @@ public class CompactableIndexes {
     private final AtomicLong compactorCheckVersion = new AtomicLong();
     private final AtomicBoolean compacting = new AtomicBoolean();
     private volatile TimestampAndVersion maxTimestampAndVersion;
+
+    public CompactableIndexes(RawEntryMarshaller valueMerger) {
+        this.valueMerger = valueMerger;
+    }
 
     public boolean append(RawConcurrentReadableIndex index) {
         synchronized (indexesLock) {
@@ -66,7 +72,10 @@ public class CompactableIndexes {
         TimestampAndVersion timestampAndVersion = TimestampAndVersion.NULL;
         for (RawConcurrentReadableIndex rawConcurrentReadableIndex : concurrentReadableIndexs) {
             TimestampAndVersion other = rawConcurrentReadableIndex.maxTimestampAndVersion();
-            if (timestampAndVersion.compare(other.maxTimestamp, other.maxTimestampVersion) < 0) {
+            if (valueMerger.isNewerThan(other.maxTimestamp,
+                other.maxTimestampVersion,
+                timestampAndVersion.maxTimestamp,
+                timestampAndVersion.maxTimestampVersion)) {
                 timestampAndVersion = other;
             }
         }
@@ -349,7 +358,7 @@ public class CompactableIndexes {
                                 LABAppendableIndex catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
                                 ReadIndex catchupReader = catchup.acquireReader();
                                 try {
-                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()});
+                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[] { catchupReader.rowScan() });
 
                                     LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
                                     catupLeftAppenableIndex.append((leftStream) -> {

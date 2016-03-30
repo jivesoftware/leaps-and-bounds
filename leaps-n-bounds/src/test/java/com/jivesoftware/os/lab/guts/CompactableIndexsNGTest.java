@@ -36,7 +36,7 @@ public class CompactableIndexsNGTest {
     public void testPointGets() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        CompactableIndexes indexs = new CompactableIndexes();
+        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawEntryMarshaller());
         AtomicLong id = new AtomicLong();
 //        int[] counts = new int[1000];
 //        Random rand = new Random(1234);
@@ -145,7 +145,7 @@ public class CompactableIndexsNGTest {
         boolean fsync = true;
         int minimumRun = 4;
 
-        CompactableIndexes indexs = new CompactableIndexes();
+        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawEntryMarshaller());
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
@@ -203,7 +203,7 @@ public class CompactableIndexsNGTest {
         boolean fsync = true;
         int minimumRun = 4;
 
-        CompactableIndexes indexs = new CompactableIndexes();
+        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawEntryMarshaller());
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
@@ -268,7 +268,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs = new CompactableIndexes();
+        indexs = new CompactableIndexes(new SimpleRawEntryMarshaller());
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         IndexFile indexFile = new IndexFile(indexFiler, "r", false);
         indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));

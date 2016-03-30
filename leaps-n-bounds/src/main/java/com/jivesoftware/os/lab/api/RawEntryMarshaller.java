@@ -24,4 +24,8 @@ public interface RawEntryMarshaller {
     long timestamp(byte[] rawEntry, int offset, int length);
 
     long version(byte[] rawEntry, int offset, int length);
+
+    boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion);
+
+    boolean isNewerThan(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion);
 }
