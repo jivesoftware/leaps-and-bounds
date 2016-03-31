@@ -69,20 +69,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
             @Override
             public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
-                Iterator<Map.Entry<byte[], byte[]>> iterator;
-                if (from != null && to != null) {
-                    iterator = index.subMap(from, true, to, false).entrySet().iterator();
-                } else if (from != null) {
-                    iterator = index.tailMap(from, true).entrySet().iterator();
-                } else if (to != null) {
-                    iterator = index.headMap(to, false).entrySet().iterator();
-                } else {
-                    iterator = index.entrySet().iterator();
-                }
+                Iterator<Map.Entry<byte[], byte[]>> iterator = subMap(from, to).entrySet().iterator();
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-//                        System.out.println("readToWrite:" + UIO.bytesLong(next.getKey()));
+                        /*System.out.println("readToWrite:" + UIO.bytesLong(next.getKey()));*/
 
                         boolean more = stream.stream(next.getValue(), 0, next.getValue().length);
                         return more ? Next.more : Next.stopped;
@@ -106,17 +97,17 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
             @Override
             public void close() {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                throw new UnsupportedOperationException("NOPE");
             }
 
             @Override
             public long count() {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                throw new UnsupportedOperationException("NOPE");
             }
 
             @Override
             public boolean isEmpty() {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                throw new UnsupportedOperationException("NOPE");
             }
 
             @Override
@@ -124,6 +115,22 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 hideABone.release();
             }
         };
+    }
+
+    public boolean containsKeyInRange(byte[] from, byte[] to) {
+        return !subMap(from, to).isEmpty();
+    }
+
+    private Map<byte[], byte[]> subMap(byte[] from, byte[] to) {
+        if (from != null && to != null) {
+            return index.subMap(from, true, to, false);
+        } else if (from != null) {
+            return index.tailMap(from, true);
+        } else if (to != null) {
+            return index.headMap(to, false);
+        } else {
+            return index;
+        }
     }
 
     @Override

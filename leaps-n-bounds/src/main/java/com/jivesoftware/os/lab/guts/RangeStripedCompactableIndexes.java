@@ -557,7 +557,9 @@ public class RangeStripedCompactableIndexes {
                 if (priorEntry == null) {
                     priorEntry = currentEntry;
                 } else {
-                    priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync);
+                    if (rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), currentEntry.getKey())) {
+                        priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync);
+                    }
                     priorEntry = currentEntry;
                     if (UnsignedBytes.lexicographicalComparator().compare(maxKey, currentEntry.getKey()) < 0) {
                         priorEntry = null;
@@ -565,7 +567,7 @@ public class RangeStripedCompactableIndexes {
                     }
                 }
             }
-            if (priorEntry != null) {
+            if (priorEntry != null && rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), null)) {
                 priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), null, fsync);
             }
 
