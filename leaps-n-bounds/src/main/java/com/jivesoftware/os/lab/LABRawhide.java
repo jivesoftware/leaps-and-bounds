@@ -12,7 +12,7 @@ import java.io.IOException;
  *
  * @author jonathan.colt
  */
-public class LABRawhideTemp implements Rawhide {
+public class LABRawhide implements Rawhide {
 
     @Override
     public byte[] merge(byte[] current, byte[] adding) {

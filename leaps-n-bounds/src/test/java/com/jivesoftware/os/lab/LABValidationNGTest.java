@@ -35,7 +35,7 @@ public class LABValidationNGTest {
         File root = Files.createTempDir();
         int entriesBetweenLeaps = 2;
         int maxUpdatesBetweenMerges = 10;
-        LAB lab = new LAB(new LABRawhideTemp(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, 2);
+        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, 2);
 
         validationTest(lab);
 
