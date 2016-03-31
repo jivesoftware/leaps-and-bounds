@@ -12,7 +12,7 @@ import com.jivesoftware.os.lab.api.Rawhide;
  *
  * @author jonathan.colt
  */
-public class SimpleRawEntryMarshaller implements Rawhide {
+public class SimpleRawhide implements Rawhide {
 
     public static String toString(byte[] rawEntry) {
         return "key:" + key(rawEntry) + " value:" + value(rawEntry);
@@ -112,6 +112,29 @@ public class SimpleRawEntryMarshaller implements Rawhide {
         byte[] key = new byte[keyLength];
         System.arraycopy(rawEntry, 4, key, 0, keyLength);
         return key;
+    }
+
+    @Override
+    public int keyLength(byte[] rawEntry, int offset) {
+        return UIO.bytesInt(rawEntry, offset);
+    }
+
+    @Override
+    public int keyOffset(byte[] rawEntry, int offset) {
+        return offset + 4;
+    }
+
+    @Override
+    public int compareKey(byte[] rawEntry, int offset, byte[] compareKey, int compareOffset, int compareLength) {
+        int keylength = UIO.bytesInt(rawEntry, offset);
+        return IndexUtil.compare(rawEntry, offset + 4, keylength, compareKey, compareOffset, compareLength);
+    }
+
+    @Override
+    public int compareKeyFromEntry(IReadable readable, byte[] compareKey, int compareOffset, int compareLength, byte[] intBuffer) throws Exception {
+        readable.seek(readable.getFilePointer() + 4); // skip the entry length
+        int keyLength = UIO.readInt(readable, "keyLength", intBuffer);
+        return IndexUtil.compare(readable, keyLength, compareKey, compareOffset, compareLength);
     }
 
     @Override

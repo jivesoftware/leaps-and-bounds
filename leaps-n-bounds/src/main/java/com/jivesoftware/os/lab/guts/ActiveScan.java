@@ -7,7 +7,6 @@ import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ScanFromFp;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
-import java.io.IOException;
 import java.util.Arrays;
 
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.ENTRY;
@@ -87,7 +86,7 @@ public class ActiveScan implements ScanFromFp {
         activeResult = false;
     }
 
-    public long getInclusiveStartOfRow(byte[] key, boolean exact) throws Exception {
+    public long getInclusiveStartOfRow(byte[] key, boolean exact, byte[] intBuffer) throws Exception {
         Leaps at = leaps;
         if (UnsignedBytes.lexicographicalComparator().compare(leaps.lastKey, key) < 0) {
             return -1;
@@ -100,7 +99,7 @@ public class ActiveScan implements ScanFromFp {
                     return 0;
                 }
                 return at.fps[at.fps.length - 1] - 1;*/
-                return binarySearchClosestFP(at, key, exact);
+                return binarySearchClosestFP(at, key, exact, intBuffer);
             } else {
                 if (index < 0) {
                     index = -(index + 1);
@@ -117,45 +116,29 @@ public class ActiveScan implements ScanFromFp {
         return -1;
     }
 
-    private long binarySearchClosestFP(Leaps at, byte[] key, boolean exact) throws IOException {
+    private long binarySearchClosestFP(Leaps at, byte[] key, boolean exact, byte[] intBuffer) throws Exception {
         int low = 0;
         int high = at.startOfEntryIndex.length - 1;
 
-        byte[] midKey = null;
         while (low <= high) {
             int mid = (low + high) >>> 1;
             long fp = at.startOfEntryIndex[mid];
 
-            readable.seek(fp);
+            readable.seek(fp + 1); // skip 1 type byte
 
-            int len = readLength(readable, lengthBuffer);
-            if (len < 0) {
-                throw new IllegalStateException("Missing key");
-            }
-            if (len == 0) {
-                if (midKey == null) {
-                    midKey = new byte[0];
-                }
-            } else {
-                if (midKey == null || midKey.length < len) {
-                    midKey = new byte[len];
-                }
-                UIO.readFully(readable, midKey, len);
-            }
-
-            int cmp = IndexUtil.compare(midKey, 0, len, key, 0, key.length);
+            int cmp = rawhide.compareKeyFromEntry(readable, key, 0, key.length, intBuffer);
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {
                 high = mid - 1;
             } else {
-                return fp - (1 + 4); // key found. (1 for type 4 for entry length)
+                return fp;
             }
         }
         if (exact) {
             return -1;
         } else {
-            return at.startOfEntryIndex[low] - (1 + 4); // best index. (1 for type 4 for entry length)
+            return at.startOfEntryIndex[low];
         }
     }
 

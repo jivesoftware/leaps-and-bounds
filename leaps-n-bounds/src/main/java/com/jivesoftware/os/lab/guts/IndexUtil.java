@@ -2,10 +2,13 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.google.common.primitives.UnsignedLongs;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.io.api.IReadable;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteOrder;
 import java.security.AccessController;
@@ -53,20 +56,20 @@ public class IndexUtil {
         return new PointGetRaw(pointGets);
     }
 
-    public static NextRawEntry rangeScan(ReadIndex[] copy, byte[] from, byte[] to) throws Exception {
+    public static NextRawEntry rangeScan(ReadIndex[] copy, byte[] from, byte[] to, Rawhide rawhide) throws Exception {
         NextRawEntry[] feeders = new NextRawEntry[copy.length];
         for (int i = 0; i < feeders.length; i++) {
             feeders[i] = copy[i].rangeScan(from, to);
         }
-        return new InterleaveStream(feeders);
+        return new InterleaveStream(feeders, rawhide);
     }
 
-    public static NextRawEntry rowScan(ReadIndex[] copy) throws Exception {
+    public static NextRawEntry rowScan(ReadIndex[] copy, Rawhide rawhide) throws Exception {
         NextRawEntry[] feeders = new NextRawEntry[copy.length];
         for (int i = 0; i < feeders.length; i++) {
             feeders[i] = copy[i].rowScan();
         }
-        return new InterleaveStream(feeders);
+        return new InterleaveStream(feeders, rawhide);
     }
 
     public static int calculateIdealMaxLeaps(long entryCount, int entriesBetweenLeaps) {
@@ -121,6 +124,17 @@ public class IndexUtil {
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    public static int compare(IReadable left, int leftLength, byte[] right, int rightOffset, int rightLength) throws IOException {
+        int minLength = Math.min(leftLength, rightLength);
+        for (int i = 0; i < minLength; i++) {
+            int result = (left.read() & 0xFF) - (right[rightOffset + i] & 0xFF);
+            if (result != 0) {
+                return result;
+            }
+        }
+        return leftLength - rightLength;
     }
 
     public static int compare(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {

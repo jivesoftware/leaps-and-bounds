@@ -283,14 +283,13 @@ public class CompactableIndexes {
                         byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1)).get(1);
                         LABAppendableIndex leftAppenableIndex = leftHalfIndexFactory.createIndex(join, worstCaseCount - 1);
                         LABAppendableIndex rightAppenableIndex = rightHalfIndexFactory.createIndex(join, worstCaseCount - 1);
-                        InterleaveStream feedInterleaver = new InterleaveStream(feeders);
+                        InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
 
                         LOG.info("Splitting with a middle of:" + Arrays.toString(middle));
                         leftAppenableIndex.append((leftStream) -> {
                             return rightAppenableIndex.append((rightStream) -> {
                                 return feedInterleaver.stream((rawEntry, offset, length) -> {
-                                    int keylength = UIO.bytesInt(rawEntry, offset);
-                                    int c = IndexUtil.compare(rawEntry, 4, keylength, middle, 0, middle.length);
+                                    int c = rawhide.compareKey(rawEntry, offset, middle, 0, middle.length);
                                     if (c < 0) {
                                         if (!leftStream.stream(rawEntry, offset, length)) {
                                             return false;
@@ -358,7 +357,7 @@ public class CompactableIndexes {
                                 LABAppendableIndex catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
                                 ReadIndex catchupReader = catchup.acquireReader();
                                 try {
-                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[] { catchupReader.rowScan() });
+                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[] { catchupReader.rowScan() }, rawhide);
 
                                     LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
                                     catupLeftAppenableIndex.append((leftStream) -> {
@@ -515,7 +514,7 @@ public class CompactableIndexes {
                 }
 
                 LABAppendableIndex appenableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
-                InterleaveStream feedInterleaver = new InterleaveStream(feeders);
+                InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
                 appenableIndex.append((stream) -> {
                     return feedInterleaver.stream(stream);
                 });

@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueStream;
+import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -11,7 +12,7 @@ import java.io.IOException;
  *
  * @author jonathan.colt
  */
-public class LABRawHide implements Rawhide {
+public class LABRawhide implements Rawhide {
 
     @Override
     public byte[] merge(byte[] current, byte[] adding) {
@@ -105,6 +106,29 @@ public class LABRawHide implements Rawhide {
         byte[] key = new byte[keyLength];
         System.arraycopy(rawEntry, 4, key, 0, keyLength);
         return key;
+    }
+
+    @Override
+    public int keyLength(byte[] rawEntry, int offset) {
+        return UIO.bytesInt(rawEntry, offset);
+    }
+
+    @Override
+    public int keyOffset(byte[] rawEntry, int offset) {
+        return offset + 4;
+    }
+
+    @Override
+    public int compareKey(byte[] rawEntry, int offset, byte[] compareKey, int compareOffset, int compareLength) {
+        int keylength = UIO.bytesInt(rawEntry, offset);
+        return IndexUtil.compare(rawEntry, offset + 4, keylength, compareKey, compareOffset, compareLength);
+    }
+
+    @Override
+    public int compareKeyFromEntry(IReadable readable, byte[] compareKey, int compareOffset, int compareLength, byte[] intBuffer) throws Exception {
+        readable.seek(readable.getFilePointer() + 4); // skip the entry length
+        int keyLength = UIO.readInt(readable, "keyLength", intBuffer);
+        return IndexUtil.compare(readable, keyLength, compareKey, compareOffset, compareLength);
     }
 
     @Override

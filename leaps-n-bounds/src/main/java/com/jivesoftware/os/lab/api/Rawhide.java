@@ -21,6 +21,14 @@ public interface Rawhide {
 
     byte[] key(byte[] rawEntry, int offset, int length) throws Exception;
 
+    int keyLength(byte[] rawEntry, int offset);
+
+    int keyOffset(byte[] rawEntry, int offset);
+
+    int compareKey(byte[] rawEntry, int offset, byte[] compareKey, int compareOffset, int compareLength);
+
+    int compareKeyFromEntry(IReadable readable, byte[] compareKey, int compareOffset, int compareLength, byte[] intBuffer) throws Exception;
+
     long timestamp(byte[] rawEntry, int offset, int length);
 
     long version(byte[] rawEntry, int offset, int length);

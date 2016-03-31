@@ -58,7 +58,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
         ActiveScan activeScan = new ActiveScan(rawhide, leaps, leapsCache, footer, readable.call(), new byte[8]);
         activeScan.reset();
-        long fp = activeScan.getInclusiveStartOfRow(from, false);
+        long fp = activeScan.getInclusiveStartOfRow(from, false, new byte[4]);
         if (fp < 0) {
             return (stream) -> Next.eos;
         }
@@ -68,10 +68,9 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             while (!once[0] && more) {
                 more = activeScan.next(fp,
                     (rawEntry, offset, length) -> {
-                        int keylength = UIO.bytesInt(rawEntry, offset);
-                        int c = IndexUtil.compare(rawEntry, 4, keylength, from, 0, from.length);
+                        int c = rawhide.compareKey(rawEntry, offset, from, 0, from.length);
                         if (c >= 0) {
-                            c = to == null ? -1 : IndexUtil.compare(rawEntry, 4, keylength, to, 0, to.length);
+                            c = to == null ? -1 : rawhide.compareKey(rawEntry, offset, to, 0, to.length);
                             if (c < 0) {
                                 once[0] = true;
                             }

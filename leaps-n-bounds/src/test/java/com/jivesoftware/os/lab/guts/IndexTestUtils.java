@@ -13,9 +13,9 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
 import junit.framework.Assert;
 
-import static com.jivesoftware.os.lab.guts.SimpleRawEntryMarshaller.key;
-import static com.jivesoftware.os.lab.guts.SimpleRawEntryMarshaller.rawEntry;
-import static com.jivesoftware.os.lab.guts.SimpleRawEntryMarshaller.value;
+import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
+import static com.jivesoftware.os.lab.guts.SimpleRawhide.rawEntry;
+import static com.jivesoftware.os.lab.guts.SimpleRawhide.value;
 
 /**
  * @author jonathan.colt
@@ -70,8 +70,9 @@ public class IndexTestUtils {
 
         int[] index = new int[1];
 
+        SimpleRawhide rawhide = new SimpleRawhide();
         indexes.tx(acquired -> {
-            NextRawEntry rowScan = IndexUtil.rowScan(acquired);
+            NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             RawEntryStream stream = (rawEntry, offset, length) -> {
                 System.out.println("scanned:" + UIO.bytesLong(keys.get(index[0])) + " " + key(rawEntry));
                 Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), key(rawEntry));
@@ -117,7 +118,7 @@ public class IndexTestUtils {
                 };
 
                 System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
-                NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, keys.get(_i), keys.get(_i + 3));
+                NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, keys.get(_i), keys.get(_i + 3), rawhide);
                 while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
                 Assert.assertEquals(3, streamed[0]);
             }
@@ -136,7 +137,7 @@ public class IndexTestUtils {
                     }
                     return true;
                 };
-                NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3));
+                NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3), rawhide);
                 while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
                 Assert.assertEquals(2, streamed[0]);
 

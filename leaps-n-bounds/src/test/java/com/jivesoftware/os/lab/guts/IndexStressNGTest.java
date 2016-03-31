@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 public class IndexStressNGTest {
 
     private final NumberFormat format = NumberFormat.getInstance();
-    private final SimpleRawEntryMarshaller simpleRawEntry = new SimpleRawEntryMarshaller();
+    private final SimpleRawhide simpleRawEntry = new SimpleRawhide();
 
     @Test(enabled = false)
     public void stress() throws Exception {
@@ -31,7 +31,7 @@ public class IndexStressNGTest {
         Random rand = new Random(12345);
 
         long start = System.currentTimeMillis();
-        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawEntryMarshaller());
+        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawhide());
         int count = 0;
 
         boolean fsync = true;

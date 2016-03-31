@@ -10,7 +10,6 @@ import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
@@ -151,9 +150,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     @Override
     public boolean append(RawEntries entries) throws Exception {
         return entries.consume((rawEntry, offset, length) -> {
-            int keyLength = UIO.bytesInt(rawEntry);
-            byte[] key = new byte[keyLength];
-            System.arraycopy(rawEntry, 4, key, 0, keyLength);
+            byte[] key = rawhide.key(rawEntry, offset, length);
             index.compute(key, (k, v) -> {
                 byte[] merged;
                 if (v == null) {

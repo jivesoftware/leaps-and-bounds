@@ -9,7 +9,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -60,7 +59,7 @@ public class LABEnvironmentConcurrenyNGTest {
         ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
 
         Random rand = new Random(12345);
-        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, new LABRawHide());
+        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, new LABRawhide());
         AtomicLong running = new AtomicLong();
         List<Future> writerFutures = new ArrayList<>();
         for (int i = 0; i < writerCount; i++) {

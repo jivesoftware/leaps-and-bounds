@@ -268,9 +268,9 @@ public class RangeStripedCompactableIndexes {
             FileUtils.deleteQuietly(splittingRoot);
         }
 
-        void append(RawMemoryIndex rawMemoryIndex, byte[] minKey, byte[] maxKey) throws Exception {
+        void append(RawMemoryIndex rawMemoryIndex, byte[] minKey, byte[] maxKey, boolean fsync) throws Exception {
 
-            LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawMemoryIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, useMemMap);
+            LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawMemoryIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync);
             compactableIndexes.append(lab);
         }
 
@@ -515,7 +515,7 @@ public class RangeStripedCompactableIndexes {
                     copyOfIndexes.put(minKey, index);
                     indexes = copyOfIndexes;
                 }
-                index.append(rawMemoryIndex, null, null);
+                index.append(rawMemoryIndex, null, null, fsync);
                 return;
             }
 
@@ -545,7 +545,7 @@ public class RangeStripedCompactableIndexes {
                 if (priorEntry == null) {
                     priorEntry = currentEntry;
                 } else {
-                    priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey());
+                    priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync);
                     priorEntry = currentEntry;
                     if (UnsignedBytes.lexicographicalComparator().compare(maxKey, currentEntry.getKey()) < 0) {
                         priorEntry = null;
@@ -554,7 +554,7 @@ public class RangeStripedCompactableIndexes {
                 }
             }
             if (priorEntry != null) {
-                priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), null);
+                priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), null, fsync);
             }
 
         } finally {

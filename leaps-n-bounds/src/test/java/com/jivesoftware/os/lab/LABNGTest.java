@@ -25,7 +25,7 @@ public class LABNGTest {
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
             false, 1, 2, 8);
 
-        ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1, new LABRawHide());
+        ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1, new LABRawhide());
 
         index.append((stream) -> {
             stream.stream(UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));

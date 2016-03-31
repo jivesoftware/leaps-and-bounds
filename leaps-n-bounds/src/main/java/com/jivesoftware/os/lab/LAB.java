@@ -105,14 +105,14 @@ public class LAB implements ValueIndex {
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
         return tx(from, to, -1, -1, (readIndexes) -> {
-            return rawToReal(IndexUtil.rangeScan(readIndexes, from, to), stream);
+            return rawToReal(IndexUtil.rangeScan(readIndexes, from, to, rawhide), stream);
         });
     }
 
     @Override
     public boolean rowScan(ValueStream stream) throws Exception {
         return tx(null, null, -1, -1, (readIndexes) -> {
-            return rawToReal(IndexUtil.rowScan(readIndexes), stream);
+            return rawToReal(IndexUtil.rowScan(readIndexes, rawhide), stream);
         });
     }
 
@@ -280,6 +280,9 @@ public class LAB implements ValueIndex {
 
     @Override
     public List<Future<Object>> commit(boolean fsync) throws Exception {
+        if (memoryIndex.isEmpty()) {
+            return Collections.emptyList();
+        }
 
         if (corrupt) {
             throw new LABIndexCorruptedException();

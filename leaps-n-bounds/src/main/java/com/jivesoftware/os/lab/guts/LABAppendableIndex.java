@@ -73,7 +73,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
             //entryBuffer.reset();
             long fp = appendOnly.getFilePointer();
-            startOfEntryIndex[updatesSinceLeap] = fp + 1 + 4 + entryBuffer.length();
+            startOfEntryIndex[updatesSinceLeap] = fp + entryBuffer.length();
             UIO.writeByte(entryBuffer, ENTRY, "type");
 
             rawhide.writeRawEntry(rawEntry, offset, length, entryBuffer, lengthBuffer);

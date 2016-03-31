@@ -1,9 +1,9 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.StreamRawEntry;
-import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.PriorityQueue;
 
 /**
@@ -15,9 +15,9 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
     private Feed active;
     private Feed until;
 
-    public InterleaveStream(NextRawEntry[] nextRawEntries) throws Exception {
+    public InterleaveStream(NextRawEntry[] nextRawEntries, Rawhide rawhide) throws Exception {
         for (int i = 0; i < nextRawEntries.length; i++) {
-            Feed feed = new Feed(i, nextRawEntries[i]);
+            Feed feed = new Feed(i, nextRawEntries[i], rawhide);
             feed.feedNext();
             feeds.add(feed);
         }
@@ -40,7 +40,7 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
         // 1.     3, 4, 7, 10
         // 2.     3, 6, 8, 11
         if (active == null
-            || until != null && IndexUtil.compare(active.nextRawEntry, 4, active.nextRawKeyLength, until.nextRawEntry, 4, until.nextRawKeyLength) >= 0) {
+            || until != null && compare(active, until) >= 0) {
 
             if (active != null) {
                 feeds.add(active);
@@ -54,7 +54,7 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
             while (true) {
                 Feed first = feeds.peek();
                 if (first == null
-                    || IndexUtil.compare(first.nextRawEntry, 4, first.nextRawKeyLength, active.nextRawEntry, 4, active.nextRawKeyLength) != 0) {
+                    || compare(first, active) != 0) {
                     until = first;
                     break;
                 }
@@ -82,24 +82,33 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
         }
     }
 
+    private int compare(Feed left, Feed right) {
+        return IndexUtil.compare(left.nextRawEntry, left.nextRawKeyOffset, left.nextRawKeyLength,
+            right.nextRawEntry, right.nextRawKeyOffset, right.nextRawKeyLength);
+    }
+
     private static class Feed implements Comparable<Feed> {
 
         private final int index;
         private final NextRawEntry feed;
+        private final Rawhide rawhide;
 
         private int nextRawKeyLength;
+        private int nextRawKeyOffset;
         private byte[] nextRawEntry;
         private int nextOffset;
         private int nextLength;
 
-        public Feed(int index, NextRawEntry feed) {
+        public Feed(int index, NextRawEntry feed, Rawhide rawhide) {
             this.index = index;
             this.feed = feed;
+            this.rawhide = rawhide;
         }
 
         private byte[] feedNext() throws Exception {
             Next hadNext = feed.next((rawEntry, offset, length) -> {
-                nextRawKeyLength = UIO.bytesInt(rawEntry, offset);
+                nextRawKeyLength = rawhide.keyLength(rawEntry, offset);
+                nextRawKeyOffset = rawhide.keyOffset(rawEntry, offset);
                 nextRawEntry = rawEntry;
                 nextOffset = offset;
                 nextLength = length;
@@ -113,7 +122,7 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
         @Override
         public int compareTo(Feed o) {
-            int c = IndexUtil.compare(nextRawEntry, 4, nextRawKeyLength, o.nextRawEntry, 4, o.nextRawKeyLength);
+            int c = IndexUtil.compare(nextRawEntry, nextRawKeyOffset, nextRawKeyLength, o.nextRawEntry, o.nextRawKeyOffset, o.nextRawKeyLength);
             if (c == 0) {
                 c = Integer.compare(index, o.index);
             }
