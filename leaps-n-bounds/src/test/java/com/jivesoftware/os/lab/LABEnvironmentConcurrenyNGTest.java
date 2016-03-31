@@ -77,7 +77,7 @@ public class LABEnvironmentConcurrenyNGTest {
                                     UIO.longBytes(value.incrementAndGet()));
                             }
                             return true;
-                        });
+                        }, fsync);
                         index.commit(fsync);
                         System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt());
                     }

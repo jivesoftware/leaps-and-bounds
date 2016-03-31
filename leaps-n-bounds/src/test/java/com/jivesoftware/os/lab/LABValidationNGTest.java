@@ -79,7 +79,7 @@ public class LABValidationNGTest {
                                     UIO.longBytes(value.incrementAndGet()));
                             }
                             return true;
-                        });
+                        }, fsync);
                         lab.commit(fsync);
                         System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + lab.debt());
                     }

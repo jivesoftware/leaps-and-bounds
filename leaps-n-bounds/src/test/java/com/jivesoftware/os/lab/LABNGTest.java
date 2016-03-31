@@ -32,7 +32,7 @@ public class LABNGTest {
             stream.stream(UIO.longBytes(2), System.currentTimeMillis(), false, 0, UIO.longBytes(2));
             stream.stream(UIO.longBytes(3), System.currentTimeMillis(), false, 0, UIO.longBytes(3));
             return true;
-        });
+        }, fsync);
         List<Future<Object>> awaitable = index.commit(fsync);
         for (Future<Object> future : awaitable) {
             future.get();
@@ -43,7 +43,7 @@ public class LABNGTest {
             stream.stream(UIO.longBytes(8), System.currentTimeMillis(), false, 0, UIO.longBytes(8));
             stream.stream(UIO.longBytes(9), System.currentTimeMillis(), false, 0, UIO.longBytes(9));
             return true;
-        });
+        }, fsync);
         awaitable = index.commit(fsync);
         for (Future<Object> future : awaitable) {
             future.get();
@@ -71,7 +71,7 @@ public class LABNGTest {
             stream.stream(UIO.longBytes(2), System.currentTimeMillis(), true, 1, UIO.longBytes(2));
             stream.stream(UIO.longBytes(3), System.currentTimeMillis(), true, 1, UIO.longBytes(3));
             return true;
-        });
+        }, fsync);
 
         expected = new long[]{7, 8, 9};
         testExpected(index, expected);

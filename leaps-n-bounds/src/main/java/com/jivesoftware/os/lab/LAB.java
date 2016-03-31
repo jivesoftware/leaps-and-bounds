@@ -234,7 +234,7 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public boolean append(Values values) throws Exception {
+    public boolean append(Values values, boolean fsyncOnFlush) throws Exception {
         boolean appended;
         commitSemaphore.acquire();
         try {
@@ -273,7 +273,7 @@ public class LAB implements ValueIndex {
         }
 
         if (memoryIndex.count() > maxUpdatesBeforeFlush) {
-            commit(true);
+            commit(fsyncOnFlush);
         }
         return appended;
     }

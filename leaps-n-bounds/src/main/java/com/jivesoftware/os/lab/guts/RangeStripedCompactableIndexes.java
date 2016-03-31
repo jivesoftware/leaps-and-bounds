@@ -308,14 +308,14 @@ public class RangeStripedCompactableIndexes {
             appendableIndex.closeAppendable(fsync);
 
             File commitedIndexFile = indexRangeId.toFile(activeRoot);
-            return moveIntoPlace(commitingIndexFile, commitedIndexFile, indexRangeId);
+            return moveIntoPlace(commitingIndexFile, commitedIndexFile, indexRangeId, fsync);
         }
 
-        private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId) throws Exception {
+        private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId, boolean fsync) throws Exception {
             FileUtils.moveFile(commitingIndexFile, commitedIndexFile);
             LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy,
                 indexRangeId, new IndexFile(commitedIndexFile, "r", useMemMap), rawhide, concurrency);
-            reopenedIndex.flush(true);  // Sorry
+            reopenedIndex.flush(fsync);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
             return reopenedIndex;
         }
@@ -475,7 +475,7 @@ public class RangeStripedCompactableIndexes {
                 File mergedIndexFile = ids.get(0).toFile(mergingRoot);
                 File file = ids.get(0).toFile(activeRoot);
                 FileUtils.deleteQuietly(file);
-                return moveIntoPlace(mergedIndexFile, file, ids.get(0));
+                return moveIntoPlace(mergedIndexFile, file, ids.get(0), fsync);
             });
         }
 

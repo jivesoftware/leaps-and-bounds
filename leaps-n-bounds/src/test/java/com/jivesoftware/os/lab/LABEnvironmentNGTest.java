@@ -155,7 +155,7 @@ public class LABEnvironmentNGTest {
                         UIO.longBytes(value.incrementAndGet()));
                 }
                 return true;
-            });
+            }, true);
 
             System.out.println("Append Elapse:" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
