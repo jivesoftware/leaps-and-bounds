@@ -5,6 +5,8 @@ import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -76,7 +78,7 @@ public class LABEnvironment {
         File oldFileName = new File(rootFile, oldName);
         File newFileName = new File(rootFile, newName);
         if (oldFileName.exists()) {
-            FileUtils.moveDirectory(oldFileName, newFileName);
+            Files.move(oldFileName.toPath(), newFileName.toPath(), StandardCopyOption.ATOMIC_MOVE);
             FileUtils.deleteDirectory(oldFileName);
             return true;
         } else {

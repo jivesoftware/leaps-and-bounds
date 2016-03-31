@@ -10,6 +10,8 @@ import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -312,7 +314,9 @@ public class RangeStripedCompactableIndexes {
         }
 
         private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId, boolean fsync) throws Exception {
-            FileUtils.moveFile(commitingIndexFile, commitedIndexFile);
+            FileUtils.forceMkdir(commitedIndexFile.getParentFile());
+            Files.move(commitingIndexFile.toPath(), commitedIndexFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            /*FileUtils.moveFile(commitingIndexFile, commitedIndexFile);*/
             LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy,
                 indexRangeId, new IndexFile(commitedIndexFile, "r", useMemMap), rawhide, concurrency);
             reopenedIndex.flush(fsync);  // Sorry
@@ -396,13 +400,21 @@ public class RangeStripedCompactableIndexes {
                     }, (ids) -> {
                         File left = new File(indexRoot, String.valueOf(nextStripeIdLeft));
                         File leftActive = new File(left, "active");
+                        FileUtils.forceMkdir(leftActive.getParentFile());
                         File right = new File(indexRoot, String.valueOf(nextStripeIdRight));
                         File rightActive = new File(right, "active");
+                        FileUtils.forceMkdir(rightActive.getParentFile());
                         LOG.info("Commiting split:{} became left:{} right:{}", stripeRoot, left, right);
 
                         try {
-                            FileUtils.moveDirectory(new File(splittingRoot, String.valueOf(nextStripeIdLeft)), leftActive);
-                            FileUtils.moveDirectory(new File(splittingRoot, String.valueOf(nextStripeIdRight)), rightActive);
+                            Files.move(new File(splittingRoot, String.valueOf(nextStripeIdLeft)).toPath(),
+                                leftActive.toPath(),
+                                StandardCopyOption.ATOMIC_MOVE);
+                            Files.move(new File(splittingRoot, String.valueOf(nextStripeIdRight)).toPath(),
+                                rightActive.toPath(),
+                                StandardCopyOption.ATOMIC_MOVE);
+                            /*FileUtils.moveDirectory(new File(splittingRoot, String.valueOf(nextStripeIdLeft)), leftActive);
+                            FileUtils.moveDirectory(new File(splittingRoot, String.valueOf(nextStripeIdRight)), rightActive);*/
 
                             Stripe leftStripe = loadStripe(left);
                             Stripe rightStripe = loadStripe(right);
@@ -411,7 +423,7 @@ public class RangeStripedCompactableIndexes {
                                     .lexicographicalComparator());
                                 copyOfIndexes.putAll(indexes);
 
-                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext();) {
+                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext(); ) {
                                     Map.Entry<byte[], FileBackMergableIndexs> next = iterator.next();
                                     if (next.getValue() == self) {
                                         iterator.remove();
@@ -441,7 +453,7 @@ public class RangeStripedCompactableIndexes {
                         } catch (Exception x) {
                             FileUtils.deleteQuietly(left);
                             FileUtils.deleteQuietly(right);
-                            LOG.error("Failed to split:{} became left:{} right:{}", new Object[]{stripeRoot, left, right}, x);
+                            LOG.error("Failed to split:{} became left:{} right:{}", new Object[] { stripeRoot, left, right }, x);
                             throw x;
                         }
                     }, fsync);
