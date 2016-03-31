@@ -27,7 +27,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LAB implements ValueIndex {
@@ -303,10 +302,9 @@ public class LAB implements ValueIndex {
         }
 
         return compact(fsync);
-        //return Collections.emptyList();
     }
 
-    public List<Future<Object>> compact(boolean fsync) throws Exception {
+    private List<Future<Object>> compact(boolean fsync) throws Exception {
 
         int debt = rangeStripedCompactableIndexes.debt(minDebt);
         if (debt == 0) {
@@ -320,16 +318,6 @@ public class LAB implements ValueIndex {
             }
             List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(minDebt, fsync);
             if (compactors != null && !compactors.isEmpty()) {
-
-//                Set<Long> pre = new HashSet<>();
-//                rowScan(new ValueStream() {
-//                    @Override
-//                    public boolean stream(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception {
-//                        pre.add(UIO.bytesLong(key));
-//                        return true;
-//                    }
-//                });
-//                System.out.println(" >> " + pre.size() + " Premerge:" + pre);
                 if (awaitable == null) {
                     awaitable = new ArrayList<>(compactors.size());
                 }
@@ -352,21 +340,6 @@ public class LAB implements ValueIndex {
                     });
                     awaitable.add(future);
                 }
-
-//                for (Future<Object> future : awaitable) {
-//                    future.get();
-//                }
-//                Set<Long> post = new HashSet<>();
-//                rowScan(new ValueStream() {
-//                    @Override
-//                    public boolean stream(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception {
-//                        if (payload != null) {
-//                            post.add(UIO.bytesLong(key));
-//                        }
-//                        return true;
-//                    }
-//                });
-//                System.out.println(" << " + post.size() + " PostMerge:" + post);
             }
 
             if (debt >= maxDebt) {
