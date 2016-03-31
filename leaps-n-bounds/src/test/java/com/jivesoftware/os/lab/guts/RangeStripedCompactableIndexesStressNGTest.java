@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
-import com.jivesoftware.os.lab.LABRawhide;
+import com.jivesoftware.os.lab.LABRawhideTemp;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -148,7 +148,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         for (int b = 0; b < numBatches; b++) {
 
-            RawMemoryIndex index = new RawMemoryIndex(destroy, new LABRawhide());
+            RawMemoryIndex index = new RawMemoryIndex(destroy, new LABRawhideTemp());
             long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
             indexs.append(index, fsync);
 
