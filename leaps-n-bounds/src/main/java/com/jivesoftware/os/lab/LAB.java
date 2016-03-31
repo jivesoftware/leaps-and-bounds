@@ -46,6 +46,7 @@ public class LAB implements ValueIndex {
     private final Semaphore commitSemaphore = new Semaphore(numPermits, true); // TODO expose?
     private final CompactLock compactLock = new CompactLock();
     private final AtomicLong ongoingCompactions = new AtomicLong();
+    private volatile boolean closeRequested = false;
 
     private volatile RawMemoryIndex memoryIndex;
     private volatile RawMemoryIndex flushingMemoryIndex;
@@ -113,12 +114,6 @@ public class LAB implements ValueIndex {
         return tx(null, null, -1, -1, (readIndexes) -> {
             return rawToReal(IndexUtil.rowScan(readIndexes, rawhide), stream);
         });
-    }
-
-    @Override
-    public void close() throws Exception {
-        memoryIndex.closeReadable();
-        rangeStripedCompactableIndexes.close();
     }
 
     @Override
@@ -312,7 +307,7 @@ public class LAB implements ValueIndex {
         }
 
         List<Future<Object>> awaitable = null;
-        while (true) {
+        while (!closeRequested) {
             if (corrupt) {
                 throw new LABIndexCorruptedException();
             }
@@ -323,7 +318,13 @@ public class LAB implements ValueIndex {
                 }
                 for (Callable<Void> compactor : compactors) {
                     LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, rangeStripedCompactableIndexes, debt);
-                    ongoingCompactions.incrementAndGet();
+                    synchronized (compactLock) {
+                        if (closeRequested) {
+                            break;
+                        } else {
+                            ongoingCompactions.incrementAndGet();
+                        }
+                    }
                     Future<Object> future = compact.submit(() -> {
                         try {
                             compactor.call();
@@ -344,18 +345,33 @@ public class LAB implements ValueIndex {
 
             if (debt >= maxDebt) {
                 synchronized (compactLock) {
-                    if (ongoingCompactions.get() > 0) {
+                    if (!closeRequested && ongoingCompactions.get() > 0) {
                         LOG.debug("Waiting because debt it do high index:{} debt:{}", rangeStripedCompactableIndexes, debt);
                         compactLock.wait();
                     } else {
-                        return awaitable;
+                        break;
                     }
                 }
                 debt = rangeStripedCompactableIndexes.debt(minDebt);
             } else {
-                return awaitable;
+                break;
             }
         }
+        return awaitable;
+    }
+
+    @Override
+    public void close() throws Exception {
+
+        closeRequested = true;
+        synchronized (compactLock) {
+            while (ongoingCompactions.get() > 0) {
+                compactLock.wait();
+            }
+        }
+
+        memoryIndex.closeReadable();
+        rangeStripedCompactableIndexes.close();
     }
 
     @Override
