@@ -91,6 +91,10 @@ public class LABEnvironment {
         FileUtils.deleteDirectory(fileName);
     }
 
+    public void delete() throws IOException {
+        FileUtils.deleteDirectory(rootFile);
+    }
+
     public void shutdown() throws InterruptedException {
         compact.shutdown();
         destroy.shutdown();

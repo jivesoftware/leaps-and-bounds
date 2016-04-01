@@ -111,9 +111,7 @@ public class CompactableIndexes {
 
         while (true) {
             if (splittable(splittableIfKeysLargerThanBytes, splittableIfValuesLargerThanBytes, splittableIfLargerThanBytes)) {
-                Callable<Void> splitter = splitterBuilder.build(fsync, (leftHalfIndexFactory, rightHalfIndexFactory, commitIndex, fsync1) -> {
-                    return buildSplitter(leftHalfIndexFactory, rightHalfIndexFactory, commitIndex, fsync1);
-                });
+                Callable<Void> splitter = splitterBuilder.build(fsync, this::buildSplitter);
                 if (splitter != null) {
                     return () -> {
                         try {
@@ -124,9 +122,7 @@ public class CompactableIndexes {
                     };
                 }
             } else if (debt(mergableIfDebtLargerThan) > 0) {
-                Callable<Void> merger = mergerBuilder.build(mergableIfDebtLargerThan, fsync, (mergableIfDebtLargerThan1, fsync1, indexFactory, commitIndex) -> {
-                    return buildMerger(mergableIfDebtLargerThan1, indexFactory, commitIndex, fsync1);
-                });
+                Callable<Void> merger = mergerBuilder.build(mergableIfDebtLargerThan, fsync, this::buildMerger);
                 if (merger != null) {
                     return () -> {
                         try {
@@ -404,7 +400,7 @@ public class CompactableIndexes {
         }
     }
 
-    private Merger buildMerger(int minimumRun, IndexFactory indexFactory, CommitIndex commitIndex, boolean fsync) throws Exception {
+    private Merger buildMerger(int minimumRun, boolean fsync, IndexFactory indexFactory, CommitIndex commitIndex) throws Exception {
         boolean[] mergingCopy;
         RawConcurrentReadableIndex[] indexesCopy;
         RawConcurrentReadableIndex[] mergeSet;

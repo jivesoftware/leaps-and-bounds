@@ -346,7 +346,7 @@ public class LAB implements ValueIndex {
             if (debt >= maxDebt) {
                 synchronized (compactLock) {
                     if (!closeRequested && ongoingCompactions.get() > 0) {
-                        LOG.debug("Waiting because debt it do high index:{} debt:{}", rangeStripedCompactableIndexes, debt);
+                        LOG.debug("Waiting because debt is too high for index:{} debt:{}", rangeStripedCompactableIndexes, debt);
                         compactLock.wait();
                     } else {
                         break;
@@ -382,7 +382,7 @@ public class LAB implements ValueIndex {
             + ", maxDebt=" + maxDebt
             + ", ongoingCompactions=" + ongoingCompactions
             + ", corrupt=" + corrupt
-            + ", valueMerger=" + rawhide
+            + ", rawhide=" + rawhide
             + '}';
     }
 
