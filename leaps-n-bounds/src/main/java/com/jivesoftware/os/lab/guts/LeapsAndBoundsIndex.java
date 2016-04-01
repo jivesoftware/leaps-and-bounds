@@ -31,7 +31,6 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     private final ConcurrentLHash<Leaps> leapsCache;
     private final Footer footer;
 
-    private final int numBonesHidden = Short.MAX_VALUE; // TODO config
     private final Semaphore hideABone;
 
     private final Rawhide rawhide;
@@ -41,7 +40,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         this.destroy = destroy;
         this.id = id;
         this.index = index;
-        this.hideABone = new Semaphore(numBonesHidden, true);
+        this.hideABone = new Semaphore(Short.MAX_VALUE, true);
         long length = index.length();
         if (length == 0) {
             throw new LABIndexCorruptedException("Trying to construct an index with an empy file.");
@@ -147,14 +146,14 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     public void destroy() throws Exception {
         destroy.submit(() -> {
 
-            hideABone.acquire(numBonesHidden);
+            hideABone.acquire(Short.MAX_VALUE);
             disposed.set(true);
             try {
                 index.close();
                 index.getFile().delete();
                 //LOG.info("Destroyed {} {}", id, index.getFile());
             } finally {
-                hideABone.release(numBonesHidden);
+                hideABone.release(Short.MAX_VALUE);
             }
             return null;
         });
@@ -167,11 +166,11 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
     @Override
     public void closeReadable() throws Exception {
-        hideABone.acquire(numBonesHidden);
+        hideABone.acquire(Short.MAX_VALUE);
         try {
             index.close();
         } finally {
-            hideABone.release(numBonesHidden);
+            hideABone.release(Short.MAX_VALUE);
         }
     }
 

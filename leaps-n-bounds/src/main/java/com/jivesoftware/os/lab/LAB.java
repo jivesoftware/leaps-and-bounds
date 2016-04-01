@@ -38,15 +38,14 @@ public class LAB implements ValueIndex {
     }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
-    private static final int numPermits = 1024;
-
+    
     private final ExecutorService destroy;
     private final ExecutorService compact;
     private final int maxUpdatesBeforeFlush;
     private final int minDebt;
     private final int maxDebt;
     private final RangeStripedCompactableIndexes rangeStripedCompactableIndexes;
-    private final Semaphore commitSemaphore = new Semaphore(numPermits, true); // TODO expose?
+    private final Semaphore commitSemaphore = new Semaphore(Short.MAX_VALUE, true);
     private final CompactLock compactLock = new CompactLock();
     private final AtomicLong ongoingCompactions = new AtomicLong();
     private final AtomicBoolean closeRequested = new AtomicBoolean(false);
@@ -394,7 +393,7 @@ public class LAB implements ValueIndex {
     }
 
     private boolean internalCommit(boolean fsync) throws Exception, InterruptedException {
-        commitSemaphore.acquire(numPermits);
+        commitSemaphore.acquire(Short.MAX_VALUE);
         try {
             RawMemoryIndex stackCopy = memoryIndex;
             if (stackCopy.isEmpty()) {
@@ -406,7 +405,7 @@ public class LAB implements ValueIndex {
             flushingMemoryIndex = null;
             stackCopy.destroy();
         } finally {
-            commitSemaphore.release(numPermits);
+            commitSemaphore.release(Short.MAX_VALUE);
         }
         return true;
     }
@@ -491,12 +490,12 @@ public class LAB implements ValueIndex {
         }
 
         LOG.info("Close is waiting for all commits and tx's to complete " + this);
-        commitSemaphore.acquire(numPermits);
+        commitSemaphore.acquire(Short.MAX_VALUE);
         try {
             memoryIndex.closeReadable();
             rangeStripedCompactableIndexes.close();
         } finally {
-            commitSemaphore.release(numPermits);
+            commitSemaphore.release(Short.MAX_VALUE);
         }
         LOG.info("Closed " + this);
 
