@@ -476,20 +476,20 @@ public class LAB implements ValueIndex {
         if (!closeRequested.compareAndSet(false, true)) {
             throw new LABIndexClosedException();
         }
-        LOG.info("Closing " + this);
+        //LOG.info("Closing " + this);
         if (flushUncommited) {
-            LOG.info("Close is flushing " + this);
+            //LOG.info("Close is flushing " + this);
             internalCommit(fsync);
         }
 
-        LOG.info("Close is waiting for compaction to finish " + this);
+        //LOG.info("Close is waiting for compaction to finish " + this);
         synchronized (compactLock) {
             while (ongoingCompactions.get() > 0) {
                 compactLock.wait();
             }
         }
 
-        LOG.info("Close is waiting for all commits and tx's to complete " + this);
+        //LOG.info("Close is waiting for all commits and tx's to complete " + this);
         commitSemaphore.acquire(Short.MAX_VALUE);
         try {
             memoryIndex.closeReadable();
