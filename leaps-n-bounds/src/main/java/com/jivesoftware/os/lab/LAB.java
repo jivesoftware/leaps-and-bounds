@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
@@ -24,6 +25,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -46,7 +48,7 @@ public class LAB implements ValueIndex {
     private final Semaphore commitSemaphore = new Semaphore(numPermits, true); // TODO expose?
     private final CompactLock compactLock = new CompactLock();
     private final AtomicLong ongoingCompactions = new AtomicLong();
-    private volatile boolean closeRequested = false;
+    private final AtomicBoolean closeRequested = new AtomicBoolean(false);
 
     private volatile RawMemoryIndex memoryIndex;
     private volatile RawMemoryIndex flushingMemoryIndex;
@@ -232,6 +234,9 @@ public class LAB implements ValueIndex {
         boolean appended;
         commitSemaphore.acquire();
         try {
+            if (closeRequested.get()) {
+                throw new LABIndexClosedException();
+            }
             appended = memoryIndex.append((stream) -> {
                 return values != null && values.consume((key, timestamp, tombstoned, version, value) -> {
                     byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
@@ -281,11 +286,23 @@ public class LAB implements ValueIndex {
         if (corrupt) {
             throw new LABIndexCorruptedException();
         }
+        if (closeRequested.get()) {
+            throw new LABIndexClosedException();
+        }
+
+        if (!internalCommit(fsync)) {
+            return Collections.emptyList();
+        }
+
+        return compact(fsync);
+    }
+
+    private boolean internalCommit(boolean fsync) throws Exception, InterruptedException {
         commitSemaphore.acquire(numPermits);
         try {
             RawMemoryIndex stackCopy = memoryIndex;
             if (stackCopy.isEmpty()) {
-                return Collections.emptyList();
+                return false;
             }
             flushingMemoryIndex = stackCopy;
             memoryIndex = new RawMemoryIndex(destroy, rawhide);
@@ -295,8 +312,7 @@ public class LAB implements ValueIndex {
         } finally {
             commitSemaphore.release(numPermits);
         }
-
-        return compact(fsync);
+        return true;
     }
 
     private List<Future<Object>> compact(boolean fsync) throws Exception {
@@ -307,7 +323,7 @@ public class LAB implements ValueIndex {
         }
 
         List<Future<Object>> awaitable = null;
-        while (!closeRequested) {
+        while (!closeRequested.get()) {
             if (corrupt) {
                 throw new LABIndexCorruptedException();
             }
@@ -319,7 +335,7 @@ public class LAB implements ValueIndex {
                 for (Callable<Void> compactor : compactors) {
                     LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, rangeStripedCompactableIndexes, debt);
                     synchronized (compactLock) {
-                        if (closeRequested) {
+                        if (closeRequested.get()) {
                             break;
                         } else {
                             ongoingCompactions.incrementAndGet();
@@ -345,7 +361,7 @@ public class LAB implements ValueIndex {
 
             if (debt >= maxDebt) {
                 synchronized (compactLock) {
-                    if (!closeRequested && ongoingCompactions.get() > 0) {
+                    if (!closeRequested.get() && ongoingCompactions.get() > 0) {
                         LOG.debug("Waiting because debt is too high for index:{} debt:{}", rangeStripedCompactableIndexes, debt);
                         compactLock.wait();
                     } else {
@@ -361,17 +377,33 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close(boolean flushUncommited, boolean fsync) throws Exception {
+        if (!closeRequested.compareAndSet(false, true)) {
+            throw new LABIndexClosedException();
+        }
+        LOG.info("Closing " + this);
+        if (flushUncommited) {
+            LOG.info("Close is flushing " + this);
+            internalCommit(fsync);
+        }
 
-        closeRequested = true;
+        LOG.info("Close is waiting for compaction to finish " + this);
         synchronized (compactLock) {
             while (ongoingCompactions.get() > 0) {
                 compactLock.wait();
             }
         }
 
-        memoryIndex.closeReadable();
-        rangeStripedCompactableIndexes.close();
+        LOG.info("Close is waiting for all commits and tx's to complete " + this);
+        commitSemaphore.acquire(numPermits);
+        try {
+            memoryIndex.closeReadable();
+            rangeStripedCompactableIndexes.close();
+        } finally {
+            commitSemaphore.release(numPermits);
+        }
+        LOG.info("Closed " + this);
+
     }
 
     @Override

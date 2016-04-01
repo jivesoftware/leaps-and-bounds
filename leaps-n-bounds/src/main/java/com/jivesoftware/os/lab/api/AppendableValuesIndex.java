@@ -12,4 +12,7 @@ public interface AppendableValuesIndex {
     boolean append(Values values, boolean fsyncOnFlush) throws Exception;
 
     List<Future<Object>> commit(boolean fsync) throws Exception;
+
+    void close(boolean flushUncommited, boolean fsync) throws Exception;
+
 }

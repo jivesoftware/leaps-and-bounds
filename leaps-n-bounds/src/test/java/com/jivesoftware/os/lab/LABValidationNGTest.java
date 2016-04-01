@@ -1,10 +1,12 @@
 package com.jivesoftware.os.lab;
 
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -13,8 +15,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import junit.framework.Assert;
+import org.apache.commons.io.FileUtils;
 import org.testng.annotations.Test;
 
 /**
@@ -23,7 +27,96 @@ import org.testng.annotations.Test;
  */
 public class LABValidationNGTest {
 
-    @Test(enabled = true, invocationCount = 10, singleThreaded = true)
+    @Test(enabled = true, invocationCount = 1, singleThreaded = true)
+    public void testClose() throws Exception {
+
+        ExecutorService compact = Executors.newFixedThreadPool(2,
+            new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build());
+
+        ExecutorService destroy = Executors.newFixedThreadPool(1,
+            new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
+
+        File root = com.google.common.io.Files.createTempDir();
+        File finalRoot = com.google.common.io.Files.createTempDir();
+        int entriesBetweenLeaps = 2;
+        int maxUpdatesBetweenMerges = 10;
+        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, 2);
+
+        int writerCount = 12;
+        ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
+        int commitCount = 100;
+        int batchSize = 1;
+        AtomicLong value = new AtomicLong();
+        AtomicLong version = new AtomicLong();
+        AtomicLong count = new AtomicLong();
+        boolean fsync = true;
+        AtomicBoolean close = new AtomicBoolean(false);
+
+        AtomicLong nextId = new AtomicLong();
+        AtomicLong running = new AtomicLong();
+        List<Future> writerFutures = new ArrayList<>();
+        for (int i = 0; i < writerCount; i++) {
+            int wi = i;
+            running.incrementAndGet();
+            writerFutures.add(writers.submit(() -> {
+                try {
+                    for (int c = 0; c < commitCount; c++) {
+
+                        if (version.get() > (writerCount * commitCount * batchSize) / 2) {
+                            if (close.compareAndSet(false, true)) {
+                                System.out.println("****** Closing lab during writes... ****** ");
+                                lab.close(true, fsync);
+                                System.out.println("****** Lab closed... ****** ");
+
+                                try {
+                                    FileUtils.forceMkdir(new File(finalRoot, "foobar"));
+                                    Files.move(root.toPath(), new File(finalRoot, "foobar").toPath(), StandardCopyOption.ATOMIC_MOVE);
+                                } catch (Exception x) {
+                                    Assert.fail();
+                                }
+                                System.out.println("****** Lab moved... ****** ");
+                            }
+                        }
+                        lab.append((ValueStream stream) -> {
+                            for (int b = 0; b < batchSize; b++) {
+                                count.incrementAndGet();
+                                stream.stream(UIO.longBytes(nextId.incrementAndGet()),
+                                    System.currentTimeMillis(),
+                                    false,
+                                    version.incrementAndGet(),
+                                    UIO.longBytes(value.incrementAndGet()));
+                            }
+                            return true;
+                        }, fsync);
+
+                        lab.commit(fsync);
+                    }
+                    System.out.println("Writer " + wi + " done...");
+                    return null;
+                } catch (Exception x) {
+                    if (close.get() && (x instanceof LABIndexClosedException)) {
+                        System.out.println("Writer " + wi + " exiting because: " + x);
+                        return null;
+                    } else {
+                        x.printStackTrace();
+                        throw x;
+                    }
+                } finally {
+                    running.decrementAndGet();
+                }
+            }));
+        }
+
+        for (Future f : writerFutures) {
+            f.get();
+        }
+        writers.shutdownNow();
+        compact.shutdownNow();
+        destroy.shutdownNow();
+
+    }
+
+    @Test(enabled = true, invocationCount = 1, singleThreaded = true)
     public void testConcurrencyMethod() throws Exception {
 
         ExecutorService compact = Executors.newFixedThreadPool(2,
@@ -32,14 +125,14 @@ public class LABValidationNGTest {
         ExecutorService destroy = Executors.newFixedThreadPool(1,
             new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
 
-        File root = Files.createTempDir();
+        File root = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         int maxUpdatesBetweenMerges = 10;
         LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, 2);
 
         validationTest(lab);
 
-        lab.close();
+        lab.close(true, true);
         compact.shutdownNow();
         destroy.shutdownNow();
 
@@ -149,7 +242,6 @@ public class LABValidationNGTest {
 //            return;
 //        }
 //        System.out.println("------------------------- WRITERS ARE DONE -----------------------");
-
         AtomicLong passed = new AtomicLong();
         AtomicLong failed = new AtomicLong();
         List<String> log = new ArrayList<>();
