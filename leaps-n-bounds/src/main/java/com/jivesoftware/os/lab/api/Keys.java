@@ -8,8 +8,8 @@ public interface Keys {
 
     interface KeyStream {
 
-        boolean key(byte[] key, int offset, int length);
+        boolean key(byte[] key, int offset, int length) throws Exception;
     }
 
-    boolean keys(KeyStream keyStream);
+    boolean keys(KeyStream keyStream) throws Exception;
 }

@@ -119,7 +119,7 @@ public class IndexStressNGTest {
                     Thread.sleep(10);
                     continue;
                 }
-                indexs.tx(acquire -> {
+                indexs.tx(null, null, (fromKey, toKey, acquire) -> {
                     GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {

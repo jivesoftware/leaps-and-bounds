@@ -77,9 +77,9 @@ public class CompactableIndexsNGTest {
             byte[] k = UIO.longBytes(i);
             boolean[] passed = {false};
             System.out.println("Get:" + i);
-            indexs.tx(new ReaderTx() {
+            indexs.tx(null, null, new ReaderTx() {
                 @Override
-                public boolean tx(ReadIndex[] readIndexs) throws Exception {
+                public boolean tx(byte[] fromKey, byte[] toKey, ReadIndex[] readIndexs) throws Exception {
 
 //                    GetRaw getRaw = IndexUtil.get(readIndexs);
 //                    getRaw.get(k, new RawEntryStream() {
@@ -219,7 +219,7 @@ public class CompactableIndexsNGTest {
             indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
         }
 
-        indexs.tx((ReadIndex[] readIndexs) -> {
+        indexs.tx(null, null, (fromKey, toKey, readIndexs) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
@@ -252,7 +252,7 @@ public class CompactableIndexsNGTest {
             Assert.fail();
         }
 
-        indexs.tx((ReadIndex[] readIndexs) -> {
+        indexs.tx(null, null, (fromKey, toKey, readIndexs) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
@@ -282,7 +282,7 @@ public class CompactableIndexsNGTest {
 
         int[] index = new int[1];
         SimpleRawhide rawhide = new SimpleRawhide();
-        indexs.tx(acquired -> {
+        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             AtomicBoolean failed = new AtomicBoolean();
             RawEntryStream stream = (rawEntry, offset, length) -> {
@@ -302,7 +302,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs.tx(acquired -> {
+        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
@@ -330,7 +330,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs.tx(acquired -> {
+        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
 
@@ -353,7 +353,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs.tx(acquired -> {
+        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];

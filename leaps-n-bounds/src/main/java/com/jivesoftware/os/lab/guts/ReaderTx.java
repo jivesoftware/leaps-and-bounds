@@ -8,6 +8,6 @@ import com.jivesoftware.os.lab.guts.api.ReadIndex;
  */
 public interface ReaderTx {
 
-    boolean tx(ReadIndex[] readIndexs) throws Exception;
+    boolean tx(byte[] fromKey, byte[] toKey, ReadIndex[] readIndexs) throws Exception;
 
 }

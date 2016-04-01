@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
 import com.jivesoftware.os.lab.api.Rawhide;
@@ -95,10 +96,17 @@ public class LAB implements ValueIndex {
         return rangeStripedCompactableIndexes.debt(minDebt);
     }
 
-    // TODO multi get keys
+    @Override
+    public void get(Keys keys, ValueStream stream) throws Exception {
+        pointTx(keys, -1, -1, (fromKey, toKey, readIndexes) -> {
+            GetRaw getRaw = IndexUtil.get(readIndexes);
+            return rawToReal(fromKey, getRaw, stream);
+        });
+    }
+
     @Override
     public boolean get(byte[] key, ValueStream stream) throws Exception {
-        return tx(key, key, -1, -1, (readIndexes) -> {
+        return rangeTx(key, key, -1, -1, (fromKey, toKey, readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
             return rawToReal(key, getRaw, stream);
         });
@@ -106,14 +114,14 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
-        return tx(from, to, -1, -1, (readIndexes) -> {
+        return rangeTx(from, to, -1, -1, (fromKey, toKey, readIndexes) -> {
             return rawToReal(IndexUtil.rangeScan(readIndexes, from, to, rawhide), stream);
         });
     }
 
     @Override
     public boolean rowScan(ValueStream stream) throws Exception {
-        return tx(null, null, -1, -1, (readIndexes) -> {
+        return rangeTx(null, null, -1, -1, (fromKey, toKey, readIndexes) -> {
             return rawToReal(IndexUtil.rowScan(readIndexes, rawhide), stream);
         });
     }
@@ -131,7 +139,91 @@ public class LAB implements ValueIndex {
         return false;
     }
 
-    private boolean tx(byte[] from,
+    private boolean pointTx(Keys keys,
+        long newerThanTimestamp,
+        long newerThanTimestampVersion,
+        ReaderTx tx) throws Exception {
+
+        ReadIndex memoryIndexReader = null;
+        ReadIndex flushingMemoryIndexReader = null;
+        try {
+            while (true) {
+                RawMemoryIndex memoryIndexStackCopy;
+                RawMemoryIndex flushingMemoryIndexStackCopy;
+
+                commitSemaphore.acquire();
+                try {
+                    memoryIndexStackCopy = memoryIndex;
+                    flushingMemoryIndexStackCopy = flushingMemoryIndex;
+                } finally {
+                    commitSemaphore.release();
+                }
+
+                if (mightContain(memoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+
+                    memoryIndexReader = memoryIndexStackCopy.acquireReader();
+                    if (memoryIndexReader != null) {
+                        if (flushingMemoryIndexStackCopy != null) {
+                            if (mightContain(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+                                flushingMemoryIndexReader = flushingMemoryIndexStackCopy.acquireReader();
+                                if (flushingMemoryIndexReader != null) {
+                                    break;
+                                } else {
+                                    memoryIndexReader.release();
+                                    memoryIndexReader = null;
+                                }
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                } else if (flushingMemoryIndexStackCopy != null) {
+                    if (mightContain(flushingMemoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
+                        flushingMemoryIndexReader = flushingMemoryIndexStackCopy.acquireReader();
+                        if (flushingMemoryIndexReader != null) {
+                            break;
+                        }
+                    }
+                } else {
+                    break;
+                }
+
+            }
+
+            ReadIndex reader = memoryIndexReader;
+            ReadIndex flushingReader = flushingMemoryIndexReader;
+            return rangeStripedCompactableIndexes.pointTx(keys,
+                newerThanTimestamp,
+                newerThanTimestampVersion,
+                (fromKey, toKey, acquired) -> {
+
+                    int active = (reader == null) ? 0 : 1;
+                    int flushing = (flushingReader == null) ? 0 : 1;
+                    ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
+                    int i = 0;
+                    if (reader != null) {
+                        indexes[i] = reader;
+                        i++;
+                    }
+                    if (flushingReader != null) {
+                        indexes[i] = flushingReader;
+                        i++;
+                    }
+                    System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
+                    return tx.tx(fromKey, toKey, indexes);
+                });
+        } finally {
+            if (memoryIndexReader != null) {
+                memoryIndexReader.release();
+            }
+            if (flushingMemoryIndexReader != null) {
+                flushingMemoryIndexReader.release();
+            }
+        }
+
+    }
+
+    private boolean rangeTx(byte[] from,
         byte[] to,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
@@ -185,23 +277,27 @@ public class LAB implements ValueIndex {
 
             ReadIndex reader = memoryIndexReader;
             ReadIndex flushingReader = flushingMemoryIndexReader;
-            return rangeStripedCompactableIndexes.tx(from, to, newerThanTimestamp, newerThanTimestampVersion, acquired -> {
+            return rangeStripedCompactableIndexes.rangeTx(from,
+                to,
+                newerThanTimestamp,
+                newerThanTimestampVersion,
+                (fromKey, toKey, acquired) -> {
 
-                int active = (reader == null) ? 0 : 1;
-                int flushing = (flushingReader == null) ? 0 : 1;
-                ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
-                int i = 0;
-                if (reader != null) {
-                    indexes[i] = reader;
-                    i++;
-                }
-                if (flushingReader != null) {
-                    indexes[i] = flushingReader;
-                    i++;
-                }
-                System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
-                return tx.tx(indexes);
-            });
+                    int active = (reader == null) ? 0 : 1;
+                    int flushing = (flushingReader == null) ? 0 : 1;
+                    ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
+                    int i = 0;
+                    if (reader != null) {
+                        indexes[i] = reader;
+                        i++;
+                    }
+                    if (flushingReader != null) {
+                        indexes[i] = flushingReader;
+                        i++;
+                    }
+                    System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
+                    return tx.tx(fromKey, toKey, indexes);
+                });
         } finally {
             if (memoryIndexReader != null) {
                 memoryIndexReader.release();
@@ -247,7 +343,7 @@ public class LAB implements ValueIndex {
                         && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
                         return stream.stream(rawEntry, 0, rawEntry.length);
                     } else {
-                        tx(key, key, timestamp, version, (readIndexes) -> {
+                        rangeTx(key, key, timestamp, version, (fromKey, toKey, readIndexes) -> {
                             GetRaw getRaw = IndexUtil.get(readIndexes);
                             return getRaw.get(key, (existingEntry, offset, length) -> {
                                 if (existingEntry == null) {

@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
@@ -120,7 +121,6 @@ public class RangeStripedCompactableIndexes {
             }
         }
     }
-
 
     public TimestampAndVersion maxTimeStampAndVersion() {
         TimestampAndVersion max = TimestampAndVersion.NULL;
@@ -324,8 +324,8 @@ public class RangeStripedCompactableIndexes {
             return reopenedIndex;
         }
 
-        boolean tx(ReaderTx tx) throws Exception {
-            return compactableIndexes.tx(tx);
+        boolean tx(byte[] fromKey, byte[] toKey, ReaderTx tx) throws Exception {
+            return compactableIndexes.tx(fromKey, toKey, tx);
         }
 
         long count() throws Exception {
@@ -423,7 +423,7 @@ public class RangeStripedCompactableIndexes {
                                     .lexicographicalComparator());
                                 copyOfIndexes.putAll(indexes);
 
-                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext(); ) {
+                                for (Iterator<Map.Entry<byte[], FileBackMergableIndexs>> iterator = copyOfIndexes.entrySet().iterator(); iterator.hasNext();) {
                                     Map.Entry<byte[], FileBackMergableIndexs> next = iterator.next();
                                     if (next.getValue() == self) {
                                         iterator.remove();
@@ -453,7 +453,7 @@ public class RangeStripedCompactableIndexes {
                         } catch (Exception x) {
                             FileUtils.deleteQuietly(left);
                             FileUtils.deleteQuietly(right);
-                            LOG.error("Failed to split:{} became left:{} right:{}", new Object[] { stripeRoot, left, right }, x);
+                            LOG.error("Failed to split:{} became left:{} right:{}", new Object[]{stripeRoot, left, right}, x);
                             throw x;
                         }
                     }, fsync);
@@ -577,14 +577,25 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public boolean tx(byte[] from,
+    public boolean pointTx(Keys keys,
+        long newerThanTimestamp,
+        long newerThanTimestampVersion,
+        ReaderTx tx) throws Exception {
+
+        return keys.keys((byte[] key, int offset, int length) -> {
+            rangeTx(key, key, newerThanTimestamp, newerThanTimestampVersion, tx);
+            return true;
+        });
+    }
+
+    public boolean rangeTx(byte[] from,
         byte[] to,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
         ReaderTx tx) throws Exception {
 
         if (indexes.isEmpty()) {
-            return tx.tx(new ReadIndex[0]);
+            return tx.tx(from, to, new ReadIndex[0]);
         }
         SortedMap<byte[], FileBackMergableIndexs> map;
         if (from != null && to != null) {
@@ -608,7 +619,7 @@ public class RangeStripedCompactableIndexes {
         }
 
         if (map.isEmpty()) {
-            return tx.tx(new ReadIndex[0]);
+            return tx.tx(from, to, new ReadIndex[0]);
         } else {
             for (FileBackMergableIndexs index : map.values()) {
                 TimestampAndVersion timestampAndVersion = index.compactableIndexes.maxTimeStampAndVersion();
@@ -616,7 +627,7 @@ public class RangeStripedCompactableIndexes {
                     timestampAndVersion.maxTimestampVersion,
                     newerThanTimestamp,
                     newerThanTimestampVersion)) {
-                    if (!index.tx(tx)) {
+                    if (!index.tx(from, to, tx)) {
                         return false;
                     }
                 }

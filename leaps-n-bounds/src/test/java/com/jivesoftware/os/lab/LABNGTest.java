@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -58,7 +59,9 @@ public class LABNGTest {
 
         long[] expected = new long[]{1, 2, 3, 7, 8, 9};
         testExpected(index, expected);
+        testExpectedMultiGet(index, expected);
         testNotExpected(index, new long[]{0, 4, 5, 6, 10});
+        testNotExpectedMultiGet(index, new long[]{0, 4, 5, 6, 10});
         testScanExpected(index, expected);
         testRangeScanExpected(index, UIO.longBytes(2), null, new long[]{2, 3, 7, 8, 9});
         testRangeScanExpected(index, UIO.longBytes(2), UIO.longBytes(7), new long[]{2, 3});
@@ -75,12 +78,28 @@ public class LABNGTest {
 
         expected = new long[]{7, 8, 9};
         testExpected(index, expected);
+        testExpectedMultiGet(index, expected);
         testNotExpected(index, new long[]{0, 4, 5, 6, 10});
+        testNotExpectedMultiGet(index, new long[]{0, 4, 5, 6, 10});
         testScanExpected(index, expected);
         testRangeScanExpected(index, UIO.longBytes(1), UIO.longBytes(9), new long[]{7, 8});
 
         env.shutdown();
 
+    }
+
+    private void testExpectedMultiGet(ValueIndex index, long[] expected) throws Exception {
+        long[] e = {-1};
+        index.get((Keys.KeyStream keyStream) -> {
+            for (long i : expected) {
+                e[0] = i;
+                keyStream.key(UIO.longBytes(i), 0, 8);
+            }
+            return true;
+        }, (byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+            Assert.assertEquals(UIO.bytesLong(payload), e[0]);
+            return true;
+        });
     }
 
     private void testExpected(ValueIndex index, long[] expected) throws Exception {
@@ -91,6 +110,20 @@ public class LABNGTest {
                 return true;
             });
         }
+    }
+
+    private void testNotExpectedMultiGet(ValueIndex index, long[] notExpected) throws Exception {
+        index.get((Keys.KeyStream keyStream) -> {
+            for (long i : notExpected) {
+                keyStream.key(UIO.longBytes(i), 0, 8);
+            }
+            return true;
+        }, (byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+            if (key != null || payload != null) {
+                Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
+            }
+            return true;
+        });
     }
 
     private void testNotExpected(ValueIndex index, long[] notExpected) throws Exception {

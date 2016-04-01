@@ -353,7 +353,7 @@ public class CompactableIndexes {
                                 LABAppendableIndex catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
                                 ReadIndex catchupReader = catchup.acquireReader();
                                 try {
-                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[] { catchupReader.rowScan() }, rawhide);
+                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()}, rawhide);
 
                                     LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
                                     catupLeftAppenableIndex.append((leftStream) -> {
@@ -587,7 +587,7 @@ public class CompactableIndexes {
 
     }
 
-    public boolean tx(ReaderTx tx) throws Exception {
+    public boolean tx(byte[] fromKey, byte[] toKey, ReaderTx tx) throws Exception {
 
         RawConcurrentReadableIndex[] stackIndexes;
 
@@ -614,7 +614,7 @@ public class CompactableIndexes {
         }
 
         try {
-            return tx.tx(readIndexs);
+            return tx.tx(fromKey, toKey, readIndexs);
         } finally {
             releaseReaders(readIndexs);
         }
