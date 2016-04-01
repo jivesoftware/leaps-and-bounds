@@ -11,7 +11,7 @@ public interface Rawhide {
 
     byte[] merge(byte[] current, byte[] adding);
 
-    boolean streamRawEntry(ValueStream stream, byte[] rawEntry, int offset) throws Exception;
+    boolean streamRawEntry(ValueStream stream, int index, byte[] rawEntry, int offset) throws Exception;
 
     byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception;
 

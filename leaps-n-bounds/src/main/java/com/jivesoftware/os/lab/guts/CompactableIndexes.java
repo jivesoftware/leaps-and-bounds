@@ -587,7 +587,7 @@ public class CompactableIndexes {
 
     }
 
-    public boolean tx(byte[] fromKey, byte[] toKey, ReaderTx tx) throws Exception {
+    public boolean tx(int index, byte[] fromKey, byte[] toKey, ReaderTx tx) throws Exception {
 
         RawConcurrentReadableIndex[] stackIndexes;
 
@@ -614,7 +614,7 @@ public class CompactableIndexes {
         }
 
         try {
-            return tx.tx(fromKey, toKey, readIndexs);
+            return tx.tx(index, fromKey, toKey, readIndexs);
         } finally {
             releaseReaders(readIndexs);
         }

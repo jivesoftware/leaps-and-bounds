@@ -77,9 +77,7 @@ public class CompactableIndexsNGTest {
             byte[] k = UIO.longBytes(i);
             boolean[] passed = {false};
             System.out.println("Get:" + i);
-            indexs.tx(null, null, new ReaderTx() {
-                @Override
-                public boolean tx(byte[] fromKey, byte[] toKey, ReadIndex[] readIndexs) throws Exception {
+            indexs.tx(-1, null, null, (index, fromKey, toKey, readIndexs) -> {
 
 //                    GetRaw getRaw = IndexUtil.get(readIndexs);
 //                    getRaw.get(k, new RawEntryStream() {
@@ -110,18 +108,17 @@ public class CompactableIndexsNGTest {
 //                            }
 //                        });
 //                    }
-                    for (ReadIndex raw : readIndexs) {
-                        System.out.println("\tIndex:" + raw);
-                        raw.get().get(k, (rawEntry, offset, length) -> {
-                            System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry, 4));
-                            if (UIO.bytesLong(rawEntry, 4) == g) {
-                                passed[0] = true;
-                            }
-                            return true;
-                        });
-                    }
-                    return true;
+                for (ReadIndex raw : readIndexs) {
+                    System.out.println("\tIndex:" + raw);
+                    raw.get().get(k, (rawEntry, offset, length) -> {
+                        System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry, 4));
+                        if (UIO.bytesLong(rawEntry, 4) == g) {
+                            passed[0] = true;
+                        }
+                        return true;
+                    });
                 }
+                return true;
             });
             if (!passed[0]) {
                 Assert.fail();
@@ -219,7 +216,7 @@ public class CompactableIndexsNGTest {
             indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
         }
 
-        indexs.tx(null, null, (fromKey, toKey, readIndexs) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
@@ -252,7 +249,7 @@ public class CompactableIndexsNGTest {
             Assert.fail();
         }
 
-        indexs.tx(null, null, (fromKey, toKey, readIndexs) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
@@ -282,7 +279,7 @@ public class CompactableIndexsNGTest {
 
         int[] index = new int[1];
         SimpleRawhide rawhide = new SimpleRawhide();
-        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             AtomicBoolean failed = new AtomicBoolean();
             RawEntryStream stream = (rawEntry, offset, length) -> {
@@ -302,7 +299,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
@@ -330,7 +327,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
 
@@ -353,7 +350,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs.tx(null, null, (fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];

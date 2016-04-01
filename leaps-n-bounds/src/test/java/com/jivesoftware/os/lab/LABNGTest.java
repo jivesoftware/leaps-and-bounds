@@ -29,9 +29,9 @@ public class LABNGTest {
         ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1, new LABRawhide());
 
         index.append((stream) -> {
-            stream.stream(UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));
-            stream.stream(UIO.longBytes(2), System.currentTimeMillis(), false, 0, UIO.longBytes(2));
-            stream.stream(UIO.longBytes(3), System.currentTimeMillis(), false, 0, UIO.longBytes(3));
+            stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));
+            stream.stream(-1, UIO.longBytes(2), System.currentTimeMillis(), false, 0, UIO.longBytes(2));
+            stream.stream(-1, UIO.longBytes(3), System.currentTimeMillis(), false, 0, UIO.longBytes(3));
             return true;
         }, fsync);
         List<Future<Object>> awaitable = index.commit(fsync);
@@ -40,9 +40,9 @@ public class LABNGTest {
         }
 
         index.append((stream) -> {
-            stream.stream(UIO.longBytes(7), System.currentTimeMillis(), false, 0, UIO.longBytes(7));
-            stream.stream(UIO.longBytes(8), System.currentTimeMillis(), false, 0, UIO.longBytes(8));
-            stream.stream(UIO.longBytes(9), System.currentTimeMillis(), false, 0, UIO.longBytes(9));
+            stream.stream(-1, UIO.longBytes(7), System.currentTimeMillis(), false, 0, UIO.longBytes(7));
+            stream.stream(-1, UIO.longBytes(8), System.currentTimeMillis(), false, 0, UIO.longBytes(8));
+            stream.stream(-1, UIO.longBytes(9), System.currentTimeMillis(), false, 0, UIO.longBytes(9));
             return true;
         }, fsync);
         awaitable = index.commit(fsync);
@@ -52,7 +52,7 @@ public class LABNGTest {
 
         Assert.assertFalse(index.isEmpty());
 
-        index.rowScan((key, timestamp, tombstoned, version, payload) -> {
+        index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
             System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
             return true;
         });
@@ -70,9 +70,9 @@ public class LABNGTest {
         index.commit(fsync);
 
         index.append((stream) -> {
-            stream.stream(UIO.longBytes(1), System.currentTimeMillis(), true, 1, UIO.longBytes(1));
-            stream.stream(UIO.longBytes(2), System.currentTimeMillis(), true, 1, UIO.longBytes(2));
-            stream.stream(UIO.longBytes(3), System.currentTimeMillis(), true, 1, UIO.longBytes(3));
+            stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), true, 1, UIO.longBytes(1));
+            stream.stream(-1, UIO.longBytes(2), System.currentTimeMillis(), true, 1, UIO.longBytes(2));
+            stream.stream(-1, UIO.longBytes(3), System.currentTimeMillis(), true, 1, UIO.longBytes(3));
             return true;
         }, fsync);
 
@@ -89,23 +89,21 @@ public class LABNGTest {
     }
 
     private void testExpectedMultiGet(ValueIndex index, long[] expected) throws Exception {
-        long[] e = {-1};
         index.get((Keys.KeyStream keyStream) -> {
-            for (long i : expected) {
-                e[0] = i;
-                keyStream.key(UIO.longBytes(i), 0, 8);
+            for (int i = 0; i < expected.length; i++) {
+                keyStream.key(i, UIO.longBytes(expected[i]), 0, 8);
             }
             return true;
-        }, (byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-            Assert.assertEquals(UIO.bytesLong(payload), e[0]);
+        }, (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+            Assert.assertEquals(UIO.bytesLong(payload), expected[index1]);
             return true;
         });
     }
 
     private void testExpected(ValueIndex index, long[] expected) throws Exception {
-        for (long i : expected) {
-            long e = i;
-            index.get(UIO.longBytes(i), (byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+        for (int i = 0; i < expected.length; i++) {
+            long e = expected[i];
+            index.get(UIO.longBytes(expected[i]), (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
                 Assert.assertEquals(UIO.bytesLong(payload), e);
                 return true;
             });
@@ -115,10 +113,10 @@ public class LABNGTest {
     private void testNotExpectedMultiGet(ValueIndex index, long[] notExpected) throws Exception {
         index.get((Keys.KeyStream keyStream) -> {
             for (long i : notExpected) {
-                keyStream.key(UIO.longBytes(i), 0, 8);
+                keyStream.key(-1, UIO.longBytes(i), 0, 8);
             }
             return true;
-        }, (byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+        }, (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
             if (key != null || payload != null) {
                 Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
             }
@@ -128,7 +126,7 @@ public class LABNGTest {
 
     private void testNotExpected(ValueIndex index, long[] notExpected) throws Exception {
         for (long i : notExpected) {
-            index.get(UIO.longBytes(i), (byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+            index.get(UIO.longBytes(i), (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
                 if (key != null || payload != null) {
                     Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
                 }
@@ -140,7 +138,7 @@ public class LABNGTest {
     private void testScanExpected(ValueIndex index, long[] expected) throws Exception {
         System.out.println("Checking full scan");
         List<Long> scanned = new ArrayList<>();
-        index.rowScan((byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+        index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
             System.out.println("scan:" + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
             if (payload != null) {
                 scanned.add(UIO.bytesLong(payload));
@@ -158,7 +156,7 @@ public class LABNGTest {
 
         System.out.println("Checking range scan:" + Arrays.toString(from) + "->" + Arrays.toString(to));
         List<Long> scanned = new ArrayList<>();
-        index.rangeScan(from, to, (key, timestamp, tombstoned, version, payload) -> {
+        index.rangeScan(from, to, (index1, key, timestamp, tombstoned, version, payload) -> {
             System.out.println("scan:" + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
             if (payload != null) {
                 scanned.add(UIO.bytesLong(payload));

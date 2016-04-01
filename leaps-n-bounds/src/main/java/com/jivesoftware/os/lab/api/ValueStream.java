@@ -6,5 +6,5 @@ package com.jivesoftware.os.lab.api;
  */
 public interface ValueStream {
 
-    boolean stream(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception;
+    boolean stream(int index, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception;
 }

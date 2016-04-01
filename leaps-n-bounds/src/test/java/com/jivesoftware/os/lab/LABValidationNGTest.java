@@ -22,7 +22,6 @@ import org.apache.commons.io.FileUtils;
 import org.testng.annotations.Test;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LABValidationNGTest {
@@ -80,7 +79,8 @@ public class LABValidationNGTest {
                         lab.append((ValueStream stream) -> {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
-                                stream.stream(UIO.longBytes(nextId.incrementAndGet()),
+                                stream.stream(-1,
+                                    UIO.longBytes(nextId.incrementAndGet()),
                                     System.currentTimeMillis(),
                                     false,
                                     version.incrementAndGet(),
@@ -165,7 +165,8 @@ public class LABValidationNGTest {
                         lab.append((ValueStream stream) -> {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
-                                stream.stream(UIO.longBytes(nextId.incrementAndGet()),
+                                stream.stream(-1,
+                                    UIO.longBytes(nextId.incrementAndGet()),
                                     System.currentTimeMillis(),
                                     false,
                                     version.incrementAndGet(),
@@ -256,7 +257,7 @@ public class LABValidationNGTest {
                         long maxId = nextId.get();
                         Set<Long> found = new HashSet<>();
                         for (int i = 0; i < maxId; i++) {
-                            lab.get(UIO.longBytes(i), (key, timestamp, tombstoned, version1, value1) -> {
+                            lab.get(UIO.longBytes(i), (index, key, timestamp, tombstoned, version1, value1) -> {
                                 hits.incrementAndGet();
                                 found.add(UIO.bytesLong(key));
                                 return true;

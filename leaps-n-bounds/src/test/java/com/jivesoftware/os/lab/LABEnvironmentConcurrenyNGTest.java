@@ -70,7 +70,8 @@ public class LABEnvironmentConcurrenyNGTest {
                         index.append((ValueStream stream) -> {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
-                                stream.stream(UIO.longBytes(rand.nextInt(totalCardinality)),
+                                stream.stream(-1,
+                                    UIO.longBytes(rand.nextInt(totalCardinality)),
                                     System.currentTimeMillis(),
                                     rand.nextBoolean(),
                                     version.incrementAndGet(),
@@ -98,7 +99,7 @@ public class LABEnvironmentConcurrenyNGTest {
                 try {
 
                     while (running.get() > 0) {
-                        index.get(UIO.longBytes(rand.nextInt(1_000_000)), (key, timestamp, tombstoned, version1, value1) -> {
+                        index.get(UIO.longBytes(rand.nextInt(1_000_000)), (index1, key, timestamp, tombstoned, version1, value1) -> {
                             hits.incrementAndGet();
                             return true;
                         });

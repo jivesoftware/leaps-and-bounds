@@ -41,9 +41,9 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
-    public boolean streamRawEntry(ValueStream stream, byte[] rawEntry, int offset) throws Exception {
+    public boolean streamRawEntry(ValueStream stream, int index, byte[] rawEntry, int offset) throws Exception {
         if (rawEntry == null) {
-            return stream.stream(null, -1, false, -1, null);
+            return stream.stream(index, null, -1, false, -1, null);
         }
         int o = offset;
         int keyLength = UIO.bytesInt(rawEntry, o);
@@ -55,7 +55,7 @@ public class LABRawhide implements Rawhide {
         o += 8;
         boolean tombstone = rawEntry[o] != 0;
         if (tombstone) {
-            return stream.stream(null, -1, false, -1, null);
+            return stream.stream(index, null, -1, false, -1, null);
         }
         o++;
         long version = UIO.bytesLong(rawEntry, o);
@@ -67,7 +67,7 @@ public class LABRawhide implements Rawhide {
         System.arraycopy(rawEntry, o, payload, 0, payloadLength);
         o += payloadLength;
 
-        return stream.stream(k, timestamp, tombstone, version, payload);
+        return stream.stream(index, k, timestamp, tombstone, version, payload);
     }
 
     @Override

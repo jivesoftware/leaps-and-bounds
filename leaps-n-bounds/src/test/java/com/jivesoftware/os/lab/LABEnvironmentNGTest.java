@@ -148,7 +148,8 @@ public class LABEnvironmentNGTest {
             index.append((ValueStream stream) -> {
                 for (int i = 0; i < batchCount; i++) {
                     count.incrementAndGet();
-                    stream.stream(UIO.longBytes(rand.nextInt(totalCardinality)),
+                    stream.stream(-1,
+                        UIO.longBytes(rand.nextInt(totalCardinality)),
                         System.currentTimeMillis(),
                         rand.nextBoolean(),
                         version.incrementAndGet(),
@@ -165,7 +166,7 @@ public class LABEnvironmentNGTest {
 
             AtomicLong hits = new AtomicLong();
             for (int i = 0; i < getCount; i++) {
-                index.get(UIO.longBytes(rand.nextInt(1_000_000)), (key, timestamp, tombstoned, version1, value1) -> {
+                index.get(UIO.longBytes(rand.nextInt(1_000_000)), (index1, key, timestamp, tombstoned, version1, value1) -> {
                     hits.incrementAndGet();
                     return true;
                 });
@@ -184,7 +185,7 @@ public class LABEnvironmentNGTest {
         System.out.println("Index Count:" + index.count());
         System.out.println("Is empty:" + index.isEmpty());
 
-        index.rowScan((byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
+        index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
             System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays.toString(payload));
             return true;
         });

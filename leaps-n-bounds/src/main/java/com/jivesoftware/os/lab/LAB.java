@@ -97,30 +97,30 @@ public class LAB implements ValueIndex {
 
     @Override
     public void get(Keys keys, ValueStream stream) throws Exception {
-        pointTx(keys, -1, -1, (fromKey, toKey, readIndexes) -> {
+        pointTx(keys, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
-            return rawToReal(fromKey, getRaw, stream);
+            return rawToReal(index, fromKey, getRaw, stream);
         });
     }
 
     @Override
     public boolean get(byte[] key, ValueStream stream) throws Exception {
-        return rangeTx(key, key, -1, -1, (fromKey, toKey, readIndexes) -> {
+        return rangeTx(-1, key, key, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
-            return rawToReal(key, getRaw, stream);
+            return rawToReal(index, key, getRaw, stream);
         });
     }
 
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
-        return rangeTx(from, to, -1, -1, (fromKey, toKey, readIndexes) -> {
+        return rangeTx(-1, from, to, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             return rawToReal(IndexUtil.rangeScan(readIndexes, from, to, rawhide), stream);
         });
     }
 
     @Override
     public boolean rowScan(ValueStream stream) throws Exception {
-        return rangeTx(null, null, -1, -1, (fromKey, toKey, readIndexes) -> {
+        return rangeTx(-1, null, null, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             return rawToReal(IndexUtil.rowScan(readIndexes, rawhide), stream);
         });
     }
@@ -194,7 +194,7 @@ public class LAB implements ValueIndex {
             return rangeStripedCompactableIndexes.pointTx(keys,
                 newerThanTimestamp,
                 newerThanTimestampVersion,
-                (fromKey, toKey, acquired) -> {
+                (index, fromKey, toKey, acquired) -> {
 
                     int active = (reader == null) ? 0 : 1;
                     int flushing = (flushingReader == null) ? 0 : 1;
@@ -209,7 +209,7 @@ public class LAB implements ValueIndex {
                         i++;
                     }
                     System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
-                    return tx.tx(fromKey, toKey, indexes);
+                    return tx.tx(index, fromKey, toKey, indexes);
                 });
         } finally {
             if (memoryIndexReader != null) {
@@ -222,7 +222,8 @@ public class LAB implements ValueIndex {
 
     }
 
-    private boolean rangeTx(byte[] from,
+    private boolean rangeTx(int index,
+        byte[] from,
         byte[] to,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
@@ -276,11 +277,12 @@ public class LAB implements ValueIndex {
 
             ReadIndex reader = memoryIndexReader;
             ReadIndex flushingReader = flushingMemoryIndexReader;
-            return rangeStripedCompactableIndexes.rangeTx(from,
+            return rangeStripedCompactableIndexes.rangeTx(index,
+                from,
                 to,
                 newerThanTimestamp,
                 newerThanTimestampVersion,
-                (fromKey, toKey, acquired) -> {
+                (index1, fromKey, toKey, acquired) -> {
 
                     int active = (reader == null) ? 0 : 1;
                     int flushing = (flushingReader == null) ? 0 : 1;
@@ -295,7 +297,7 @@ public class LAB implements ValueIndex {
                         i++;
                     }
                     System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
-                    return tx.tx(fromKey, toKey, indexes);
+                    return tx.tx(index1, fromKey, toKey, indexes);
                 });
         } finally {
             if (memoryIndexReader != null) {
@@ -333,7 +335,7 @@ public class LAB implements ValueIndex {
                 throw new LABIndexClosedException();
             }
             appended = memoryIndex.append((stream) -> {
-                return values != null && values.consume((key, timestamp, tombstoned, version, value) -> {
+                return values != null && values.consume((index, key, timestamp, tombstoned, version, value) -> {
                     byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
 
                     RawMemoryIndex copy = flushingMemoryIndex;
@@ -342,7 +344,7 @@ public class LAB implements ValueIndex {
                         && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
                         return stream.stream(rawEntry, 0, rawEntry.length);
                     } else {
-                        rangeTx(key, key, timestamp, version, (fromKey, toKey, readIndexes) -> {
+                        rangeTx(-1, key, key, timestamp, version, (index1, fromKey, toKey, readIndexes) -> {
                             GetRaw getRaw = IndexUtil.get(readIndexes);
                             return getRaw.get(key, (existingEntry, offset, length) -> {
                                 if (existingEntry == null) {
@@ -513,14 +515,14 @@ public class LAB implements ValueIndex {
             + '}';
     }
 
-    private boolean rawToReal(byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
-        return getRaw.get(key, (rawEntry, offset, length) -> rawhide.streamRawEntry(valueStream, rawEntry, offset));
+    private boolean rawToReal(int index, byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
+        return getRaw.get(key, (rawEntry, offset, length) -> rawhide.streamRawEntry(valueStream, index, rawEntry, offset));
     }
 
     private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
         while (true) {
             Next next = nextRawEntry.next((rawEntry, offset, length) -> {
-                return rawhide.streamRawEntry(valueStream, rawEntry, offset);
+                return rawhide.streamRawEntry(valueStream, -1, rawEntry, offset);
             });
             if (next == Next.stopped) {
                 return false;

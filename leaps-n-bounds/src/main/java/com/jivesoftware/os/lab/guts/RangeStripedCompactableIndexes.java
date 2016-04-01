@@ -324,8 +324,8 @@ public class RangeStripedCompactableIndexes {
             return reopenedIndex;
         }
 
-        boolean tx(byte[] fromKey, byte[] toKey, ReaderTx tx) throws Exception {
-            return compactableIndexes.tx(fromKey, toKey, tx);
+        boolean tx(int index, byte[] fromKey, byte[] toKey, ReaderTx tx) throws Exception {
+            return compactableIndexes.tx(index, fromKey, toKey, tx);
         }
 
         long count() throws Exception {
@@ -582,20 +582,21 @@ public class RangeStripedCompactableIndexes {
         long newerThanTimestampVersion,
         ReaderTx tx) throws Exception {
 
-        return keys.keys((byte[] key, int offset, int length) -> {
-            rangeTx(key, key, newerThanTimestamp, newerThanTimestampVersion, tx);
+        return keys.keys((int index, byte[] key, int offset, int length) -> {
+            rangeTx(index, key, key, newerThanTimestamp, newerThanTimestampVersion, tx);
             return true;
         });
     }
 
-    public boolean rangeTx(byte[] from,
+    public boolean rangeTx(int index,
+        byte[] from,
         byte[] to,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
         ReaderTx tx) throws Exception {
 
         if (indexes.isEmpty()) {
-            return tx.tx(from, to, new ReadIndex[0]);
+            return tx.tx(index, from, to, new ReadIndex[0]);
         }
         SortedMap<byte[], FileBackMergableIndexs> map;
         if (from != null && to != null) {
@@ -619,15 +620,15 @@ public class RangeStripedCompactableIndexes {
         }
 
         if (map.isEmpty()) {
-            return tx.tx(from, to, new ReadIndex[0]);
+            return tx.tx(index, from, to, new ReadIndex[0]);
         } else {
-            for (FileBackMergableIndexs index : map.values()) {
-                TimestampAndVersion timestampAndVersion = index.compactableIndexes.maxTimeStampAndVersion();
+            for (FileBackMergableIndexs mergableIndex : map.values()) {
+                TimestampAndVersion timestampAndVersion = mergableIndex.compactableIndexes.maxTimeStampAndVersion();
                 if (rawhide.mightContain(timestampAndVersion.maxTimestamp,
                     timestampAndVersion.maxTimestampVersion,
                     newerThanTimestamp,
                     newerThanTimestampVersion)) {
-                    if (!index.tx(from, to, tx)) {
+                    if (!mergableIndex.tx(index, from, to, tx)) {
                         return false;
                     }
                 }

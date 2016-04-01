@@ -71,7 +71,7 @@ public class IndexTestUtils {
         int[] index = new int[1];
 
         SimpleRawhide rawhide = new SimpleRawhide();
-        indexes.tx(null,null,(fromKey,toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             RawEntryStream stream = (rawEntry, offset, length) -> {
                 System.out.println("scanned:" + UIO.bytesLong(keys.get(index[0])) + " " + key(rawEntry));
@@ -84,7 +84,7 @@ public class IndexTestUtils {
             return true;
         });
 
-        indexes.tx(null,null,(fromKey,toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
@@ -104,7 +104,7 @@ public class IndexTestUtils {
             return true;
         });
 
-        indexes.tx(null,null,(fromKey,toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
 
@@ -127,7 +127,7 @@ public class IndexTestUtils {
             return true;
         });
 
-        indexes.tx(null,null,(fromKey,toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];

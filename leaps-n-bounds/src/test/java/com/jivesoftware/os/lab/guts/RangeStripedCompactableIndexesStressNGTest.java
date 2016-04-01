@@ -103,7 +103,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 }
                 int longKey = rand.nextInt(i);
                 byte[] longAsBytes = UIO.longBytes(longKey);
-                indexs.rangeTx(longAsBytes, longAsBytes, -1, -1, (fromKey, toKey, acquire) -> {
+                indexs.rangeTx(-1, longAsBytes, longAsBytes, -1, -1, (index, fromKey, toKey, acquire) -> {
                     GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {
