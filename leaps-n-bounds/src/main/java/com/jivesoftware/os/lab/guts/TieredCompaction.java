@@ -157,8 +157,8 @@ public class TieredCompaction {
         int start = -1;
         int length = 0;
 
-        int smallestRun = minimumRun; // TODO expose
-        int largestRun = minimumRun; // TODO expose
+        int smallestRun = minimumRun;
+        int largestRun = minimumRun;
 
         int count = mergingCopy.length;
         for (int i = 0; i < count; i++) {
@@ -205,8 +205,8 @@ public class TieredCompaction {
         int start = -1;
         int length = 0;
 
-        int smallestRun = minimumRun; // TODO expose
-        int largestRun = minimumRun; // TODO expose
+        int smallestRun = minimumRun;
+        int largestRun = minimumRun;
 
         int count = mergingCopy.length;
         for (int i = 0; i < count; i++) {

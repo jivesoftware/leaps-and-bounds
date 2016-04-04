@@ -7,7 +7,6 @@ import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IReadable;
-import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
@@ -49,7 +48,6 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public GetRaw get() throws Exception {
-
         // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
         return new Gets(new ActiveScan(rawhide, leaps, leapsCache, footer, readable.call(), new byte[8]));
     }

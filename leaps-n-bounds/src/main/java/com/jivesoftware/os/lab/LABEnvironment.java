@@ -27,12 +27,12 @@ public class LABEnvironment {
 
     public static ExecutorService buildLABCompactorThreadPool(int count) {
         return Executors.newFixedThreadPool(count,
-            new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build()); // TODO config 'maybe'
+            new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build());
     }
 
     public static ExecutorService buildLABDestroyThreadPool(int count) {
         return Executors.newFixedThreadPool(count,
-            new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build()); // TODO config 'maybe'
+            new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
     }
 
     public LABEnvironment(ExecutorService compact,
