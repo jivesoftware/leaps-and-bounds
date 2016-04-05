@@ -96,8 +96,8 @@ public class RangeStripedCompactableIndexes {
                         continue;
                     }
                     if (entries[i].getValue().keyRange.contains(entries[j].getValue().keyRange)) {
-                        entries[j] = null;
                         FileUtils.forceDelete(entries[j].getKey());
+                        entries[j] = null;
                     }
                 }
             }
@@ -218,7 +218,7 @@ public class RangeStripedCompactableIndexes {
                             throw new RuntimeException("Bueller");
                         }
                     } else {
-                        lab.closeReadable();
+                        indexFile.close();
                         indexFile.getFile().delete();
                     }
                 }
@@ -296,18 +296,29 @@ public class RangeStripedCompactableIndexes {
             File commitingIndexFile = indexRangeId.toFile(commitingRoot);
             FileUtils.deleteQuietly(commitingIndexFile);
             IndexFile indexFile = new IndexFile(commitingIndexFile, "rw", useMemMap);
-            LABAppendableIndex appendableIndex = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps, rawhide);
-            appendableIndex.append((stream) -> {
-                ReadIndex reader = index.acquireReader();
+            LABAppendableIndex appendableIndex = null;
+            try {
+                appendableIndex = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps, rawhide);
+                appendableIndex.append((stream) -> {
+                    ReadIndex reader = index.acquireReader();
+                    try {
+                        NextRawEntry rangeScan = reader.rangeScan(minKey, maxKey);
+                        while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
+                        return true;
+                    } finally {
+                        reader.release();
+                    }
+                });
+                appendableIndex.closeAppendable(fsync);
+            } catch (Exception x) {
                 try {
-                    NextRawEntry rangeScan = reader.rangeScan(minKey, maxKey);
-                    while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
-                    return true;
-                } finally {
-                    reader.release();
+                    indexFile.close();
+                    indexFile.getFile().delete();
+                } catch (Exception xx) {
+                    LOG.error("Failed while trying to cleanup during a failure.", xx);
                 }
-            });
-            appendableIndex.closeAppendable(fsync);
+                throw x;
+            }
 
             File commitedIndexFile = indexRangeId.toFile(activeRoot);
             return moveIntoPlace(commitingIndexFile, commitedIndexFile, indexRangeId, fsync);
@@ -316,9 +327,8 @@ public class RangeStripedCompactableIndexes {
         private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId, boolean fsync) throws Exception {
             FileUtils.forceMkdir(commitedIndexFile.getParentFile());
             Files.move(commitingIndexFile.toPath(), commitedIndexFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
-            /*FileUtils.moveFile(commitingIndexFile, commitedIndexFile);*/
-            LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy,
-                indexRangeId, new IndexFile(commitedIndexFile, "r", useMemMap), rawhide, concurrency);
+            IndexFile indexFile = new IndexFile(commitedIndexFile, "r", useMemMap);
+            LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, rawhide, concurrency);
             reopenedIndex.flush(fsync);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
             return reopenedIndex;
@@ -413,9 +423,7 @@ public class RangeStripedCompactableIndexes {
                             Files.move(new File(splittingRoot, String.valueOf(nextStripeIdRight)).toPath(),
                                 rightActive.toPath(),
                                 StandardCopyOption.ATOMIC_MOVE);
-                            /*FileUtils.moveDirectory(new File(splittingRoot, String.valueOf(nextStripeIdLeft)), leftActive);
-                            FileUtils.moveDirectory(new File(splittingRoot, String.valueOf(nextStripeIdRight)), rightActive);*/
-
+                            
                             Stripe leftStripe = loadStripe(left);
                             Stripe rightStripe = loadStripe(right);
                             synchronized (copyIndexOnWrite) {

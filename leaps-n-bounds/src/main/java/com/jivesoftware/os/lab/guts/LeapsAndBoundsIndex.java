@@ -7,8 +7,6 @@ import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
-import com.jivesoftware.os.mlogger.core.MetricLogger;
-import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -21,8 +19,6 @@ import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
  * @author jonathan.colt
  */
 public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
-
-    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final IndexRangeId id;
     private final IndexFile index;

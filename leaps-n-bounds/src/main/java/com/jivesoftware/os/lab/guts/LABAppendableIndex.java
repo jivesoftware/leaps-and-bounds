@@ -133,21 +133,24 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
     @Override
     public void closeAppendable(boolean fsync) throws IOException {
-        if (firstKey == null || lastKey == null) {
-            throw new IllegalStateException("Tried to close appendable index without a key range: " + this);
-        }
-        if (updatesSinceLeap > 0) {
-            long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
-            System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
-            latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, lastKey, copyOfStartOfEntryIndex, lengthBuffer);
-            leapCount++;
-        }
+        try {
+            if (firstKey == null || lastKey == null) {
+                throw new IllegalStateException("Tried to close appendable index without a key range: " + this);
+            }
+            if (updatesSinceLeap > 0) {
+                long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
+                System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
+                latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, lastKey, copyOfStartOfEntryIndex, lengthBuffer);
+                leapCount++;
+            }
 
-        UIO.writeByte(appendOnly, FOOTER, "type");
-        new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, firstKey, lastKey, new TimestampAndVersion(maxTimestamp, maxTimestampVersion))
-            .write(appendOnly, lengthBuffer);
-        appendOnly.flush(fsync);
-        index.close();
+            UIO.writeByte(appendOnly, FOOTER, "type");
+            new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, firstKey, lastKey, new TimestampAndVersion(maxTimestamp, maxTimestampVersion))
+                .write(appendOnly, lengthBuffer);
+            appendOnly.flush(fsync);
+        } finally {
+            index.close();
+        }
     }
 
     @Override

@@ -277,30 +277,49 @@ public class CompactableIndexes {
                         return null;
                     } else {
                         byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1)).get(1);
-                        LABAppendableIndex leftAppenableIndex = leftHalfIndexFactory.createIndex(join, worstCaseCount - 1);
-                        LABAppendableIndex rightAppenableIndex = rightHalfIndexFactory.createIndex(join, worstCaseCount - 1);
-                        InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
+                        LABAppendableIndex leftAppenableIndex = null;
+                        LABAppendableIndex rightAppenableIndex = null;
+                        try {
+                            leftAppenableIndex = leftHalfIndexFactory.createIndex(join, worstCaseCount - 1);
+                            rightAppenableIndex = rightHalfIndexFactory.createIndex(join, worstCaseCount - 1);
+                            LABAppendableIndex effectiveFinalRightAppenableIndex = rightAppenableIndex;
+                            InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
 
-                        LOG.info("Splitting with a middle of:" + Arrays.toString(middle));
-                        leftAppenableIndex.append((leftStream) -> {
-                            return rightAppenableIndex.append((rightStream) -> {
-                                return feedInterleaver.stream((rawEntry, offset, length) -> {
-                                    int c = rawhide.compareKey(rawEntry, offset, middle, 0, middle.length);
-                                    if (c < 0) {
-                                        if (!leftStream.stream(rawEntry, offset, length)) {
+                            LOG.info("Splitting with a middle of:" + Arrays.toString(middle));
+                            leftAppenableIndex.append((leftStream) -> {
+                                return effectiveFinalRightAppenableIndex.append((rightStream) -> {
+                                    return feedInterleaver.stream((rawEntry, offset, length) -> {
+                                        int c = rawhide.compareKey(rawEntry, offset, middle, 0, middle.length);
+                                        if (c < 0) {
+                                            if (!leftStream.stream(rawEntry, offset, length)) {
+                                                return false;
+                                            }
+                                        } else if (!rightStream.stream(rawEntry, offset, length)) {
                                             return false;
                                         }
-                                    } else if (!rightStream.stream(rawEntry, offset, length)) {
-                                        return false;
-                                    }
-                                    return true;
+                                        return true;
+                                    });
                                 });
                             });
-                        });
 
-                        LOG.info("Splitting is flushing for a middle of:" + Arrays.toString(middle));
-                        leftAppenableIndex.closeAppendable(fsync);
-                        rightAppenableIndex.closeAppendable(fsync);
+                            LOG.info("Splitting is flushing for a middle of:" + Arrays.toString(middle));
+                            leftAppenableIndex.closeAppendable(fsync);
+                            rightAppenableIndex.closeAppendable(fsync);
+                        } catch (Exception x) {
+                            try {
+                                if (leftAppenableIndex != null) {
+                                    leftAppenableIndex.getIndex().close();
+                                    leftAppenableIndex.getIndex().getFile().delete();
+                                }
+                                if (rightAppenableIndex != null) {
+                                    rightAppenableIndex.getIndex().close();
+                                    rightAppenableIndex.getIndex().getFile().delete();
+                                }
+                            } catch (Exception xx) {
+                                LOG.error("Failed while trying to cleanup after a failure.", xx);
+                            }
+                            throw x;
+                        }
 
                         List<IndexRangeId> commitRanges = new ArrayList<>();
                         commitRanges.add(join);
@@ -349,37 +368,57 @@ public class CompactableIndexes {
 
                             for (RawConcurrentReadableIndex catchup : catchupMergeSet) {
                                 IndexRangeId id = catchup.id();
-                                LABAppendableIndex catupLeftAppenableIndex = leftHalfIndexFactory.createIndex(id, catchup.count());
-                                LABAppendableIndex catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
-                                ReadIndex catchupReader = catchup.acquireReader();
-                                try {
-                                    InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()}, rawhide);
 
-                                    LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
-                                    catupLeftAppenableIndex.append((leftStream) -> {
-                                        return catchupRightAppenableIndex.append((rightStream) -> {
-                                            return catchupFeedInterleaver.stream((rawEntry, offset, length) -> {
-                                                if (UnsignedBytes.lexicographicalComparator().compare(rawEntry, middle) < 0) {
-                                                    if (!leftStream.stream(rawEntry, offset, length)) {
+                                LABAppendableIndex catupLeftAppenableIndex = null;
+                                LABAppendableIndex catchupRightAppenableIndex = null;
+                                try {
+                                    catupLeftAppenableIndex = leftHalfIndexFactory.createIndex(id, catchup.count());
+                                    catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
+                                    LABAppendableIndex effectivelyFinalCatchupRightAppenableIndex = catchupRightAppenableIndex;
+
+                                    ReadIndex catchupReader = catchup.acquireReader();
+                                    try {
+                                        InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()}, rawhide);
+
+                                        LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
+                                        catupLeftAppenableIndex.append((leftStream) -> {
+                                            return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
+                                                return catchupFeedInterleaver.stream((rawEntry, offset, length) -> {
+                                                    if (UnsignedBytes.lexicographicalComparator().compare(rawEntry, middle) < 0) {
+                                                        if (!leftStream.stream(rawEntry, offset, length)) {
+                                                            return false;
+                                                        }
+                                                    } else if (!rightStream.stream(rawEntry, offset, length)) {
                                                         return false;
                                                     }
-                                                } else if (!rightStream.stream(rawEntry, offset, length)) {
-                                                    return false;
-                                                }
-                                                return true;
+                                                    return true;
+                                                });
                                             });
                                         });
-                                    });
-                                } finally {
-                                    catchupReader.release();
+                                    } finally {
+                                        catchupReader.release();
+                                    }
+                                    LOG.info("Catchup splitting is flushing for a middle of:" + Arrays.toString(middle));
+                                    catupLeftAppenableIndex.closeAppendable(fsync);
+                                    catchupRightAppenableIndex.closeAppendable(fsync);
+
+                                    commitRanges.add(0, id);
+
+                                } catch (Exception x) {
+                                    try {
+                                        if (catupLeftAppenableIndex != null) {
+                                            catupLeftAppenableIndex.getIndex().close();
+                                            catupLeftAppenableIndex.getIndex().getFile().delete();
+                                        }
+                                        if (catchupRightAppenableIndex != null) {
+                                            catchupRightAppenableIndex.getIndex().close();
+                                            catchupRightAppenableIndex.getIndex().getFile().delete();
+                                        }
+                                    } catch (Exception xx) {
+                                        LOG.error("Failed while trying to cleanup after a failure.", xx);
+                                    }
+                                    throw x;
                                 }
-
-                                LOG.info("Catchup splitting is flushing for a middle of:" + Arrays.toString(middle));
-                                catupLeftAppenableIndex.closeAppendable(fsync);
-                                catchupRightAppenableIndex.closeAppendable(fsync);
-
-                                commitRanges.add(0, id);
-
                             }
                         }
                     }
@@ -509,16 +548,28 @@ public class CompactableIndexes {
                     feeders[i] = readers[i].rowScan();
                 }
 
-                LABAppendableIndex appenableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
-                InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
-                appenableIndex.append((stream) -> {
-                    return feedInterleaver.stream(stream);
-                });
-                appenableIndex.closeAppendable(fsync);
+                LABAppendableIndex appenableIndex = null;
+                try {
+                    appenableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
+                    InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
+                    appenableIndex.append((stream) -> {
+                        return feedInterleaver.stream(stream);
+                    });
+                    appenableIndex.closeAppendable(fsync);
+                } catch (Exception x) {
+                    try {
+                        if (appenableIndex != null) {
+                            appenableIndex.getIndex().close();
+                            appenableIndex.getIndex().getFile().delete();
+                        }
+                    } catch (Exception xx) {
+                        LOG.error("Failed while trying to cleanup after a failure.", xx);
+                    }
+                    throw x;
+                }
 
                 index = commitIndex.commit(Arrays.asList(mergeRangeId));
 
-                long ts = System.currentTimeMillis();
                 synchronized (indexesLock) {
                     int newLength = (indexes.length - mergeSet.length) + 1;
                     boolean[] updateMerging = new boolean[newLength];
