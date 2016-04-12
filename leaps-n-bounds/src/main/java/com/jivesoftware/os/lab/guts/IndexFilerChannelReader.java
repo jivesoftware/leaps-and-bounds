@@ -1,7 +1,10 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.io.api.IReadable;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
@@ -11,11 +14,14 @@ import java.nio.channels.FileChannel;
  */
 public class IndexFilerChannelReader implements IReadable {
 
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
     private final IndexFile parent;
     private FileChannel fc;
     private long fp;
 
     private final ByteBuffer singleByteBuffer = ByteBuffer.allocate(1);
+    private final Object fileLock = new Object();
 
     public IndexFilerChannelReader(IndexFile parent, FileChannel fc) {
         this.parent = parent;
@@ -50,7 +56,7 @@ public class IndexFilerChannelReader implements IReadable {
                 singleByteBuffer.position(0);
                 return read != 1 ? -1 : singleByteBuffer.get();
             } catch (ClosedChannelException e) {
-                fc = parent.getFileChannel();
+                ensureOpen();
             }
         }
     }
@@ -69,8 +75,22 @@ public class IndexFilerChannelReader implements IReadable {
                 fp += _len;
                 return _len;
             } catch (ClosedChannelException e) {
-                fc = parent.getFileChannel();
+                ensureOpen();
                 bb.position(0);
+            }
+        }
+    }
+
+    private void ensureOpen() throws IOException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedIOException();
+        }
+        if (!fc.isOpen()) {
+            synchronized (fileLock) {
+                if (!fc.isOpen()) {
+                    LOG.warn("File channel is closed and must be reopened for {}", parent);
+                    fc = parent.getFileChannel();
+                }
             }
         }
     }
