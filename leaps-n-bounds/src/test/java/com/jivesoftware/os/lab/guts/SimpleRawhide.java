@@ -1,15 +1,14 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
-import com.jivesoftware.os.lab.api.Rawhide;
 
 /**
- *
  * @author jonathan.colt
  */
 public class SimpleRawhide implements Rawhide {
@@ -63,12 +62,12 @@ public class SimpleRawhide implements Rawhide {
         long timestamp = UIO.bytesLong(rawEntry, o);
         o += 8;
         boolean tombstone = rawEntry[o] != 0;
-        if (tombstone) {
-            return stream.stream(index, null, -1, false, -1, null);
-        }
         o++;
         long version = UIO.bytesLong(rawEntry, o);
         o += 8;
+        if (tombstone) {
+            return stream.stream(index, k, timestamp, tombstone, version, null);
+        }
 
         int payloadLength = UIO.bytesInt(rawEntry, o);
         o += 4;
