@@ -140,7 +140,7 @@ public class LABNGTest {
         List<Long> scanned = new ArrayList<>();
         index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
             System.out.println("scan:" + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
-            if (payload != null) {
+            if (!tombstoned) {
                 scanned.add(UIO.bytesLong(payload));
             }
             return true;
@@ -158,7 +158,7 @@ public class LABNGTest {
         List<Long> scanned = new ArrayList<>();
         index.rangeScan(from, to, (index1, key, timestamp, tombstoned, version, payload) -> {
             System.out.println("scan:" + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
-            if (payload != null) {
+            if (!tombstoned) {
                 scanned.add(UIO.bytesLong(payload));
             }
             return true;

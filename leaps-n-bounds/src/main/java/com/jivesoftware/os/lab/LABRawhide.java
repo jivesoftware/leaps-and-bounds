@@ -57,9 +57,6 @@ public class LABRawhide implements Rawhide {
         o++;
         long version = UIO.bytesLong(rawEntry, o);
         o += 8;
-        if (tombstone) {
-            return stream.stream(index, k, timestamp, tombstone, version, null);
-        }
 
         int payloadLength = UIO.bytesInt(rawEntry, o);
         o += 4;
