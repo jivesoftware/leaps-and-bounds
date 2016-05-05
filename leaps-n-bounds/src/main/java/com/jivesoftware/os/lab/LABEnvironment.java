@@ -1,8 +1,10 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
+import com.jivesoftware.os.lab.guts.Leaps;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,7 +25,7 @@ public class LABEnvironment {
     private final boolean useMemMap;
     private final int minMergeDebt;
     private final int maxMergeDebt;
-    private final int concurrency;
+    private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
 
     public static ExecutorService buildLABCompactorThreadPool(int count) {
         return Executors.newFixedThreadPool(count,
@@ -35,20 +37,24 @@ public class LABEnvironment {
             new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
     }
 
+    public static LRUConcurrentBAHLinkedHash<Leaps> buildLeapsCache(int maxCapacity, int concurrency) {
+        return new LRUConcurrentBAHLinkedHash<>(10, maxCapacity, 0.5f, true, concurrency);
+    }
+
     public LABEnvironment(ExecutorService compact,
         final ExecutorService destroy,
         File rootFile,
         boolean useMemMap,
         int minMergeDebt,
         int maxMergeDebt,
-        int concurrency) {
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache) {
         this.compact = compact;
         this.destroy = destroy;
         this.rootFile = rootFile;
         this.useMemMap = useMemMap;
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
-        this.concurrency = concurrency;
+        this.leapsCache = leapsCache;
     }
 
     public ValueIndex open(String primaryName,
@@ -71,7 +77,7 @@ public class LABEnvironment {
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
-            concurrency);
+            leapsCache);
     }
 
     public boolean rename(String oldName, String newName) throws IOException {

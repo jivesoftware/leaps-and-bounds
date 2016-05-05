@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
@@ -8,6 +9,7 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.Values;
 import com.jivesoftware.os.lab.guts.IndexUtil;
+import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.guts.RawMemoryIndex;
 import com.jivesoftware.os.lab.guts.ReaderTx;
@@ -69,7 +71,7 @@ public class LAB implements ValueIndex {
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
-        int concurrency) throws Exception {
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
 
         this.rawhide = rawhide;
         this.compact = compact;
@@ -85,7 +87,7 @@ public class LAB implements ValueIndex {
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
             rawhide,
-            concurrency);
+            leapsCache);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
     }

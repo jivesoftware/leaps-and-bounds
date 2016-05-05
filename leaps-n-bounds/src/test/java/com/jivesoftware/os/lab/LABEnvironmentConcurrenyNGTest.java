@@ -2,8 +2,10 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
+import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -25,8 +27,9 @@ public class LABEnvironmentConcurrenyNGTest {
     public void testConcurrencyMethod() throws Exception {
 
         File root = Files.createTempDir();
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            false, 4, 10, 8);
+            false, 4, 10, leapsCache);
 
         concurentTest(env);
     }
@@ -35,8 +38,9 @@ public class LABEnvironmentConcurrenyNGTest {
     public void testConcurrencyWithMemMapMethod() throws Exception {
 
         File root = Files.createTempDir();
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            true, 4, 10, 8);
+            true, 4, 10, leapsCache);
 
         concurentTest(env);
     }

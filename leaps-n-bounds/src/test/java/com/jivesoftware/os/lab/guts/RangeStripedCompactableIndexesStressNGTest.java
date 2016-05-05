@@ -1,6 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LABRawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -44,6 +46,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
         long splitWhenValuesTotalExceedsNBytes = -1;
         long splitWhenValuesAndKeysTotalExceedsNBytes = -1;
 
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(destroy,
             root,
             "test",
@@ -53,7 +56,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
             new SimpleRawhide(),
-            8);
+            leapsCache);
 
         int count = 0;
 

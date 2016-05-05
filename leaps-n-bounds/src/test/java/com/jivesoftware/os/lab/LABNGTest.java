@@ -1,8 +1,10 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.ValueIndex;
+import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -23,8 +25,9 @@ public class LABNGTest {
 
         boolean fsync = true;
         File root = Files.createTempDir();
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            false, 1, 2, 8);
+            false, 1, 2, leapsCache);
 
         ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1, new LABRawhide());
 

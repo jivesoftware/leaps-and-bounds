@@ -1,6 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -67,7 +69,8 @@ public class IndexStressNGTest {
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
-                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true), simpleRawEntry, 8);
+                                LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true), simpleRawEntry, leapsCache);
                             }));
                     if (compactor != null) {
                         waitForDebtToDrain.incrementAndGet();
@@ -172,7 +175,8 @@ public class IndexStressNGTest {
             write.closeAppendable(fsync);
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
-            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true), simpleRawEntry, 8));
+            LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true), simpleRawEntry, leapsCache));
 
             count += batchSize;
 

@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -22,26 +23,32 @@ public class ActiveScan implements ScanFromFp {
 
     private final Rawhide rawhide;
     private final Leaps leaps;
-    private final ConcurrentLHash<Leaps> leapsCache;
+    private final long cacheKey;
+    private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final Footer footer;
     private final IReadable readable;
     private final byte[] lengthBuffer;
+    private byte[] cacheKeyBuffer;
     private byte[] entryBuffer;
     private long activeFp = Long.MAX_VALUE;
     private boolean activeResult;
 
     public ActiveScan(Rawhide rawhide,
         Leaps leaps,
-        ConcurrentLHash<Leaps> leapsCache,
+        long cacheKey,
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         Footer footer,
         IReadable readable,
+        byte[] cacheKeyBuffer,
         byte[] lengthBuffer) {
 
         this.rawhide = rawhide;
         this.leaps = leaps;
+        this.cacheKey = cacheKey;
         this.leapsCache = leapsCache;
         this.footer = footer;
         this.readable = readable;
+        this.cacheKeyBuffer = cacheKeyBuffer;
         this.lengthBuffer = lengthBuffer;
     }
 
@@ -104,11 +111,15 @@ public class ActiveScan implements ScanFromFp {
                 if (index < 0) {
                     index = -(index + 1);
                 }
-                next = leapsCache.get(at.fps[index]);
+
+                UIO.longBytes(cacheKey, cacheKeyBuffer, 0);
+                UIO.longBytes(at.fps[index], cacheKeyBuffer, 8);
+
+                next = leapsCache.get(cacheKeyBuffer);
                 if (next == null) {
                     readable.seek(at.fps[index]);
                     next = Leaps.read(readable, lengthBuffer);
-                    leapsCache.put(at.fps[index], next);
+                    leapsCache.put(Arrays.copyOf(cacheKeyBuffer, 16), next);
                 }
             }
             at = next;

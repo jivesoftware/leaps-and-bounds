@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
@@ -48,7 +49,7 @@ public class RangeStripedCompactableIndexes {
     private final long splitWhenValuesTotalExceedsNBytes;
     private final long splitWhenValuesAndKeysTotalExceedsNBytes;
     private final Rawhide rawhide;
-    private final int concurrency;
+    private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final Semaphore appendSemaphore = new Semaphore(Short.MAX_VALUE, true);
 
     public RangeStripedCompactableIndexes(ExecutorService destroy,
@@ -60,7 +61,7 @@ public class RangeStripedCompactableIndexes {
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
         Rawhide rawhide,
-        int concurrency) throws Exception {
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
 
         this.destroy = destroy;
         this.root = root;
@@ -71,7 +72,7 @@ public class RangeStripedCompactableIndexes {
         this.splitWhenValuesTotalExceedsNBytes = splitWhenValuesTotalExceedsNBytes;
         this.splitWhenValuesAndKeysTotalExceedsNBytes = splitWhenValuesAndKeysTotalExceedsNBytes;
         this.rawhide = rawhide;
-        this.concurrency = concurrency;
+        this.leapsCache = leapsCache;
         this.indexes = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
 
         File indexRoot = new File(root, indexName);
@@ -145,7 +146,6 @@ public class RangeStripedCompactableIndexes {
             + ", splitWhenKeysTotalExceedsNBytes=" + splitWhenKeysTotalExceedsNBytes
             + ", splitWhenValuesTotalExceedsNBytes=" + splitWhenValuesTotalExceedsNBytes
             + ", splitWhenValuesAndKeysTotalExceedsNBytes=" + splitWhenValuesAndKeysTotalExceedsNBytes
-            + ", concurrency=" + concurrency
             + '}';
     }
 
@@ -207,7 +207,7 @@ public class RangeStripedCompactableIndexes {
                         continue;
                     }
                     IndexFile indexFile = new IndexFile(file, "rw", useMemMap);
-                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, rawhide, concurrency);
+                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, rawhide, leapsCache);
                     if (lab.minKey() != null && lab.maxKey() != null) {
                         if (keyRange == null) {
                             keyRange = new KeyRange(lab.minKey(), lab.maxKey());
@@ -328,7 +328,7 @@ public class RangeStripedCompactableIndexes {
             FileUtils.forceMkdir(commitedIndexFile.getParentFile());
             Files.move(commitingIndexFile.toPath(), commitedIndexFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
             IndexFile indexFile = new IndexFile(commitedIndexFile, "r", useMemMap);
-            LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, rawhide, concurrency);
+            LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, rawhide, leapsCache);
             reopenedIndex.flush(fsync);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
             return reopenedIndex;

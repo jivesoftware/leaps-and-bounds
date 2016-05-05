@@ -1,8 +1,10 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
+import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.Arrays;
@@ -22,14 +24,15 @@ public class LABEnvironmentNGTest {
         try {
             root = Files.createTempDir();
             System.out.println("root" + root.getAbsolutePath());
+            LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                false, 4, 8, 8);
+                false, 4, 8, leapsCache);
 
             ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());
             indexTest(index);
 
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                true, 4, 8, 8);
+                true, 4, 8, leapsCache);
 
             index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());
             indexTest(index);
@@ -37,7 +40,7 @@ public class LABEnvironmentNGTest {
             env.shutdown();
 
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                true, 4, 8, 8);
+                true, 4, 8, leapsCache);
             env.rename("foo", "bar");
             index = env.open("bar", 4096, 1000, -1, -1, -1, new LABRawhide());
 
@@ -45,7 +48,7 @@ public class LABEnvironmentNGTest {
 
             env.shutdown();
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                true, 4, 8, 8);
+                true, 4, 8, leapsCache);
             env.remove("bar");
         } catch (Throwable x) {
             System.out.println("________________________________________________________");
@@ -105,8 +108,9 @@ public class LABEnvironmentNGTest {
 
         File root = Files.createTempDir();
         System.out.println("Created root");
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            true, 4, 8, 8);
+            true, 4, 8, leapsCache);
         System.out.println("Created env");
 
         ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());
@@ -118,7 +122,7 @@ public class LABEnvironmentNGTest {
         System.out.println("Shutdown");
 
         env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-            root, true, 4, 8, 8);
+            root, true, 4, 8, leapsCache);
         System.out.println("Recreate env");
 
         index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());

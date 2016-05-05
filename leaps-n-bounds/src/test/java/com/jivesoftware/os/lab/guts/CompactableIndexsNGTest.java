@@ -1,9 +1,11 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
+import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -69,7 +71,8 @@ public class CompactableIndexsNGTest {
             write.closeAppendable(true);
 
             indexFile = new IndexFile(file, "r", false);
-            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
+            LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, leapsCache));
         }
 
         for (int i = 1; i <= id.get(); i++) {
@@ -156,7 +159,8 @@ public class CompactableIndexsNGTest {
                 write.closeAppendable(fsync);
 
                 indexFile = new IndexFile(file, "r", false);
-                indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
+                LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+                indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, leapsCache));
 
             }
             Thread.sleep(10);
@@ -175,7 +179,8 @@ public class CompactableIndexsNGTest {
                     return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry);
                 },
                 (ids) -> {
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), simpleRawEntry, 8);
+                    LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), simpleRawEntry, leapsCache);
                 }));
 
         if (compactor != null) {
@@ -213,7 +218,8 @@ public class CompactableIndexsNGTest {
             write.closeAppendable(fsync);
 
             indexFile = new IndexFile(indexFiler, "r", false);
-            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
+            LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, leapsCache));
         }
 
         indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs) -> {
@@ -240,7 +246,8 @@ public class CompactableIndexsNGTest {
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
                     return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry);
                 }, (ids) -> {
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), simpleRawEntry, 8);
+                    LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), simpleRawEntry, leapsCache);
                 }));
 
         if (compactor != null) {
@@ -265,7 +272,8 @@ public class CompactableIndexsNGTest {
         indexs = new CompactableIndexes(new SimpleRawhide());
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         IndexFile indexFile = new IndexFile(indexFiler, "r", false);
-        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, 8));
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, simpleRawEntry, leapsCache));
 
         assertions(indexs, count, step, desired);
     }

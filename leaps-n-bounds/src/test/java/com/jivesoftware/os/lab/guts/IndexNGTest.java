@@ -1,6 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
@@ -43,7 +45,8 @@ public class IndexNGTest {
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, 8), count, step, desired);
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, leapsCache), count, step, desired);
     }
 
     @Test(enabled = false)
@@ -83,7 +86,8 @@ public class IndexNGTest {
         disIndex.append(memoryIndex);
         disIndex.closeAppendable(false);
 
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, 8), count, step, desired);
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, leapsCache), count, step, desired);
 
     }
 

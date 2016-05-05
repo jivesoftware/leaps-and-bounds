@@ -1,8 +1,10 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.ValueStream;
+import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.nio.file.Files;
@@ -39,7 +41,8 @@ public class LABValidationNGTest {
         File finalRoot = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         int maxUpdatesBetweenMerges = 10;
-        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, 2);
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, leapsCache);
 
         int writerCount = 12;
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
@@ -128,7 +131,8 @@ public class LABValidationNGTest {
         File root = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         int maxUpdatesBetweenMerges = 10;
-        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, 2);
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, leapsCache);
 
         validationTest(lab);
 
