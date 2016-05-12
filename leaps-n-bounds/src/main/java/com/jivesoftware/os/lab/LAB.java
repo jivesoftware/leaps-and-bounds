@@ -40,7 +40,7 @@ public class LAB implements ValueIndex {
     }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
-    
+
     private final ExecutorService destroy;
     private final ExecutorService compact;
     private final int maxUpdatesBeforeFlush;
@@ -432,7 +432,7 @@ public class LAB implements ValueIndex {
                     awaitable = new ArrayList<>(compactors.size());
                 }
                 for (Callable<Void> compactor : compactors) {
-                    LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, rangeStripedCompactableIndexes, debt);
+                    LOG.debug("Scheduling async compaction:{} for index:{} debt:{}", compactors, rangeStripedCompactableIndexes, debt);
                     synchronized (compactLock) {
                         if (closeRequested.get()) {
                             break;
@@ -480,20 +480,16 @@ public class LAB implements ValueIndex {
         if (!closeRequested.compareAndSet(false, true)) {
             throw new LABIndexClosedException();
         }
-        //LOG.info("Closing " + this);
         if (flushUncommited) {
-            //LOG.info("Close is flushing " + this);
             internalCommit(fsync);
         }
 
-        //LOG.info("Close is waiting for compaction to finish " + this);
         synchronized (compactLock) {
             while (ongoingCompactions.get() > 0) {
                 compactLock.wait();
             }
         }
 
-        //LOG.info("Close is waiting for all commits and tx's to complete " + this);
         commitSemaphore.acquire(Short.MAX_VALUE);
         try {
             memoryIndex.closeReadable();
@@ -501,7 +497,7 @@ public class LAB implements ValueIndex {
         } finally {
             commitSemaphore.release(Short.MAX_VALUE);
         }
-        LOG.info("Closed " + this);
+        LOG.debug("Closed {}", this);
 
     }
 

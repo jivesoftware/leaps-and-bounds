@@ -176,7 +176,7 @@ public class RangeStripedCompactableIndexes {
                     if (active == null || !active.intersects(range)) {
                         active = range;
                     } else {
-                        LOG.info("Destroying index for overlaping range:" + range);
+                        LOG.debug("Destroying index for overlaping range:{}", range);
                         remove.add(range);
                     }
                 }
@@ -385,7 +385,7 @@ public class RangeStripedCompactableIndexes {
                         FileUtils.deleteQuietly(splitIntoDir);
                         FileUtils.forceMkdir(splitIntoDir);
                         File splittingIndexFile = id.toFile(splitIntoDir);
-                        LOG.info("Creating new index for split: {}", splittingIndexFile);
+                        LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
@@ -399,7 +399,7 @@ public class RangeStripedCompactableIndexes {
                         FileUtils.deleteQuietly(splitIntoDir);
                         FileUtils.forceMkdir(splitIntoDir);
                         File splittingIndexFile = id.toFile(splitIntoDir);
-                        LOG.info("Creating new index for split: {}", splittingIndexFile);
+                        LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
@@ -414,7 +414,7 @@ public class RangeStripedCompactableIndexes {
                         File right = new File(indexRoot, String.valueOf(nextStripeIdRight));
                         File rightActive = new File(right, "active");
                         FileUtils.forceMkdir(rightActive.getParentFile());
-                        LOG.info("Commiting split:{} became left:{} right:{}", stripeRoot, left, right);
+                        LOG.debug("Commiting split:{} became left:{} right:{}", stripeRoot, left, right);
 
                         try {
                             Files.move(new File(splittingRoot, String.valueOf(nextStripeIdLeft)).toPath(),
@@ -423,7 +423,7 @@ public class RangeStripedCompactableIndexes {
                             Files.move(new File(splittingRoot, String.valueOf(nextStripeIdRight)).toPath(),
                                 rightActive.toPath(),
                                 StandardCopyOption.ATOMIC_MOVE);
-                            
+
                             Stripe leftStripe = loadStripe(left);
                             Stripe rightStripe = loadStripe(right);
                             synchronized (copyIndexOnWrite) {
@@ -456,7 +456,7 @@ public class RangeStripedCompactableIndexes {
                             FileUtils.deleteQuietly(commitingRoot);
                             FileUtils.deleteQuietly(splittingRoot);
 
-                            LOG.info("Completed split:{} became left:{} right:{}", stripeRoot, left, right);
+                            LOG.debug("Completed split:{} became left:{} right:{}", stripeRoot, left, right);
                             return null;
                         } catch (Exception x) {
                             FileUtils.deleteQuietly(left);

@@ -285,7 +285,7 @@ public class CompactableIndexes {
                             LABAppendableIndex effectiveFinalRightAppenableIndex = rightAppenableIndex;
                             InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
 
-                            LOG.info("Splitting with a middle of:" + Arrays.toString(middle));
+                            LOG.debug("Splitting with a middle of:{}", Arrays.toString(middle));
                             leftAppenableIndex.append((leftStream) -> {
                                 return effectiveFinalRightAppenableIndex.append((rightStream) -> {
                                     return feedInterleaver.stream((rawEntry, offset, length) -> {
@@ -302,7 +302,7 @@ public class CompactableIndexes {
                                 });
                             });
 
-                            LOG.info("Splitting is flushing for a middle of:" + Arrays.toString(middle));
+                            LOG.debug("Splitting is flushing for a middle of:{}", Arrays.toString(middle));
                             leftAppenableIndex.closeAppendable(fsync);
                             rightAppenableIndex.closeAppendable(fsync);
                         } catch (Exception x) {
@@ -324,13 +324,13 @@ public class CompactableIndexes {
                         List<IndexRangeId> commitRanges = new ArrayList<>();
                         commitRanges.add(join);
 
-                        LOG.info("Splitting trying to catchup for a middle of:" + Arrays.toString(middle));
+                        LOG.debug("Splitting trying to catchup for a middle of:{}", Arrays.toString(middle));
                         CATCHUP_YOU_BABY_TOMATO:
                         while (true) {
                             RawConcurrentReadableIndex[] catchupMergeSet;
                             synchronized (indexesLock) {
                                 if (allVersion == version) {
-                                    LOG.info("Commiting split for a middle of:" + Arrays.toString(middle));
+                                    LOG.debug("Commiting split for a middle of:{}", Arrays.toString(middle));
 
                                     commitIndex.commit(commitRanges);
                                     for (RawConcurrentReadableIndex destroy : all) {
@@ -341,20 +341,19 @@ public class CompactableIndexes {
                                     refreshMaxTimestamp(indexes);
                                     merging = new boolean[0];
                                     disposed = true;
-                                    LOG.info("All done splitting :) for a middle of:" + Arrays.toString(middle));
+                                    LOG.debug("All done splitting :) for a middle of:{}", Arrays.toString(middle));
                                     return null;
                                 } else {
 
-                                    LOG.info("Version has changed " + allVersion + " for a middle of:" + Arrays.toString(middle));
+                                    LOG.debug("Version has changed {} for a middle of:{}", allVersion, Arrays.toString(middle));
                                     int catchupLength = merging.length - splitLength;
                                     for (int i = 0; i < catchupLength; i++) {
                                         if (merging[i]) {
-                                            LOG.info("Waiting for merge flag to clear at " + i + " for a middle of:" + Arrays.toString(middle));
-                                            LOG.info(
-                                                "splitLength=" + splitLength + " merge.length=" + merging.length + " catchupLength=" + catchupLength);
-                                            LOG.info("merging:" + Arrays.toString(merging));
+                                            LOG.debug("Waiting for merge flag to clear at {} for a middle of:{}", i, Arrays.toString(middle));
+                                            LOG.debug("splitLength={} merge.length={} catchupLength={}", splitLength, merging.length, catchupLength);
+                                            LOG.debug("merging:{}", Arrays.toString(merging));
                                             indexesLock.wait();
-                                            LOG.info("Merge flag to cleared at " + i + " for a middle of:" + Arrays.toString(middle));
+                                            LOG.debug("Merge flag to cleared at {} for a middle of:{}", i, Arrays.toString(middle));
                                             continue CATCHUP_YOU_BABY_TOMATO;
                                         }
                                     }
@@ -380,7 +379,7 @@ public class CompactableIndexes {
                                     try {
                                         InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()}, rawhide);
 
-                                        LOG.info("Doing a catchup split for a middle of:" + Arrays.toString(middle));
+                                        LOG.debug("Doing a catchup split for a middle of:{}", Arrays.toString(middle));
                                         catupLeftAppenableIndex.append((leftStream) -> {
                                             return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
                                                 return catchupFeedInterleaver.stream((rawEntry, offset, length) -> {
@@ -398,7 +397,7 @@ public class CompactableIndexes {
                                     } finally {
                                         catchupReader.release();
                                     }
-                                    LOG.info("Catchup splitting is flushing for a middle of:" + Arrays.toString(middle));
+                                    LOG.debug("Catchup splitting is flushing for a middle of:{}", Arrays.toString(middle));
                                     catupLeftAppenableIndex.closeAppendable(fsync);
                                     catchupRightAppenableIndex.closeAppendable(fsync);
 
