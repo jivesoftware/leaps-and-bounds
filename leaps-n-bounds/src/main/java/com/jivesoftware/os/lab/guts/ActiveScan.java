@@ -2,24 +2,26 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ScanFromFp;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.util.Arrays;
 
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.ENTRY;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.FOOTER;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
-import static com.jivesoftware.os.lab.io.api.UIO.readLength;
 
 /**
  *
  * @author jonathan.colt
  */
 public class ActiveScan implements ScanFromFp {
+
+    private final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final Rawhide rawhide;
     private final Leaps leaps;
@@ -28,7 +30,7 @@ public class ActiveScan implements ScanFromFp {
     private final Footer footer;
     private final IReadable readable;
     private final byte[] lengthBuffer;
-    private byte[] cacheKeyBuffer;
+    private final byte[] cacheKeyBuffer;
     private byte[] entryBuffer;
     private long activeFp = Long.MAX_VALUE;
     private boolean activeResult;
@@ -98,14 +100,12 @@ public class ActiveScan implements ScanFromFp {
         if (UnsignedBytes.lexicographicalComparator().compare(leaps.lastKey, key) < 0) {
             return -1;
         }
+        int cacheMisses = 0;
+        int cacheHits = 0;
         while (at != null) {
             Leaps next;
             int index = Arrays.binarySearch(at.keys, key, UnsignedBytes.lexicographicalComparator());
             if (index == -(at.fps.length + 1)) {
-                /*if (at.fps.length == 0) {
-                    return 0;
-                }
-                return at.fps[at.fps.length - 1] - 1;*/
                 return binarySearchClosestFP(at, key, exact, intBuffer);
             } else {
                 if (index < 0) {
@@ -120,9 +120,18 @@ public class ActiveScan implements ScanFromFp {
                     readable.seek(at.fps[index]);
                     next = Leaps.read(readable, lengthBuffer);
                     leapsCache.put(Arrays.copyOf(cacheKeyBuffer, 16), next);
+                    cacheMisses++;
+                } else {
+                    cacheHits++;
                 }
             }
             at = next;
+        }
+        if (cacheHits > 0) {
+            LOG.inc("LAB>leapCache>hits", cacheHits);
+        }
+        if (cacheMisses > 0) {
+            LOG.inc("LAB>leapCache>misses", cacheMisses);
         }
         return -1;
     }

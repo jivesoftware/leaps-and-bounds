@@ -1,8 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.jive.utils.collections.lh.ConcurrentLHash;
-import com.jivesoftware.os.jive.utils.collections.oh.LRUConcurrentOHLinkedHash;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
