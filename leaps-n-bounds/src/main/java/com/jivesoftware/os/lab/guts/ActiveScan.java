@@ -21,7 +21,7 @@ import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
  */
 public class ActiveScan implements ScanFromFp {
 
-    private final MetricLogger LOG = MetricLoggerFactory.getLogger();
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final Rawhide rawhide;
     private final Leaps leaps;
