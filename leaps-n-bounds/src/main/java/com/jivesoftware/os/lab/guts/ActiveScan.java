@@ -97,8 +97,9 @@ public class ActiveScan implements ScanFromFp {
 
     public long getInclusiveStartOfRow(byte[] key, boolean exact, byte[] intBuffer) throws Exception {
         Leaps at = leaps;
+        long rowIndex = -1;
         if (UnsignedBytes.lexicographicalComparator().compare(leaps.lastKey, key) < 0) {
-            return -1;
+            return rowIndex;
         }
         int cacheMisses = 0;
         int cacheHits = 0;
@@ -106,7 +107,8 @@ public class ActiveScan implements ScanFromFp {
             Leaps next;
             int index = Arrays.binarySearch(at.keys, key, UnsignedBytes.lexicographicalComparator());
             if (index == -(at.fps.length + 1)) {
-                return binarySearchClosestFP(at, key, exact, intBuffer);
+                rowIndex = binarySearchClosestFP(at, key, exact, intBuffer);
+                break;
             } else {
                 if (index < 0) {
                     index = -(index + 1);
@@ -133,7 +135,7 @@ public class ActiveScan implements ScanFromFp {
         if (cacheMisses > 0) {
             LOG.inc("LAB>leapCache>misses", cacheMisses);
         }
-        return -1;
+        return rowIndex;
     }
 
     private long binarySearchClosestFP(Leaps at, byte[] key, boolean exact, byte[] intBuffer) throws Exception {
