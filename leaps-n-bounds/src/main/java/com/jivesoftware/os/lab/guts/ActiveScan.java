@@ -16,7 +16,6 @@ import static com.jivesoftware.os.lab.guts.LABAppendableIndex.FOOTER;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
 
 /**
- *
  * @author jonathan.colt
  */
 public class ActiveScan implements ScanFromFp {
@@ -129,6 +128,8 @@ public class ActiveScan implements ScanFromFp {
             }
             at = next;
         }
+
+        LOG.inc("LAB>leapCache>calls");
         if (cacheHits > 0) {
             LOG.inc("LAB>leapCache>hits", cacheHits);
         }
