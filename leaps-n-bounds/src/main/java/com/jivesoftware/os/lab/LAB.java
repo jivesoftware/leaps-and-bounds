@@ -99,18 +99,23 @@ public class LAB implements ValueIndex {
 
     @Override
     public void get(Keys keys, ValueStream stream) throws Exception {
+        int[] count = { 0 };
         pointTx(keys, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
+            count[0]++;
             return rawToReal(index, fromKey, getRaw, stream);
         });
+        LOG.inc("LAB>gets", count[0]);
     }
 
     @Override
     public boolean get(byte[] key, ValueStream stream) throws Exception {
-        return rangeTx(-1, key, key, -1, -1, (index, fromKey, toKey, readIndexes) -> {
+        boolean result = rangeTx(-1, key, key, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
             return rawToReal(index, key, getRaw, stream);
         });
+        LOG.inc("LAB>gets");
+        return result;
     }
 
     @Override

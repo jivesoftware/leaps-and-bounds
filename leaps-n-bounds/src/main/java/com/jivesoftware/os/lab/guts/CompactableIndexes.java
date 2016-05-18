@@ -39,7 +39,7 @@ public class CompactableIndexes {
     private volatile boolean disposed = false;
     private final AtomicLong compactorCheckVersion = new AtomicLong();
     private final AtomicBoolean compacting = new AtomicBoolean();
-    private volatile TimestampAndVersion maxTimestampAndVersion;
+    private volatile TimestampAndVersion maxTimestampAndVersion = TimestampAndVersion.NULL;
 
     public CompactableIndexes(Rawhide rawhide) {
         this.rawhide = rawhide;
