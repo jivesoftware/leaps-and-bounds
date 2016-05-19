@@ -231,6 +231,18 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
     }
 
     @Override
+    public ByteBuffer slice(int length) throws IOException {
+        long remaining = filers[fpFilerIndex].length() - filers[fpFilerIndex].getFilePointer();
+        if (remaining < length) {
+            byte[] sliced = new byte[length];
+            read(sliced);
+            return ByteBuffer.wrap(sliced);
+        } else {
+            return filers[fpFilerIndex].slice(length);
+        }
+    }
+
+    @Override
     public void write(byte[] b, int offset, int len) throws IOException {
         append(b, offset, len);
     }

@@ -81,6 +81,22 @@ public class IndexFilerChannelReader implements IReadable {
         }
     }
 
+    @Override
+    public ByteBuffer slice(int length) throws IOException {
+        byte[] b = new byte[length];
+        ByteBuffer bb = ByteBuffer.wrap(b, 0, length);
+        while (true) {
+            try {
+                fc.read(bb, fp);
+                fp += length;
+                return bb;
+            } catch (ClosedChannelException e) {
+                ensureOpen();
+                bb.position(0);
+            }
+        }
+    }
+
     private void ensureOpen() throws IOException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedIOException();

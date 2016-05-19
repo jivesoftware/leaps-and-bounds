@@ -20,6 +20,7 @@
 package com.jivesoftware.os.lab.io.api;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -50,4 +51,11 @@ public interface IReadable extends ICloseable, ISeekable {
      * @throws IOException
      */
     int read(byte b[], int _offset, int _len) throws IOException;
+
+    /**
+     *
+     * @param length
+     * @return
+     */
+    ByteBuffer slice(int length) throws IOException;
 }

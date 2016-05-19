@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
+import java.nio.LongBuffer;
+
 /**
  * @author jonathan.colt
  */
@@ -61,7 +63,7 @@ class LeapFrog {
                 }
             }
         }
-        return new Leaps(index, lastKey, fpIndex, keys, startOfEntryIndex);
+        return new Leaps(index, lastKey, fpIndex, keys, LongBuffer.wrap(startOfEntryIndex));
     }
 
     static private double euclidean(long[] a, long[] b) {

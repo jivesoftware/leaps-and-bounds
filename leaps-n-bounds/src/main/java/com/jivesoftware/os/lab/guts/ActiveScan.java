@@ -141,11 +141,11 @@ public class ActiveScan implements ScanFromFp {
 
     private long binarySearchClosestFP(Leaps at, byte[] key, boolean exact, byte[] intBuffer) throws Exception {
         int low = 0;
-        int high = at.startOfEntryIndex.length - 1;
+        int high = at.startOfEntryBuffer.limit() - 1;
 
         while (low <= high) {
             int mid = (low + high) >>> 1;
-            long fp = at.startOfEntryIndex[mid];
+            long fp = at.startOfEntryBuffer.get(mid);
 
             readable.seek(fp + 1); // skip 1 type byte
 
@@ -161,7 +161,7 @@ public class ActiveScan implements ScanFromFp {
         if (exact) {
             return -1;
         } else {
-            return at.startOfEntryIndex[low];
+            return at.startOfEntryBuffer.get(low);
         }
     }
 

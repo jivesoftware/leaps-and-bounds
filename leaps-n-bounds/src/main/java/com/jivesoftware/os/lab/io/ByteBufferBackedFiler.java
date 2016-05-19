@@ -96,6 +96,15 @@ public class ByteBufferBackedFiler implements IFiler {
     }
 
     @Override
+    public ByteBuffer slice(int length) throws IOException {
+        ByteBuffer duplicated = buffer.duplicate();
+        int sliceToLimit = buffer.position() + length;
+        duplicated.limit(sliceToLimit);
+        buffer.position(sliceToLimit);
+        return duplicated.slice();
+    }
+
+    @Override
     public void close() throws IOException {
 
     }
