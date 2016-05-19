@@ -4,6 +4,7 @@ import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
+import com.jivesoftware.os.mlogger.core.ValueType;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,6 +33,7 @@ public class LabHeapPressure {
 
     void commitIfNecessary(LAB lab, long labMaxHeapPressureInBytes, boolean fsyncOnFlush) throws Exception {
         if (lab.approximateHeapPressureInBytes() > labMaxHeapPressureInBytes) {
+            LOG.inc("lab>commit>instance>" + fsyncOnFlush);
             labs.remove(lab);
             lab.commit(fsyncOnFlush);
         } else {
@@ -39,8 +41,10 @@ public class LabHeapPressure {
                 return u == null ? fsyncOnFlush : (boolean) u || fsyncOnFlush;
             });
         }
-
-        if (globalHeapCostInBytes.get() > maxHeapPressureInBytes) {
+        long globalHeap = globalHeapCostInBytes.get();
+        LOG.set(ValueType.VALUE, "lab>heap>pressure", globalHeap);
+        LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
+        if (globalHeap > maxHeapPressureInBytes) {
             LAB[] keys = labs.keySet().toArray(new LAB[0]);
             Arrays.sort(keys, (LAB o1, LAB o2) -> {
                 return -Long.compare(o1.approximateHeapPressureInBytes(), o2.approximateHeapPressureInBytes());
@@ -50,6 +54,8 @@ public class LabHeapPressure {
                 Boolean efsyncOnFlush = labs.remove(keys[i]);
                 if (efsyncOnFlush != null) {
                     try {
+                        LOG.inc("lab>commit>global>" + efsyncOnFlush);
+                        LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
                         LOG.info("Forcing flush due to heap pressure. lab:{}", lab);
                         keys[i].commit(efsyncOnFlush);
                     } catch (LABIndexCorruptedException | LABIndexClosedException x) {
