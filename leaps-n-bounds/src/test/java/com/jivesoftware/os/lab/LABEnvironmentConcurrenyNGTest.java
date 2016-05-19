@@ -28,8 +28,15 @@ public class LABEnvironmentConcurrenyNGTest {
 
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            false, 4, 10, leapsCache);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            root,
+            false,
+            labHeapPressure,
+            4,
+            10,
+            leapsCache);
 
         concurentTest(env);
     }
@@ -39,8 +46,9 @@ public class LABEnvironmentConcurrenyNGTest {
 
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            true, 4, 10, leapsCache);
+            true, labHeapPressure, 4, 10, leapsCache);
 
         concurentTest(env);
     }

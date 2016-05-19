@@ -15,6 +15,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -58,7 +59,7 @@ public class IndexNGTest {
         int step = 10;
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new SimpleRawhide());
+        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new AtomicLong(), new SimpleRawhide());
 
         IndexTestUtils.append(new Random(), walIndex, 0, step, count, desired);
         assertions(walIndex, count, step, desired);
@@ -73,7 +74,7 @@ public class IndexNGTest {
         int count = 10;
         int step = 10;
 
-        RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy, new SimpleRawhide());
+        RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy, new AtomicLong(), new SimpleRawhide());
 
         IndexTestUtils.append(new Random(), memoryIndex, 0, step, count, desired);
         assertions(memoryIndex, count, step, desired);

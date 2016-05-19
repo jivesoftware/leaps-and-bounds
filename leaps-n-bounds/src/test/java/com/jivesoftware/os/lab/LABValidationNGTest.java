@@ -40,9 +40,10 @@ public class LABValidationNGTest {
         File root = com.google.common.io.Files.createTempDir();
         File finalRoot = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
-        int maxUpdatesBetweenMerges = 10;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, leapsCache);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
+        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, labHeapPressure, 1024 * 1024 * 10, 4, 8,
+            128, 0, 0, leapsCache);
 
         int writerCount = 12;
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
@@ -130,9 +131,10 @@ public class LABValidationNGTest {
 
         File root = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
-        int maxUpdatesBetweenMerges = 10;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, maxUpdatesBetweenMerges, 4, 8, 128, 0, 0, leapsCache);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
+        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, labHeapPressure, 1024 * 1024 * 10, 4, 8, 128, 0, 0,
+            leapsCache);
 
         validationTest(lab);
 

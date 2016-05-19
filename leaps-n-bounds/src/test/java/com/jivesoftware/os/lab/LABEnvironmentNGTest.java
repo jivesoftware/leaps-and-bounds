@@ -25,30 +25,34 @@ public class LABEnvironmentNGTest {
             root = Files.createTempDir();
             System.out.println("root" + root.getAbsolutePath());
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+            LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                false, 4, 8, leapsCache);
+                false, labHeapPressure, 4, 8, leapsCache);
 
-            ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());
+            ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide());
             indexTest(index);
 
+            labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                true, 4, 8, leapsCache);
+                true, labHeapPressure, 4, 8, leapsCache);
 
-            index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());
+            index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide());
             indexTest(index);
 
             env.shutdown();
 
+            labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                true, 4, 8, leapsCache);
+                true, labHeapPressure, 4, 8, leapsCache);
             env.rename("foo", "bar");
-            index = env.open("bar", 4096, 1000, -1, -1, -1, new LABRawhide());
+            index = env.open("bar", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide());
 
             indexTest(index);
 
             env.shutdown();
+            labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-                true, 4, 8, leapsCache);
+                true, labHeapPressure, 4, 8, leapsCache);
             env.remove("bar");
         } catch (Throwable x) {
             System.out.println("________________________________________________________");
@@ -109,11 +113,12 @@ public class LABEnvironmentNGTest {
         File root = Files.createTempDir();
         System.out.println("Created root");
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            true, 4, 8, leapsCache);
+            true, labHeapPressure, 4, 8, leapsCache);
         System.out.println("Created env");
 
-        ValueIndex index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());
+        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide());
         System.out.println("Open env");
         indexTest(index);
         System.out.println("Indexed");
@@ -121,11 +126,12 @@ public class LABEnvironmentNGTest {
         env.shutdown();
         System.out.println("Shutdown");
 
+        labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-            root, true, 4, 8, leapsCache);
+            root, true, labHeapPressure, 4, 8, leapsCache);
         System.out.println("Recreate env");
 
-        index = env.open("foo", 4096, 1000, -1, -1, -1, new LABRawhide());
+        index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide());
         System.out.println("Re-open env");
         indexTest(index);
         System.out.println("Re-indexed");

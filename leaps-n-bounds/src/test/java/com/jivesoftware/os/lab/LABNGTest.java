@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -26,10 +27,11 @@ public class LABNGTest {
         boolean fsync = true;
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            false, 1, 2, leapsCache);
+            false, labHeapPressure, 1, 2, leapsCache);
 
-        ValueIndex index = env.open("foo", 4096, 1000, 16, -1, -1, new LABRawhide());
+        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, 16, -1, -1, new LABRawhide());
 
         index.append((stream) -> {
             stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));

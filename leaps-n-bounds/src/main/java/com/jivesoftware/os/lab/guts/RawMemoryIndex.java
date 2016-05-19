@@ -30,6 +30,10 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
     private final ExecutorService destroy;
+    private final AtomicLong globalHeapCostInBytes;
+    private volatile long keysCostInBytes = 0;
+    private volatile long valuesCostInBytes = 0;
+
     private final Rawhide rawhide;
 
     private final int numBones = Short.MAX_VALUE;
@@ -37,8 +41,9 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final ReadIndex reader;
     private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
 
-    public RawMemoryIndex(ExecutorService destroy, Rawhide rawhide) {
+    public RawMemoryIndex(ExecutorService destroy, AtomicLong globalHeapCostInBytes, Rawhide rawhide) {
         this.destroy = destroy;
+        this.globalHeapCostInBytes = globalHeapCostInBytes;
         this.rawhide = rawhide;
         this.reader = new ReadIndex() {
 
@@ -157,14 +162,24 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     @Override
     public boolean append(RawEntries entries) throws Exception {
         return entries.consume((rawEntry, offset, length) -> {
+
             byte[] key = rawhide.key(rawEntry, offset, length);
+            int keyLength = key.length;
             index.compute(key, (k, v) -> {
                 byte[] merged;
+                int valueLength = ((rawEntry == null) ? 0 : rawEntry.length);
                 if (v == null) {
                     approximateCount.incrementAndGet();
+                    keysCostInBytes += keyLength;
+                    valuesCostInBytes += valueLength;
+                    globalHeapCostInBytes.addAndGet(keyLength + valueLength);
                     merged = rawEntry;
                 } else {
                     merged = rawhide.merge(v, rawEntry);
+                    int mergeValueLength = ((merged == null) ? 0 : merged.length);
+                    int valueLengthDelta = mergeValueLength - valueLength;
+                    valuesCostInBytes += valueLengthDelta;
+                    globalHeapCostInBytes.addAndGet(valueLengthDelta);
                 }
                 long timestamp = rawhide.timestamp(merged, 0, merged.length);
                 long version = rawhide.version(merged, 0, merged.length);
@@ -205,6 +220,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             try {
                 disposed.set(true);
                 index.clear();
+                globalHeapCostInBytes.addAndGet(-sizeInBytes());
             } finally {
                 hideABone.release(numBones);
             }
@@ -232,17 +248,17 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public long sizeInBytes() {
-        return 0;
+        return keysCostInBytes + valuesCostInBytes;
     }
 
     @Override
     public long keysSizeInBytes() throws IOException {
-        return 0;
+        return keysCostInBytes;
     }
 
     @Override
     public long valuesSizeInBytes() throws IOException {
-        return 0;
+        return valuesCostInBytes;
     }
 
     @Override

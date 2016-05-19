@@ -12,6 +12,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -113,7 +114,7 @@ public class InterleaveStreamNGTest {
 
                 int i = (indexes - 1) - wi;
 
-                memoryIndexes[i] = new RawMemoryIndex(destroy, new SimpleRawhide());
+                memoryIndexes[i] = new RawMemoryIndex(destroy, new AtomicLong(), new SimpleRawhide());
                 IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
                 System.out.println("Index " + i);
 

@@ -23,6 +23,7 @@ public class LABEnvironment {
     private final ExecutorService compact;
     private final ExecutorService destroy;
     private final boolean useMemMap;
+    private final LabHeapPressure labHeapPressure;
     private final int minMergeDebt;
     private final int maxMergeDebt;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
@@ -45,6 +46,7 @@ public class LABEnvironment {
         final ExecutorService destroy,
         File rootFile,
         boolean useMemMap,
+        LabHeapPressure labHeapPressure,
         int minMergeDebt,
         int maxMergeDebt,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) {
@@ -52,6 +54,7 @@ public class LABEnvironment {
         this.destroy = destroy;
         this.rootFile = rootFile;
         this.useMemMap = useMemMap;
+        this.labHeapPressure = labHeapPressure;
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
@@ -59,7 +62,7 @@ public class LABEnvironment {
 
     public ValueIndex open(String primaryName,
         int entriesBetweenLeaps,
-        int maxUpdatesBeforeFlush,
+        long maxHeapPressureInBytes,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
@@ -71,7 +74,8 @@ public class LABEnvironment {
             primaryName,
             useMemMap,
             entriesBetweenLeaps,
-            maxUpdatesBeforeFlush,
+            labHeapPressure,
+            maxHeapPressureInBytes,
             minMergeDebt,
             maxMergeDebt,
             splitWhenKeysTotalExceedsNBytes,

@@ -43,7 +43,8 @@ public class LAB implements ValueIndex {
 
     private final ExecutorService destroy;
     private final ExecutorService compact;
-    private final int maxUpdatesBeforeFlush;
+    private final LabHeapPressure labHeapFlusher;
+    private final long maxHeapPressureInBytes;
     private final int minDebt;
     private final int maxDebt;
     private final RangeStripedCompactableIndexes rangeStripedCompactableIndexes;
@@ -65,7 +66,8 @@ public class LAB implements ValueIndex {
         String indexName,
         boolean useMemMap,
         int entriesBetweenLeaps,
-        int maxUpdatesBeforeFlush,
+        LabHeapPressure labHeapFlusher,
+        long maxHeapPressureInBytes,
         int minDebt,
         int maxDebt,
         long splitWhenKeysTotalExceedsNBytes,
@@ -76,8 +78,9 @@ public class LAB implements ValueIndex {
         this.rawhide = rawhide;
         this.compact = compact;
         this.destroy = destroy;
-        this.maxUpdatesBeforeFlush = maxUpdatesBeforeFlush;
-        this.memoryIndex = new RawMemoryIndex(destroy, rawhide);
+        this.labHeapFlusher = labHeapFlusher;
+        this.maxHeapPressureInBytes = maxHeapPressureInBytes;
+        this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
             root,
             indexName,
@@ -99,7 +102,7 @@ public class LAB implements ValueIndex {
 
     @Override
     public void get(Keys keys, ValueStream stream) throws Exception {
-        int[] count = { 0 };
+        int[] count = {0};
         pointTx(keys, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
             count[0]++;
@@ -143,6 +146,11 @@ public class LAB implements ValueIndex {
             return rangeStripedCompactableIndexes.isEmpty();
         }
         return false;
+    }
+
+    public long approximateHeapPressureInBytes() {
+        RawMemoryIndex stackCopyFlushingMemoryIndex = flushingMemoryIndex;
+        return memoryIndex.sizeInBytes() + ((stackCopyFlushingMemoryIndex == null) ? 0 : stackCopyFlushingMemoryIndex.sizeInBytes());
     }
 
     private boolean pointTx(Keys keys,
@@ -380,9 +388,7 @@ public class LAB implements ValueIndex {
             commitSemaphore.release();
         }
 
-        if (memoryIndex.count() > maxUpdatesBeforeFlush) {
-            commit(fsyncOnFlush);
-        }
+        labHeapFlusher.commitIfNecessary(this, maxHeapPressureInBytes, fsyncOnFlush);
         return appended;
     }
 
@@ -414,7 +420,7 @@ public class LAB implements ValueIndex {
                 return false;
             }
             flushingMemoryIndex = stackCopy;
-            memoryIndex = new RawMemoryIndex(destroy, rawhide);
+            memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
             rangeStripedCompactableIndexes.append(stackCopy, fsync);
             flushingMemoryIndex = null;
             stackCopy.destroy();
@@ -487,9 +493,12 @@ public class LAB implements ValueIndex {
 
     @Override
     public void close(boolean flushUncommited, boolean fsync) throws Exception {
+        labHeapFlusher.close(this);
+        
         if (!closeRequested.compareAndSet(false, true)) {
             throw new LABIndexClosedException();
         }
+
         if (flushUncommited) {
             internalCommit(fsync);
         }
@@ -504,6 +513,7 @@ public class LAB implements ValueIndex {
         try {
             memoryIndex.closeReadable();
             rangeStripedCompactableIndexes.close();
+            memoryIndex.destroy();
         } finally {
             commitSemaphore.release(Short.MAX_VALUE);
         }
@@ -514,7 +524,6 @@ public class LAB implements ValueIndex {
     @Override
     public String toString() {
         return "LAB{"
-            + "maxUpdatesBeforeFlush=" + maxUpdatesBeforeFlush
             + ", minDebt=" + minDebt
             + ", maxDebt=" + maxDebt
             + ", ongoingCompactions=" + ongoingCompactions
