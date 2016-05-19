@@ -110,7 +110,7 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean get(byte[] key, ValueStream stream) throws Exception {
-        boolean result = rangeTx(-1, key, key, -1, -1, (index, fromKey, toKey, readIndexes) -> {
+        boolean result = rangeTx(true, -1, key, key, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
             return rawToReal(index, key, getRaw, stream);
         });
@@ -120,14 +120,14 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
-        return rangeTx(-1, from, to, -1, -1, (index, fromKey, toKey, readIndexes) -> {
+        return rangeTx(true, -1, from, to, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             return rawToReal(IndexUtil.rangeScan(readIndexes, from, to, rawhide), stream);
         });
     }
 
     @Override
     public boolean rowScan(ValueStream stream) throws Exception {
-        return rangeTx(-1, null, null, -1, -1, (index, fromKey, toKey, readIndexes) -> {
+        return rangeTx(true, -1, null, null, -1, -1, (index, fromKey, toKey, readIndexes) -> {
             return rawToReal(IndexUtil.rowScan(readIndexes, rawhide), stream);
         });
     }
@@ -229,7 +229,8 @@ public class LAB implements ValueIndex {
 
     }
 
-    private boolean rangeTx(int index,
+    private boolean rangeTx(boolean acquireCommitSemaphore,
+        int index,
         byte[] from,
         byte[] to,
         long newerThanTimestamp,
@@ -243,12 +244,16 @@ public class LAB implements ValueIndex {
                 RawMemoryIndex memoryIndexStackCopy;
                 RawMemoryIndex flushingMemoryIndexStackCopy;
 
-                commitSemaphore.acquire();
+                if (acquireCommitSemaphore) {
+                    commitSemaphore.acquire();
+                }
                 try {
                     memoryIndexStackCopy = memoryIndex;
                     flushingMemoryIndexStackCopy = flushingMemoryIndex;
                 } finally {
-                    commitSemaphore.release();
+                    if (acquireCommitSemaphore) {
+                        commitSemaphore.release();
+                    }
                 }
 
                 if (mightContain(memoryIndexStackCopy, newerThanTimestamp, newerThanTimestampVersion)) {
@@ -351,7 +356,7 @@ public class LAB implements ValueIndex {
                         && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
                         return stream.stream(rawEntry, 0, rawEntry.length);
                     } else {
-                        rangeTx(-1, key, key, timestamp, version, (index1, fromKey, toKey, readIndexes) -> {
+                        rangeTx(false, -1, key, key, timestamp, version, (index1, fromKey, toKey, readIndexes) -> {
                             GetRaw getRaw = IndexUtil.get(readIndexes);
                             return getRaw.get(key, (existingEntry, offset, length) -> {
                                 if (existingEntry == null) {
