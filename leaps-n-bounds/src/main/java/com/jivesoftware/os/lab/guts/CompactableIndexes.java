@@ -651,9 +651,6 @@ public class CompactableIndexes {
                 }
                 stackIndexes = indexes;
             }
-            if (stackIndexes.length == 0) {
-                throw new ConcurrentSplitException();
-            }
             readIndexs = new ReadIndex[stackIndexes.length];
             try {
                 for (int i = 0; i < readIndexs.length; i++) {
