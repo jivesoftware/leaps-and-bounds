@@ -9,6 +9,7 @@ import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
@@ -20,6 +21,106 @@ import org.testng.annotations.Test;
  * @author jonathan.colt
  */
 public class LABNGTest {
+
+    @Test
+    public void testRangeScanInsane() throws Exception {
+
+        boolean fsync = true;
+        File root = Files.createTempDir();
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            root,
+            false, labHeapPressure, 1, 2, leapsCache);
+
+        long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
+        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, splitAfterSizeInBytes, -1, -1, new LABRawhide());
+
+        AtomicLong count = new AtomicLong();
+        AtomicLong fails = new AtomicLong();
+
+        while (count.get() < 100) {
+            index.append((stream) -> {
+                for (int i = 0; i < 10; i++) {
+                    long v = count.get();
+                    stream.stream(-1, UIO.longBytes(v), v, false, 0, UIO.longBytes(v));
+                    count.incrementAndGet();
+                }
+                return true;
+            }, fsync);
+
+            long c = count.get();
+            AtomicLong f;
+            do {
+                f = new AtomicLong();
+                assertRangeScan(c, index, f);
+                if (f.get() > 0) {
+                    System.out.println("SPINNING ");
+                }
+                fails.addAndGet(f.get());
+            } while (f.get() > 0);
+            index.commit(true);
+            do {
+                f = new AtomicLong();
+                assertRangeScan(c, index, f);
+                if (f.get() > 0) {
+                    System.out.println("SPINNING");
+                }
+                fails.addAndGet(f.get());
+            } while (f.get() > 0);
+            System.out.println(c + " -------------------------------------");
+        }
+
+        System.out.println("fails:" + fails.get());
+        Assert.assertEquals(fails.get(), 0);
+    }
+
+    private void assertRangeScan(long c, ValueIndex index, AtomicLong fails) throws Exception {
+
+        for (long f = 0; f < c; f++) {
+
+            for (long t = f; t < c; t++) {
+
+                long ff = f;
+                long tt = t;
+
+                HashSet<Long> rangeScan = new HashSet<>();
+                index.rangeScan(UIO.longBytes(f), UIO.longBytes(t),
+                    (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+                        boolean added = rangeScan.add(UIO.bytesLong(key));
+                        //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
+                        if (!added) {
+                            fails.incrementAndGet();
+                            System.out.println("RANGE FAILED: from:" + ff + " to:" + tt + " already contained " + UIO.bytesLong(key));
+                        }
+                        return true;
+                    });
+
+                if (rangeScan.size() != t - f) {
+                    fails.incrementAndGet();
+                    System.out.print("RANGE FAILED: from:" + f + " to:" + t + " result:" + rangeScan);
+                }
+            }
+
+        }
+
+        HashSet<Long> rowScan = new HashSet<>();
+        index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+            boolean added = rowScan.add(UIO.bytesLong(key));
+            //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
+            if (!added) {
+                fails.incrementAndGet();
+                System.out.println("RANGE FAILED: already contained " + UIO.bytesLong(key));
+            }
+            return true;
+        });
+
+        if (rowScan.size() != c) {
+            fails.incrementAndGet();
+            System.out.print("ROW FAILED: expected " + c + " result:" + rowScan);
+        }
+    }
 
     @Test
     public void testEnv() throws Exception {
@@ -58,7 +159,7 @@ public class LABNGTest {
         Assert.assertFalse(index.isEmpty());
 
         index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
-            System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
+            //System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
             return true;
         });
 

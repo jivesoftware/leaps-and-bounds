@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
 import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.api.ConcurrentSplitException;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
@@ -333,14 +334,14 @@ public class CompactableIndexes {
                                     LOG.debug("Commiting split for a middle of:{}", Arrays.toString(middle));
 
                                     commitIndex.commit(commitRanges);
+                                    disposed = true;
                                     for (RawConcurrentReadableIndex destroy : all) {
                                         destroy.destroy();
                                     }
-                                    version++;
                                     indexes = new RawConcurrentReadableIndex[0]; // TODO go handle null so that thread wait rety higher up
                                     refreshMaxTimestamp(indexes);
+                                    version++;
                                     merging = new boolean[0];
-                                    disposed = true;
                                     LOG.debug("All done splitting :) for a middle of:{}", Arrays.toString(middle));
                                     return null;
                                 } else {
@@ -645,7 +646,13 @@ public class CompactableIndexes {
         START_OVER:
         while (true) {
             synchronized (indexesLock) {
+                if (disposed) {
+                    throw new ConcurrentSplitException();
+                }
                 stackIndexes = indexes;
+            }
+            if (stackIndexes.length == 0) {
+                throw new ConcurrentSplitException();
             }
             readIndexs = new ReadIndex[stackIndexes.length];
             try {

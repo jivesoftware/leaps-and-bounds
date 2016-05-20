@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.ConcurrentSplitException;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
@@ -20,6 +21,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -603,46 +605,61 @@ public class RangeStripedCompactableIndexes {
         long newerThanTimestampVersion,
         ReaderTx tx) throws Exception {
 
-        if (indexes.isEmpty()) {
-            return tx.tx(index, from, to, new ReadIndex[0]);
-        }
-        SortedMap<byte[], FileBackMergableIndexs> map;
-        if (from != null && to != null) {
-            byte[] floorKey = indexes.floorKey(from);
-            if (floorKey != null) {
-                map = indexes.subMap(floorKey, true, to, Arrays.equals(from, to));
-            } else {
-                map = indexes.headMap(to, Arrays.equals(from, to));
+        THE_INSANITY:
+        while (true) {
+            ConcurrentSkipListMap<byte[], FileBackMergableIndexs> stackCopy = indexes;
+            if (stackCopy.isEmpty()) {
+                return tx.tx(index, from, to, new ReadIndex[0]);
             }
-        } else if (from != null) {
-            byte[] floorKey = indexes.floorKey(from);
-            if (floorKey != null) {
-                map = indexes.tailMap(floorKey);
+            SortedMap<byte[], FileBackMergableIndexs> map;
+            if (from != null && to != null) {
+                byte[] floorKey = stackCopy.floorKey(from);
+                if (floorKey != null) {
+                    map = stackCopy.subMap(floorKey, true, to, Arrays.equals(from, to));
+                } else {
+                    map = stackCopy.headMap(to, Arrays.equals(from, to));
+                }
+            } else if (from != null) {
+                byte[] floorKey = stackCopy.floorKey(from);
+                if (floorKey != null) {
+                    map = stackCopy.tailMap(floorKey);
+                } else {
+                    map = stackCopy;
+                }
+            } else if (to != null) {
+                map = stackCopy.headMap(to);
             } else {
-                map = indexes;
+                map = stackCopy;
             }
-        } else if (to != null) {
-            map = indexes.headMap(to);
-        } else {
-            map = indexes;
-        }
 
-        if (map.isEmpty()) {
-            return tx.tx(index, from, to, new ReadIndex[0]);
-        } else {
-            for (FileBackMergableIndexs mergableIndex : map.values()) {
-                TimestampAndVersion timestampAndVersion = mergableIndex.compactableIndexes.maxTimeStampAndVersion();
-                if (rawhide.mightContain(timestampAndVersion.maxTimestamp,
-                    timestampAndVersion.maxTimestampVersion,
-                    newerThanTimestamp,
-                    newerThanTimestampVersion)) {
-                    if (!mergableIndex.tx(index, from, to, tx)) {
-                        return false;
+            if (map.isEmpty()) {
+                return tx.tx(index, from, to, new ReadIndex[0]);
+            } else {
+                @SuppressWarnings("unchecked")
+                Entry<byte[], FileBackMergableIndexs>[] entries = map.entrySet().toArray(new Entry[0]);
+                for (int i = 0; i < entries.length; i++) {
+                    Entry<byte[], FileBackMergableIndexs> entry = entries[i];
+                    byte[] start = i == 0 ? from : entries[i].getKey();
+                    byte[] end = i < entries.length - 1 ? entries[i + 1].getKey() : to;
+                    FileBackMergableIndexs mergableIndex = entry.getValue();
+                    try {
+                        TimestampAndVersion timestampAndVersion = mergableIndex.compactableIndexes.maxTimeStampAndVersion();
+                        if (rawhide.mightContain(timestampAndVersion.maxTimestamp,
+                            timestampAndVersion.maxTimestampVersion,
+                            newerThanTimestamp,
+                            newerThanTimestampVersion)) {
+                            if (!mergableIndex.tx(index, start, end, tx)) {
+                                return false;
+                            }
+                        }
+                    } catch (ConcurrentSplitException cse) {
+                        from = (i == 0) ? from : entry.getKey(); // Sorry! Dont rewind from when from is haha
+                        continue THE_INSANITY;
                     }
                 }
             }
+            return true;
         }
-        return true;
 
     }
 

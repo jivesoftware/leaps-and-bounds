@@ -78,8 +78,6 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        /*System.out.println("readToWrite:" + UIO.bytesLong(next.getKey()));*/
-
                         boolean more = stream.stream(next.getValue(), 0, next.getValue().length);
                         return more ? Next.more : Next.stopped;
                     }

@@ -113,26 +113,32 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean get(byte[] key, ValueStream stream) throws Exception {
-        boolean result = rangeTx(true, -1, key, key, -1, -1, (index, fromKey, toKey, readIndexes) -> {
-            GetRaw getRaw = IndexUtil.get(readIndexes);
-            return rawToReal(index, key, getRaw, stream);
-        });
+        boolean result = rangeTx(true, -1, key, key, -1, -1,
+            (index, fromKey, toKey, readIndexes) -> {
+                GetRaw getRaw = IndexUtil.get(readIndexes);
+                return rawToReal(index, fromKey, getRaw, stream);
+            });
         LOG.inc("LAB>gets");
         return result;
     }
 
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
-        return rangeTx(true, -1, from, to, -1, -1, (index, fromKey, toKey, readIndexes) -> {
-            return rawToReal(IndexUtil.rangeScan(readIndexes, from, to, rawhide), stream);
-        });
+        return rangeTx(true, -1, from, to, -1, -1,
+            (index, fromKey, toKey, readIndexes) -> {
+                //System.out.println("rangeScan:" + UIO.bytesLong(fromKey) + " " + UIO.bytesLong(toKey));
+                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream);
+            });
     }
+
+    private final static byte[] smallestPossibleKey = new byte[0];
 
     @Override
     public boolean rowScan(ValueStream stream) throws Exception {
-        return rangeTx(true, -1, null, null, -1, -1, (index, fromKey, toKey, readIndexes) -> {
-            return rawToReal(IndexUtil.rowScan(readIndexes, rawhide), stream);
-        });
+        return rangeTx(true, -1, smallestPossibleKey, null, -1, -1,
+            (index, fromKey, toKey, readIndexes) -> {
+                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream);
+            });
     }
 
     @Override
@@ -210,7 +216,6 @@ public class LAB implements ValueIndex {
                 newerThanTimestamp,
                 newerThanTimestampVersion,
                 (index, fromKey, toKey, acquired) -> {
-
                     int active = (reader == null) ? 0 : 1;
                     int flushing = (flushingReader == null) ? 0 : 1;
                     ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
@@ -303,7 +308,6 @@ public class LAB implements ValueIndex {
                 newerThanTimestamp,
                 newerThanTimestampVersion,
                 (index1, fromKey, toKey, acquired) -> {
-
                     int active = (reader == null) ? 0 : 1;
                     int flushing = (flushingReader == null) ? 0 : 1;
                     ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
@@ -364,21 +368,22 @@ public class LAB implements ValueIndex {
                         && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
                         return stream.stream(rawEntry, 0, rawEntry.length);
                     } else {
-                        rangeTx(false, -1, key, key, timestamp, version, (index1, fromKey, toKey, readIndexes) -> {
-                            GetRaw getRaw = IndexUtil.get(readIndexes);
-                            return getRaw.get(key, (existingEntry, offset, length) -> {
-                                if (existingEntry == null) {
-                                    return stream.stream(rawEntry, 0, rawEntry.length);
-                                } else {
-                                    long existingTimestamp = rawhide.timestamp(existingEntry, offset, length);
-                                    long existingVersion = rawhide.version(existingEntry, offset, length);
-                                    if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
+                        rangeTx(false, -1, key, key, timestamp, version,
+                            (index1, fromKey, toKey, readIndexes) -> {
+                                GetRaw getRaw = IndexUtil.get(readIndexes);
+                                return getRaw.get(key, (existingEntry, offset, length) -> {
+                                    if (existingEntry == null) {
                                         return stream.stream(rawEntry, 0, rawEntry.length);
+                                    } else {
+                                        long existingTimestamp = rawhide.timestamp(existingEntry, offset, length);
+                                        long existingVersion = rawhide.version(existingEntry, offset, length);
+                                        if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
+                                            return stream.stream(rawEntry, 0, rawEntry.length);
+                                        }
                                     }
-                                }
-                                return false;
+                                    return false;
+                                });
                             });
-                        });
                         return true;
                     }
                 });
@@ -494,7 +499,7 @@ public class LAB implements ValueIndex {
     @Override
     public void close(boolean flushUncommited, boolean fsync) throws Exception {
         labHeapFlusher.close(this);
-        
+
         if (!closeRequested.compareAndSet(false, true)) {
             throw new LABIndexClosedException();
         }
