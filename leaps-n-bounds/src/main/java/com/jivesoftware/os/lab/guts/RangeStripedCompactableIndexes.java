@@ -530,6 +530,7 @@ public class RangeStripedCompactableIndexes {
                     indexName,
                     stripeId,
                     new CompactableIndexes(rawhide));
+                index.append(rawMemoryIndex, null, null, fsync);
                 synchronized (copyIndexOnWrite) {
                     ConcurrentSkipListMap<byte[], FileBackMergableIndexs> copyOfIndexes = new ConcurrentSkipListMap<>(
                         UnsignedBytes.lexicographicalComparator());
@@ -537,7 +538,6 @@ public class RangeStripedCompactableIndexes {
                     copyOfIndexes.put(minKey, index);
                     indexes = copyOfIndexes;
                 }
-                index.append(rawMemoryIndex, null, null, fsync);
                 return;
             }
 
