@@ -36,7 +36,6 @@ public class IndexFile implements ICloseable {
     private FileChannel channel;
     private final boolean useMemMap;
     private final AtomicLong size;
-    private final IAppendOnly appendOnly;
 
     private final AutoGrowingByteBufferBackedFiler memMapFiler;
     private final AtomicLong memMapFilerLength = new AtomicLong(-1);
@@ -52,7 +51,6 @@ public class IndexFile implements ICloseable {
         this.randomAccessFile = new RandomAccessFile(file, mode);
         this.channel = randomAccessFile.getChannel();
         this.size = new AtomicLong(randomAccessFile.length());
-        this.appendOnly = createAppendOnly();
         this.memMapFiler = createMemMap();
     }
 
@@ -92,15 +90,16 @@ public class IndexFile implements ICloseable {
         return memMapFiler.duplicateAll();
     }
 
+    public void flush(boolean fsync) throws IOException {
+        if (fsync) {
+            randomAccessFile.getFD().sync();
+        }
+    }
+
     public IAppendOnly appender() throws IOException {
         if (closed.get()) {
             throw new IOException("Cannot get an appender from an index that is already closed.");
         }
-        return appendOnly;
-    }
-
-    private IAppendOnly createAppendOnly() throws IOException {
-        randomAccessFile.seek(size.get());
         FileOutputStream writer = new FileOutputStream(file, true);
         return new IAppendOnly() {
 
@@ -112,9 +111,7 @@ public class IndexFile implements ICloseable {
 
             @Override
             public void flush(boolean fsync) throws IOException {
-                if (fsync) {
-                    writer.getFD().sync();
-                }
+                IndexFile.this.flush(fsync);
             }
 
             @Override
@@ -156,10 +153,7 @@ public class IndexFile implements ICloseable {
     @Override
     public void close() throws IOException {
         synchronized (openFileLock) {
-            if (!closed.compareAndSet(false, true)) {
-                LOG.warn("Trying to close an index reader that has already been closed. {}", file);
-            }
-            appendOnly.close();
+            closed.set(true);
             randomAccessFile.close();
         }
     }

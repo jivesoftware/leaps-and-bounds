@@ -39,13 +39,13 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private long maxTimestamp = -1;
     private long maxTimestampVersion = -1;
 
-    private final IAppendOnly appendOnly;
+    private volatile IAppendOnly appendOnly;
 
     public LABAppendableIndex(IndexRangeId indexRangeId,
         IndexFile index,
         int maxLeaps,
         int updatesBetweenLeaps,
-        Rawhide rawhide) throws IOException {
+        Rawhide rawhide) {
 
         this.indexRangeId = indexRangeId;
         this.index = index;
@@ -53,7 +53,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
         this.updatesBetweenLeaps = updatesBetweenLeaps;
         this.rawhide = rawhide;
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
-        this.appendOnly = index.appender();
     }
 
     @Override
@@ -67,6 +66,9 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
     @Override
     public boolean append(RawEntries rawEntries) throws Exception {
+        if (appendOnly == null) {
+            appendOnly = index.appender();
+        }
 
         AppendableHeap entryBuffer = new AppendableHeap(1024);
         rawEntries.consume((rawEntry, offset, length) -> {
@@ -134,6 +136,10 @@ public class LABAppendableIndex implements RawAppendableIndex {
     @Override
     public void closeAppendable(boolean fsync) throws IOException {
         try {
+            if (appendOnly == null) {
+                appendOnly = index.appender();
+            }
+
             if (firstKey == null || lastKey == null) {
                 throw new IllegalStateException("Tried to close appendable index without a key range: " + this);
             }
@@ -149,7 +155,14 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 .write(appendOnly, lengthBuffer);
             appendOnly.flush(fsync);
         } finally {
-            index.close();
+            close();
+        }
+    }
+
+    public void close() throws IOException {
+        index.close();
+        if (appendOnly != null) {
+            appendOnly.close();
         }
     }
 

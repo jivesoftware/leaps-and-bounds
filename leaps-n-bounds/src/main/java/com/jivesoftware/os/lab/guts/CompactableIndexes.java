@@ -309,11 +309,11 @@ public class CompactableIndexes {
                         } catch (Exception x) {
                             try {
                                 if (leftAppenableIndex != null) {
-                                    leftAppenableIndex.getIndex().close();
+                                    leftAppenableIndex.close();
                                     leftAppenableIndex.getIndex().getFile().delete();
                                 }
                                 if (rightAppenableIndex != null) {
-                                    rightAppenableIndex.getIndex().close();
+                                    rightAppenableIndex.close();
                                     rightAppenableIndex.getIndex().getFile().delete();
                                 }
                             } catch (Exception xx) {
@@ -369,10 +369,10 @@ public class CompactableIndexes {
                             for (RawConcurrentReadableIndex catchup : catchupMergeSet) {
                                 IndexRangeId id = catchup.id();
 
-                                LABAppendableIndex catupLeftAppenableIndex = null;
+                                LABAppendableIndex catchupLeftAppenableIndex = null;
                                 LABAppendableIndex catchupRightAppenableIndex = null;
                                 try {
-                                    catupLeftAppenableIndex = leftHalfIndexFactory.createIndex(id, catchup.count());
+                                    catchupLeftAppenableIndex = leftHalfIndexFactory.createIndex(id, catchup.count());
                                     catchupRightAppenableIndex = rightHalfIndexFactory.createIndex(id, catchup.count());
                                     LABAppendableIndex effectivelyFinalCatchupRightAppenableIndex = catchupRightAppenableIndex;
 
@@ -381,7 +381,7 @@ public class CompactableIndexes {
                                         InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()}, rawhide);
 
                                         LOG.debug("Doing a catchup split for a middle of:{}", Arrays.toString(middle));
-                                        catupLeftAppenableIndex.append((leftStream) -> {
+                                        catchupLeftAppenableIndex.append((leftStream) -> {
                                             return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
                                                 return catchupFeedInterleaver.stream((rawEntry, offset, length) -> {
                                                     if (UnsignedBytes.lexicographicalComparator().compare(rawEntry, middle) < 0) {
@@ -399,19 +399,19 @@ public class CompactableIndexes {
                                         catchupReader.release();
                                     }
                                     LOG.debug("Catchup splitting is flushing for a middle of:{}", Arrays.toString(middle));
-                                    catupLeftAppenableIndex.closeAppendable(fsync);
+                                    catchupLeftAppenableIndex.closeAppendable(fsync);
                                     catchupRightAppenableIndex.closeAppendable(fsync);
 
                                     commitRanges.add(0, id);
 
                                 } catch (Exception x) {
                                     try {
-                                        if (catupLeftAppenableIndex != null) {
-                                            catupLeftAppenableIndex.getIndex().close();
-                                            catupLeftAppenableIndex.getIndex().getFile().delete();
+                                        if (catchupLeftAppenableIndex != null) {
+                                            catchupLeftAppenableIndex.close();
+                                            catchupLeftAppenableIndex.getIndex().getFile().delete();
                                         }
                                         if (catchupRightAppenableIndex != null) {
-                                            catchupRightAppenableIndex.getIndex().close();
+                                            catchupRightAppenableIndex.close();
                                             catchupRightAppenableIndex.getIndex().getFile().delete();
                                         }
                                     } catch (Exception xx) {
@@ -548,19 +548,19 @@ public class CompactableIndexes {
                     feeders[i] = readers[i].rowScan();
                 }
 
-                LABAppendableIndex appenableIndex = null;
+                LABAppendableIndex appendableIndex = null;
                 try {
-                    appenableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
+                    appendableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
                     InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
-                    appenableIndex.append((stream) -> {
+                    appendableIndex.append((stream) -> {
                         return feedInterleaver.stream(stream);
                     });
-                    appenableIndex.closeAppendable(fsync);
+                    appendableIndex.closeAppendable(fsync);
                 } catch (Exception x) {
                     try {
-                        if (appenableIndex != null) {
-                            appenableIndex.getIndex().close();
-                            appenableIndex.getIndex().getFile().delete();
+                        if (appendableIndex != null) {
+                            appendableIndex.close();
+                            appendableIndex.getIndex().getFile().delete();
                         }
                     } catch (Exception xx) {
                         LOG.error("Failed while trying to cleanup after a failure.", xx);

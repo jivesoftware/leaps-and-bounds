@@ -165,7 +165,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     }
 
     public void flush(boolean fsync) throws Exception {
-        index.appender().flush(fsync);
+        index.flush(fsync);
     }
 
     @Override

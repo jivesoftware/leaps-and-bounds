@@ -314,7 +314,11 @@ public class RangeStripedCompactableIndexes {
                 appendableIndex.closeAppendable(fsync);
             } catch (Exception x) {
                 try {
-                    indexFile.close();
+                    if (appendableIndex != null) {
+                        appendableIndex.close();
+                    } else {
+                        indexFile.close(); // sigh
+                    }
                     indexFile.getFile().delete();
                 } catch (Exception xx) {
                     LOG.error("Failed while trying to cleanup during a failure.", xx);
