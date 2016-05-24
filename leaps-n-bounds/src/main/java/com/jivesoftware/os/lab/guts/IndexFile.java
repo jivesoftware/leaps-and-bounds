@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class IndexFile implements ICloseable {
 
-    private final MetricLogger LOG = MetricLoggerFactory.getLogger();
+    private final static MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     static private class OpenFileLock {
     }
