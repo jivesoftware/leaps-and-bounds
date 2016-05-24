@@ -5,17 +5,22 @@ import com.jivesoftware.os.lab.io.FileBackedMemMappedByteBufferFactory;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.ICloseable;
 import com.jivesoftware.os.lab.io.api.IReadable;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author jonathan.colt
  */
 public class IndexFile implements ICloseable {
+
+    private final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     static private class OpenFileLock {
     }
@@ -38,6 +43,7 @@ public class IndexFile implements ICloseable {
 
     private final OpenFileLock openFileLock = new OpenFileLock();
     private final MemMapLock memMapLock = new MemMapLock();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public IndexFile(File file, String mode, boolean useMemMap) throws IOException {
         this.file = file;
@@ -55,6 +61,9 @@ public class IndexFile implements ICloseable {
     }
 
     public IReadable reader(IReadable current, long requiredLength, boolean fallBackToChannelReader) throws IOException {
+        if (closed.get()) {
+            throw new IOException("Cannot get a reader from an index that is already closed.");
+        }
         if (!useMemMap) {
             if (current != null) {
                 return current;
@@ -84,13 +93,15 @@ public class IndexFile implements ICloseable {
     }
 
     public IAppendOnly appender() throws IOException {
+        if (closed.get()) {
+            throw new IOException("Cannot get an appender from an index that is already closed.");
+        }
         return appendOnly;
     }
 
     private IAppendOnly createAppendOnly() throws IOException {
         randomAccessFile.seek(size.get());
         FileOutputStream writer = new FileOutputStream(file, true);
-        //FileChannel fileChannel = randomAccessFile.getChannel();
         return new IAppendOnly() {
 
             @Override
@@ -109,7 +120,6 @@ public class IndexFile implements ICloseable {
             @Override
             public void close() throws IOException {
                 writer.close();
-                //fileChannel.close();
             }
 
             @Override
@@ -145,7 +155,13 @@ public class IndexFile implements ICloseable {
 
     @Override
     public void close() throws IOException {
-        randomAccessFile.close();
+        synchronized (openFileLock) {
+            if (!closed.compareAndSet(false, true)) {
+                LOG.warn("Trying to close an index reader that has already been closed. {}", file);
+            }
+            appendOnly.close();
+            randomAccessFile.close();
+        }
     }
 
     public long length() throws IOException {
@@ -153,8 +169,14 @@ public class IndexFile implements ICloseable {
     }
 
     private void ensureOpen() throws IOException {
+        if (closed.get()) {
+            throw new IOException("Cannot ensureOpen on an index that is already closed.");
+        }
         if (!channel.isOpen()) {
             synchronized (openFileLock) {
+                if (closed.get()) {
+                    throw new IOException("Cannot ensureOpen on an index that is already closed.");
+                }
                 if (!channel.isOpen()) {
                     randomAccessFile = new RandomAccessFile(file, mode);
                     channel = randomAccessFile.getChannel();
