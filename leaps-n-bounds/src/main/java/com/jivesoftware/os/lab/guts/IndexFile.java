@@ -54,8 +54,16 @@ public class IndexFile implements ICloseable {
         this.memMapFiler = createMemMap();
     }
 
-    public File getFile() {
-        return file;
+    public String getFileName() {
+        return file.toString();
+    }
+
+    public void delete() {
+        file.delete();
+    }
+
+    public boolean isClosed() {
+        return closed.get();
     }
 
     public IReadable reader(IReadable current, long requiredLength, boolean fallBackToChannelReader) throws IOException {
@@ -153,8 +161,12 @@ public class IndexFile implements ICloseable {
     @Override
     public void close() throws IOException {
         synchronized (openFileLock) {
-            closed.set(true);
-            randomAccessFile.close();
+            if (closed.compareAndSet(false, true)) {
+                randomAccessFile.close();
+                if (memMapFiler != null) {
+                    memMapFiler.close();
+                }
+            }
         }
     }
 

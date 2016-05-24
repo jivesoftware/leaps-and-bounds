@@ -221,7 +221,7 @@ public class RangeStripedCompactableIndexes {
                         }
                     } else {
                         indexFile.close();
-                        indexFile.getFile().delete();
+                        indexFile.delete();
                     }
                 }
                 if (keyRange != null) {
@@ -319,7 +319,7 @@ public class RangeStripedCompactableIndexes {
                     } else {
                         indexFile.close(); // sigh
                     }
-                    indexFile.getFile().delete();
+                    indexFile.delete();
                 } catch (Exception xx) {
                     LOG.error("Failed while trying to cleanup during a failure.", xx);
                 }

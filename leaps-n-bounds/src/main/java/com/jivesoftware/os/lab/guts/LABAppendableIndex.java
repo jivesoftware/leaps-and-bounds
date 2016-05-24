@@ -60,10 +60,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
         return indexRangeId;
     }
 
-    public IndexFile getIndex() {
-        return index;
-    }
-
     @Override
     public boolean append(RawEntries rawEntries) throws Exception {
         if (appendOnly == null) {
@@ -164,6 +160,10 @@ public class LABAppendableIndex implements RawAppendableIndex {
         if (appendOnly != null) {
             appendOnly.close();
         }
+    }
+
+    public void delete() {
+        index.delete();
     }
 
     @Override

@@ -61,7 +61,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         long seekTo = indexLength - 4;
         if (seekTo < 0 || seekTo > indexLength) {
             throw new LABIndexCorruptedException(
-                "1. Footer Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index.length());
+                "1. Footer Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index.length());
         }
         readable.seek(indexLength - 4);
         int footerLength = UIO.readInt(readable, "length", lengthBuffer);
@@ -69,21 +69,21 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         seekTo = indexLength - (1 + footerLength);
         if (seekTo < 0 || seekTo > indexLength) {
             throw new LABIndexCorruptedException(
-                "2. Footer Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index.length());
+                "2. Footer Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index.length());
         }
         readable.seek(seekTo);
 
         int type = readable.read();
         if (type != FOOTER) {
             throw new LABIndexCorruptedException(
-                "4. Footer Corruption! Found " + type + " expected " + FOOTER + " within file:" + index.getFile() + " length:" + index.length());
+                "4. Footer Corruption! Found " + type + " expected " + FOOTER + " within file:" + index.getFileName() + " length:" + index.length());
         }
         return Footer.read(readable, lengthBuffer);
     }
 
     @Override
     public String name() {
-        return id + " " + index.getFile();
+        return id + " " + index.getFileName();
     }
 
     @Override
@@ -95,7 +95,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     @Override
     public ReadIndex acquireReader() throws Exception {
         hideABone.acquire();
-        if (disposed.get()) {
+        if (disposed.get() || index.isClosed()) {
             hideABone.release();
             return null;
         }
@@ -109,14 +109,14 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
                 long seekTo = indexLength - 4;
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("1. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index
+                    throw new RuntimeException("1. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
                         .length());
                 }
                 readableIndex.seek(seekTo);
                 int footerLength = UIO.readInt(readableIndex, "length", lengthBuffer);
                 seekTo = indexLength - (footerLength + 1 + 4);
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("2. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index
+                    throw new RuntimeException("2. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
                         .length());
                 }
                 readableIndex.seek(seekTo);
@@ -124,14 +124,14 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
                 seekTo = indexLength - (1 + leapLength + 1 + footerLength);
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("3. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFile() + " length:" + index
+                    throw new RuntimeException("3. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
                         .length());
                 }
                 readableIndex.seek(indexLength - (1 + leapLength + 1 + footerLength));
 
                 int type = readableIndex.read();
                 if (type != LEAP) {
-                    throw new RuntimeException("4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + index.getFile() + " length:" + index.length());
+                    throw new RuntimeException("4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + index.getFileName() + " length:" + index.length());
                 }
                 leaps = Leaps.read(readableIndex, lengthBuffer);
             }
@@ -154,7 +154,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
             disposed.set(true);
             try {
                 index.close();
-                index.getFile().delete();
+                index.delete();
                 //LOG.info("Destroyed {} {}", id, index.getFile());
             } finally {
                 hideABone.release(Short.MAX_VALUE);
@@ -165,7 +165,14 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     }
 
     public void flush(boolean fsync) throws Exception {
-        index.flush(fsync);
+        hideABone.acquire();
+        try {
+            if (!disposed.get() && !index.isClosed()) {
+                index.flush(fsync);
+            }
+        } finally {
+            hideABone.release();
+        }
     }
 
     @Override

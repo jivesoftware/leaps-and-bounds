@@ -278,8 +278,14 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
 
     @Override
     public void close() throws IOException {
-        for (ByteBufferBackedFiler filer : filers) {
-            filer.close();
+        if (filers.length > 0) {
+            for (ByteBufferBackedFiler filer : filers) {
+                filer.close();
+            }
+            ByteBuffer bb = filers[0].buffer;
+            if (bb != null) {
+                DirectBufferCleaner.clean(bb);
+            }
         }
     }
 

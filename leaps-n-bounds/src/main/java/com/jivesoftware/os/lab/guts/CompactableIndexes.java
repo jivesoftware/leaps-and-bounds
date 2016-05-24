@@ -310,11 +310,11 @@ public class CompactableIndexes {
                             try {
                                 if (leftAppenableIndex != null) {
                                     leftAppenableIndex.close();
-                                    leftAppenableIndex.getIndex().getFile().delete();
+                                    leftAppenableIndex.delete();
                                 }
                                 if (rightAppenableIndex != null) {
                                     rightAppenableIndex.close();
-                                    rightAppenableIndex.getIndex().getFile().delete();
+                                    rightAppenableIndex.delete();
                                 }
                             } catch (Exception xx) {
                                 LOG.error("Failed while trying to cleanup after a failure.", xx);
@@ -408,11 +408,11 @@ public class CompactableIndexes {
                                     try {
                                         if (catchupLeftAppenableIndex != null) {
                                             catchupLeftAppenableIndex.close();
-                                            catchupLeftAppenableIndex.getIndex().getFile().delete();
+                                            catchupLeftAppenableIndex.delete();
                                         }
                                         if (catchupRightAppenableIndex != null) {
                                             catchupRightAppenableIndex.close();
-                                            catchupRightAppenableIndex.getIndex().getFile().delete();
+                                            catchupRightAppenableIndex.delete();
                                         }
                                     } catch (Exception xx) {
                                         LOG.error("Failed while trying to cleanup after a failure.", xx);
@@ -560,7 +560,7 @@ public class CompactableIndexes {
                     try {
                         if (appendableIndex != null) {
                             appendableIndex.close();
-                            appendableIndex.getIndex().getFile().delete();
+                            appendableIndex.delete();
                         }
                     } catch (Exception xx) {
                         LOG.error("Failed while trying to cleanup after a failure.", xx);
