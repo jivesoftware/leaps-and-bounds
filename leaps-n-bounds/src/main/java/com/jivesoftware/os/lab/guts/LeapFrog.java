@@ -63,7 +63,7 @@ class LeapFrog {
                 }
             }
         }
-        return new Leaps(index, lastKey, fpIndex, keys, LongBuffer.wrap(startOfEntryIndex));
+        return new Leaps(index, lastKey, fpIndex, keys, readable1 -> LongBuffer.wrap(startOfEntryIndex));
     }
 
     static private double euclidean(long[] a, long[] b) {

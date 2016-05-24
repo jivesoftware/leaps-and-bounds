@@ -96,6 +96,12 @@ public class ByteBufferBackedFiler implements IFiler {
     }
 
     @Override
+    public boolean canSlice(int length) throws IOException {
+        long remaining = length() - getFilePointer();
+        return remaining >= length;
+    }
+
+    @Override
     public ByteBuffer slice(int length) throws IOException {
         ByteBuffer duplicated = buffer.duplicate();
         int sliceToLimit = buffer.position() + length;

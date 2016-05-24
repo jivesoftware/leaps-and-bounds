@@ -9,6 +9,7 @@ import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
+import java.nio.LongBuffer;
 import java.util.Arrays;
 
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.ENTRY;
@@ -140,12 +141,13 @@ public class ActiveScan implements ScanFromFp {
     }
 
     private long binarySearchClosestFP(Leaps at, byte[] key, boolean exact, byte[] intBuffer) throws Exception {
+        LongBuffer startOfEntryBuffer = at.startOfEntry.get(readable);
         int low = 0;
-        int high = at.startOfEntryBuffer.limit() - 1;
+        int high = startOfEntryBuffer.limit() - 1;
 
         while (low <= high) {
             int mid = (low + high) >>> 1;
-            long fp = at.startOfEntryBuffer.get(mid);
+            long fp = startOfEntryBuffer.get(mid);
 
             readable.seek(fp + 1); // skip 1 type byte
 
@@ -161,7 +163,7 @@ public class ActiveScan implements ScanFromFp {
         if (exact) {
             return -1;
         } else {
-            return at.startOfEntryBuffer.get(low);
+            return startOfEntryBuffer.get(low);
         }
     }
 

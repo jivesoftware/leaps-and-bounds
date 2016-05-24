@@ -58,4 +58,12 @@ public interface IReadable extends ICloseable, ISeekable {
      * @return
      */
     ByteBuffer slice(int length) throws IOException;
+
+    /**
+     *
+     * @param length
+     * @return
+     * @throws IOException
+     */
+    boolean canSlice(int length) throws IOException;
 }

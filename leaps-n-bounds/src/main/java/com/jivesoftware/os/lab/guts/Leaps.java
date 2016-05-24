@@ -18,19 +18,24 @@ public class Leaps {
     final byte[] lastKey;
     final long[] fps;
     final byte[][] keys;
-    final LongBuffer startOfEntryBuffer;
+    final StartOfEntry startOfEntry;
     //final long[] startOfEntryIndex;
 
-    public Leaps(int index, byte[] lastKey, long[] fpIndex, byte[][] keys, LongBuffer startOfEntryBuffer) {
+    public interface StartOfEntry {
+        LongBuffer get(IReadable readable) throws IOException;
+    }
+
+    public Leaps(int index, byte[] lastKey, long[] fpIndex, byte[][] keys, StartOfEntry startOfEntry) {
         this.index = index;
         this.lastKey = lastKey;
         Preconditions.checkArgument(fpIndex.length == keys.length, "fpIndex and keys misalignment, %s != %s", fpIndex.length, keys.length);
         this.fps = fpIndex;
         this.keys = keys;
-        this.startOfEntryBuffer = startOfEntryBuffer;
+        this.startOfEntry = startOfEntry;
     }
 
     void write(IAppendOnly writeable, byte[] lengthBuffer) throws IOException {
+        LongBuffer startOfEntryBuffer = startOfEntry.get(null);
         int entryLength = 4 + 4 + 4 + lastKey.length + 4 + (startOfEntryBuffer.limit() * 8) + 4;
         for (int i = 0; i < fps.length; i++) {
             entryLength += 8 + 4 + keys[i].length;
@@ -67,12 +72,25 @@ public class Leaps {
             keys[i] = UIO.readByteArray(readable, "keyLength", lengthBuffer);
         }
         int startOfEntryLength = UIO.readInt(readable, "startOfEntryLength", lengthBuffer);
-        ByteBuffer startOfEntryByteBuffer = readable.slice(startOfEntryLength * 8);
+        int startOfEntryNumBytes = startOfEntryLength * 8;
+        StartOfEntry startOfEntry;
+        if (readable.canSlice(startOfEntryNumBytes)) {
+            long startOfEntryFp = readable.getFilePointer();
+            readable.seek(startOfEntryFp + startOfEntryNumBytes);
+            startOfEntry = readable1 -> {
+                readable1.seek(startOfEntryFp);
+                return readable1.slice(startOfEntryNumBytes).asLongBuffer();
+            };
+        } else {
+            byte[] startOfEntryBytes = new byte[startOfEntryNumBytes];
+            readable.read(startOfEntryBytes);
+            LongBuffer startOfEntryBuffer = ByteBuffer.wrap(startOfEntryBytes).asLongBuffer();
+            startOfEntry = readable1 -> startOfEntryBuffer;
+        }
         if (UIO.readInt(readable, "entryLength", lengthBuffer) != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
-        startOfEntryByteBuffer.position(0);
-        return new Leaps(index, lastKey, fpIndex, keys, startOfEntryByteBuffer.asLongBuffer());
+        return new Leaps(index, lastKey, fpIndex, keys, startOfEntry);
     }
 
 }
