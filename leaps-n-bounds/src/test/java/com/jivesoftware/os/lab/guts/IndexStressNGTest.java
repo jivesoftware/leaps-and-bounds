@@ -37,7 +37,7 @@ public class IndexStressNGTest {
         int count = 0;
 
         boolean fsync = true;
-        boolean concurrentReads = false;
+        boolean concurrentReads = true;
         int numBatches = 1000;
         int batchSize = 10_000;
         int maxKeyIncrement = 2000;
@@ -48,7 +48,7 @@ public class IndexStressNGTest {
         MutableLong maxKey = new MutableLong();
         MutableBoolean running = new MutableBoolean(true);
         MutableBoolean merging = new MutableBoolean(true);
-        MutableLong stopGets = new MutableLong(System.currentTimeMillis() + 4_000);
+        MutableLong stopGets = new MutableLong(System.currentTimeMillis() + 60_000);
 
         File root = Files.createTempDir();
         AtomicLong waitForDebtToDrain = new AtomicLong();
@@ -116,23 +116,22 @@ public class IndexStressNGTest {
 
             int logInterval = 100_000;
             long getStart = System.currentTimeMillis();
-            while (stopGets.longValue() > System.currentTimeMillis()) {
-                int i = maxKey.intValue();
-                if (i == 0) {
+            while (running.isTrue() || stopGets.longValue() > System.currentTimeMillis()) {
+                if (maxKey.intValue() < batchSize) {
                     Thread.sleep(10);
                     continue;
                 }
-                indexs.tx(-1, null, null, (index, fromKey, toKey, acquire) -> {
+                while (indexs.tx(-1, null, null, (index, fromKey, toKey, acquire) -> {
                     GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {
 
-                        int longKey = rand.nextInt(i);
+                        int longKey = rand.nextInt(maxKey.intValue());
                         UIO.longBytes(longKey, key, 0);
                         getRaw.get(key, hitsAndMisses);
 
                         if ((hits[0] + misses[0]) % logInterval == 0) {
-                            return true;
+                            return false;
                         }
 
                         //Thread.sleep(1);
@@ -141,7 +140,7 @@ public class IndexStressNGTest {
                         Thread.sleep(10);
                     }
                     return true;
-                });
+                }));
 
                 long getEnd = System.currentTimeMillis();
                 long elapse = (getEnd - getStart);
