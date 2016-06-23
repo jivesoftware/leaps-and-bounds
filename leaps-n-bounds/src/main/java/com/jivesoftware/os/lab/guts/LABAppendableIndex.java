@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.io.AppendableHeap;
@@ -22,6 +23,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
     private final Rawhide rawhide;
+    private final RawEntryFormat rawhideFormat;
 
     private final byte[] lengthBuffer = new byte[4];
 
@@ -45,13 +47,15 @@ public class LABAppendableIndex implements RawAppendableIndex {
         IndexFile index,
         int maxLeaps,
         int updatesBetweenLeaps,
-        Rawhide rawhide) {
+        Rawhide rawhide,
+        RawEntryFormat rawhideFormat) {
 
         this.indexRangeId = indexRangeId;
         this.index = index;
         this.maxLeaps = maxLeaps;
         this.updatesBetweenLeaps = updatesBetweenLeaps;
         this.rawhide = rawhide;
+        this.rawhideFormat = rawhideFormat;
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
     }
 
@@ -67,26 +71,26 @@ public class LABAppendableIndex implements RawAppendableIndex {
         }
 
         AppendableHeap entryBuffer = new AppendableHeap(1024);
-        rawEntries.consume((rawEntry, offset, length) -> {
+        rawEntries.consume((rawEntryFormat, rawEntry, offset, length) -> {
 
             //entryBuffer.reset();
             long fp = appendOnly.getFilePointer();
             startOfEntryIndex[updatesSinceLeap] = fp + entryBuffer.length();
             UIO.writeByte(entryBuffer, ENTRY, "type");
 
-            rawhide.writeRawEntry(rawEntry, offset, length, entryBuffer, lengthBuffer);
-            byte[] key = rawhide.key(rawEntry, offset, length);
+            rawhide.writeRawEntry(rawEntryFormat, rawEntry, offset, length, rawhideFormat, entryBuffer, lengthBuffer);
+            byte[] key = rawhide.key(rawEntryFormat, rawEntry, offset, length);
             int keyLength = key.length;
             keysSizeInBytes += keyLength;
             valuesSizeInBytes += rawEntry.length - keyLength;
 
-            long rawEntryTimestamp = rawhide.timestamp(rawEntry, offset, length);
+            long rawEntryTimestamp = rawhide.timestamp(rawEntryFormat, rawEntry, offset, length);
             if (rawEntryTimestamp > -1 && maxTimestamp < rawEntryTimestamp) {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = rawhide.version(rawEntry, offset, length);
+                maxTimestampVersion = rawhide.version(rawEntryFormat, rawEntry, offset, length);
             } else {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = rawhide.version(rawEntry, offset, length);
+                maxTimestampVersion = rawhide.version(rawEntryFormat, rawEntry, offset, length);
             }
 
             if (firstKey == null) {
@@ -147,7 +151,16 @@ public class LABAppendableIndex implements RawAppendableIndex {
             }
 
             UIO.writeByte(appendOnly, FOOTER, "type");
-            new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, firstKey, lastKey, new TimestampAndVersion(maxTimestamp, maxTimestampVersion))
+            new Footer(leapCount,
+                count,
+                keysSizeInBytes,
+                valuesSizeInBytes,
+                firstKey,
+                lastKey,
+                rawhideFormat.getKeyFormat(),
+                rawhideFormat.getValueFormat(),
+                new TimestampAndVersion(maxTimestamp,
+                maxTimestampVersion))
                 .write(appendOnly, lengthBuffer);
             appendOnly.flush(fsync);
         } finally {

@@ -1,11 +1,12 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -55,13 +56,13 @@ public class CompactableIndexsNGTest {
 
             int entriesBetweenLeaps = 2;
             int maxLeaps = IndexUtil.calculateIdealMaxLeaps(counts[ci], entriesBetweenLeaps);
-            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps, simpleRawEntry);
+            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, maxLeaps, entriesBetweenLeaps, simpleRawEntry, RawEntryFormat.MEMORY);
 
             write.append((stream) -> {
                 for (int i = 0; i < counts[ci]; i++) {
                     long time = timeProvider.nextId();
                     byte[] rawEntry = rawEntry(id.incrementAndGet(), time);
-                    if (!stream.stream(rawEntry, 0, rawEntry.length)) {
+                    if (!stream.stream(RawEntryFormat.MEMORY, rawEntry, 0, rawEntry.length)) {
                         break;
                     }
                 }
@@ -113,7 +114,7 @@ public class CompactableIndexsNGTest {
 //                    }
                 for (ReadIndex raw : readIndexs) {
                     System.out.println("\tIndex:" + raw);
-                    raw.get().get(k, (rawEntry, offset, length) -> {
+                    raw.get().get(k, (rawEntryFormat, rawEntry, offset, length) -> {
                         System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry, 4));
                         if (UIO.bytesLong(rawEntry, 4) == g) {
                             passed[0] = true;
@@ -134,7 +135,8 @@ public class CompactableIndexsNGTest {
     public void testConcurrentMerges() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
+        Rawhide rawhide = new SimpleRawhide();
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide);
 
         int count = 3;
         int step = 100;
@@ -142,7 +144,7 @@ public class CompactableIndexsNGTest {
         boolean fsync = true;
         int minimumRun = 4;
 
-        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawhide());
+        CompactableIndexes indexs = new CompactableIndexes(rawhide);
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
@@ -154,7 +156,7 @@ public class CompactableIndexsNGTest {
                 IndexFile indexFile = new IndexFile(file, "rw", false);
                 IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-                LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry);
+                LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry, new RawEntryFormat(0, 0));
                 IndexTestUtils.append(rand, write, 0, step, count, desired);
                 write.closeAppendable(fsync);
 
@@ -176,7 +178,8 @@ public class CompactableIndexsNGTest {
                 (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry);
+                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry,
+                        new RawEntryFormat(0, 0));
                 },
                 (ids) -> {
                     LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
@@ -194,7 +197,8 @@ public class CompactableIndexsNGTest {
     public void testTx() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
+        Rawhide rawhide = new SimpleRawhide();
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide);
 
         int count = 3;
         int step = 100;
@@ -202,7 +206,7 @@ public class CompactableIndexsNGTest {
         boolean fsync = true;
         int minimumRun = 4;
 
-        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawhide());
+        CompactableIndexes indexs = new CompactableIndexes(rawhide);
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
@@ -213,7 +217,7 @@ public class CompactableIndexsNGTest {
             IndexFile indexFile = new IndexFile(indexFiler, "rw", false);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry);
+            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry, new RawEntryFormat(0, 0));
             IndexTestUtils.append(rand, write, 0, step, count, desired);
             write.closeAppendable(fsync);
 
@@ -226,7 +230,7 @@ public class CompactableIndexsNGTest {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
@@ -244,7 +248,8 @@ public class CompactableIndexsNGTest {
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry);
+                    return new LABAppendableIndex(id, new IndexFile(indexFiler, "rw", false), maxLeaps, updatesBetweenLeaps, simpleRawEntry,
+                        new RawEntryFormat(0, 0));
                 }, (ids) -> {
                     LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
                     return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r", false), simpleRawEntry, leapsCache);
@@ -260,7 +265,7 @@ public class CompactableIndexsNGTest {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
@@ -269,7 +274,7 @@ public class CompactableIndexsNGTest {
             return true;
         });
 
-        indexs = new CompactableIndexes(new SimpleRawhide());
+        indexs = new CompactableIndexes(rawhide);
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         IndexFile indexFile = new IndexFile(indexFiler, "r", false);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
@@ -290,7 +295,7 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             AtomicBoolean failed = new AtomicBoolean();
-            RawEntryStream stream = (rawEntry, offset, length) -> {
+            RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                 System.out.println("Expected:key:" + UIO.bytesLong(keys.get(index[0])) + " Found:" + SimpleRawhide.toString(rawEntry));
                 //Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
                 if (UIO.bytesLong(keys.get(index[0])) != SimpleRawhide.key(rawEntry)) {
@@ -312,7 +317,7 @@ public class CompactableIndexsNGTest {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
                 byte[] key = UIO.longBytes(k);
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     System.out.println("->" + SimpleRawhide.key(rawEntry) + " " + SimpleRawhide.value(rawEntry) + " " + offset + " " + length);
                     if (rawEntry != null) {
                         System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
@@ -340,7 +345,7 @@ public class CompactableIndexsNGTest {
                 int _i = i;
 
                 int[] streamed = new int[1];
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     if (SimpleRawhide.value(rawEntry) > -1) {
                         System.out.println("Streamed:" + SimpleRawhide.toString(rawEntry));
                         streamed[0]++;
@@ -362,7 +367,7 @@ public class CompactableIndexsNGTest {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     if (SimpleRawhide.value(rawEntry) > -1) {
                         streamed[0]++;
                     }

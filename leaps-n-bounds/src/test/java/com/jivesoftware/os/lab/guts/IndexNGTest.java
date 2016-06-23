@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
@@ -33,7 +33,7 @@ public class IndexNGTest {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         File indexFiler = File.createTempFile("l-index", ".tmp");
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry);
 
         int count = 100;
         int step = 10;
@@ -41,7 +41,7 @@ public class IndexNGTest {
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
         LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10, simpleRawEntry);
+            64, 10, simpleRawEntry, new RawEntryFormat(0, 0));
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
@@ -53,7 +53,7 @@ public class IndexNGTest {
     @Test(enabled = false)
     public void testMemory() throws Exception {
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry);
 
         int count = 10;
         int step = 10;
@@ -69,7 +69,7 @@ public class IndexNGTest {
     public void testMemoryToDisk() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry);
 
         int count = 10;
         int step = 10;
@@ -82,7 +82,7 @@ public class IndexNGTest {
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
         LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10, simpleRawEntry);
+            64, 10, simpleRawEntry, new RawEntryFormat(0, 0));
 
         disIndex.append(memoryIndex);
         disIndex.closeAppendable(false);
@@ -100,7 +100,7 @@ public class IndexNGTest {
         ReadIndex reader = walIndex.acquireReader();
         try {
             NextRawEntry rowScan = reader.rowScan();
-            RawEntryStream stream = (rawEntry, offset, length) -> {
+            RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                 System.out.println("rowScan:" + SimpleRawhide.key(rawEntry));
                 Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawhide.key(rawEntry));
                 index[0]++;
@@ -118,7 +118,7 @@ public class IndexNGTest {
             try {
                 GetRaw getRaw = reader.get();
                 byte[] key = UIO.longBytes(k);
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
 
                     System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
                     if (rawEntry != null) {
@@ -147,7 +147,7 @@ public class IndexNGTest {
             int _i = i;
 
             int[] streamed = new int[1];
-            RawEntryStream stream = (entry, offset, length) -> {
+            RawEntryStream stream = (rawEntryFormat, entry, offset, length) -> {
                 if (entry != null) {
                     System.out.println("Streamed:" + SimpleRawhide.toString(entry));
                     streamed[0]++;
@@ -170,7 +170,7 @@ public class IndexNGTest {
         for (int i = 0; i < keys.size() - 3; i++) {
             int _i = i;
             int[] streamed = new int[1];
-            RawEntryStream stream = (entry, offset, length) -> {
+            RawEntryStream stream = (rawEntryFormat, entry, offset, length) -> {
                 if (entry != null) {
                     streamed[0]++;
                 }

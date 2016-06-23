@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Keys;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -35,7 +36,7 @@ public class LABNGTest {
             false, labHeapPressure, 1, 2, leapsCache);
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
-        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, splitAfterSizeInBytes, -1, -1, new LABRawhide());
+        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, splitAfterSizeInBytes, -1, -1, new LABRawhide(), new RawEntryFormat(0, 0));
 
         AtomicLong count = new AtomicLong();
         AtomicLong fails = new AtomicLong();
@@ -132,7 +133,7 @@ public class LABNGTest {
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
             false, labHeapPressure, 1, 2, leapsCache);
 
-        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, 16, -1, -1, new LABRawhide());
+        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, 16, -1, -1, new LABRawhide(), new RawEntryFormat(0, 0));
 
         index.append((stream) -> {
             stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));

@@ -4,6 +4,7 @@ import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
@@ -30,6 +31,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author jonathan.colt
@@ -58,8 +60,10 @@ public class LAB implements ValueIndex {
     private volatile boolean corrupt = false;
 
     private final Rawhide rawhide;
+    private final AtomicReference<RawEntryFormat> rawEntryFormat;
 
     public LAB(Rawhide rawhide,
+        RawEntryFormat rawhideFormat,
         ExecutorService compact,
         ExecutorService destroy,
         File root,
@@ -81,6 +85,7 @@ public class LAB implements ValueIndex {
         this.labHeapFlusher = labHeapFlusher;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
+        this.rawEntryFormat = new AtomicReference<>(rawhideFormat);
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
             root,
             indexName,
@@ -90,6 +95,7 @@ public class LAB implements ValueIndex {
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
             rawhide,
+            this.rawEntryFormat,
             leapsCache);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
@@ -359,26 +365,27 @@ public class LAB implements ValueIndex {
                 throw new LABIndexClosedException();
             }
             appended = memoryIndex.append((stream) -> {
+                RawEntryFormat format = rawEntryFormat.get();
                 return values != null && values.consume((index, key, timestamp, tombstoned, version, value) -> {
-                    byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
+                    byte[] rawEntry = rawhide.toRawEntry(0, key, timestamp, tombstoned, version, 0, value, format);
 
                     RawMemoryIndex copy = flushingMemoryIndex;
                     TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
                     if ((copy == null || isNewerThan(timestamp, version, copy))
                         && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
-                        return stream.stream(rawEntry, 0, rawEntry.length);
+                        return stream.stream(format, rawEntry, 0, rawEntry.length);
                     } else {
                         rangeTx(false, -1, key, key, timestamp, version,
                             (index1, fromKey, toKey, readIndexes) -> {
                                 GetRaw getRaw = IndexUtil.get(readIndexes);
-                                return getRaw.get(key, (existingEntry, offset, length) -> {
+                                return getRaw.get(key, (existingEntryFormat, existingEntry, offset, length) -> {
                                     if (existingEntry == null) {
-                                        return stream.stream(rawEntry, 0, rawEntry.length);
+                                        return stream.stream(format, rawEntry, 0, rawEntry.length);
                                     } else {
-                                        long existingTimestamp = rawhide.timestamp(existingEntry, offset, length);
-                                        long existingVersion = rawhide.version(existingEntry, offset, length);
+                                        long existingTimestamp = rawhide.timestamp(existingEntryFormat, existingEntry, offset, length);
+                                        long existingVersion = rawhide.version(existingEntryFormat, existingEntry, offset, length);
                                         if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
-                                            return stream.stream(rawEntry, 0, rawEntry.length);
+                                            return stream.stream(format, rawEntry, 0, rawEntry.length);
                                         }
                                     }
                                     return false;
@@ -538,13 +545,13 @@ public class LAB implements ValueIndex {
     }
 
     private boolean rawToReal(int index, byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
-        return getRaw.get(key, (rawEntry, offset, length) -> rawhide.streamRawEntry(valueStream, index, rawEntry, offset));
+        return getRaw.get(key, (rawEntryFormat, rawEntry, offset, length) -> rawhide.streamRawEntry(valueStream, index, rawEntryFormat, rawEntry, offset));
     }
 
     private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
         while (true) {
-            Next next = nextRawEntry.next((rawEntry, offset, length) -> {
-                return rawhide.streamRawEntry(valueStream, -1, rawEntry, offset);
+            Next next = nextRawEntry.next((rawEntryFormat, rawEntry, offset, length) -> {
+                return rawhide.streamRawEntry(valueStream, -1, rawEntryFormat, rawEntry, offset);
             });
             if (next == Next.stopped) {
                 return false;

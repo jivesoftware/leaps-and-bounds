@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
@@ -71,7 +72,7 @@ public class LABEnvironmentConcurrenyNGTest {
         ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
 
         Random rand = new Random(12345);
-        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, new LABRawhide());
+        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, new LABRawhide(), new RawEntryFormat(0, 0));
         AtomicLong running = new AtomicLong();
         List<Future> writerFutures = new ArrayList<>();
         for (int i = 0; i < writerCount; i++) {

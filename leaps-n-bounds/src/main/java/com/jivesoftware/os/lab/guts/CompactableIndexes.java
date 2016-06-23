@@ -1,7 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
-import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.api.ConcurrentSplitException;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
@@ -168,13 +167,13 @@ public class CompactableIndexes {
             if (minKey == null) {
                 minKey = splittable[i].minKey();
             } else {
-                minKey = UnsignedBytes.lexicographicalComparator().compare(minKey, splittable[i].minKey()) < 0 ? minKey : splittable[i].minKey();
+                minKey = rawhide.compare(minKey, splittable[i].minKey()) < 0 ? minKey : splittable[i].minKey();
             }
 
             if (maxKey == null) {
                 maxKey = splittable[i].maxKey();
             } else {
-                maxKey = UnsignedBytes.lexicographicalComparator().compare(maxKey, splittable[i].maxKey()) < 0 ? maxKey : splittable[i].maxKey();
+                maxKey = rawhide.compare(maxKey, splittable[i].maxKey()) < 0 ? maxKey : splittable[i].maxKey();
             }
         }
 
@@ -262,13 +261,13 @@ public class CompactableIndexes {
                         if (minKey == null) {
                             minKey = all[i].minKey();
                         } else {
-                            minKey = UnsignedBytes.lexicographicalComparator().compare(minKey, all[i].minKey()) < 0 ? minKey : all[i].minKey();
+                            minKey = rawhide.compare(minKey, all[i].minKey()) < 0 ? minKey : all[i].minKey();
                         }
 
                         if (maxKey == null) {
                             maxKey = all[i].maxKey();
                         } else {
-                            maxKey = UnsignedBytes.lexicographicalComparator().compare(maxKey, all[i].maxKey()) < 0 ? maxKey : all[i].maxKey();
+                            maxKey = rawhide.compare(maxKey, all[i].maxKey()) < 0 ? maxKey : all[i].maxKey();
                         }
                     }
 
@@ -277,7 +276,7 @@ public class CompactableIndexes {
                         LOG.warn("Trying to split a single key." + Arrays.toString(minKey));
                         return null;
                     } else {
-                        byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1)).get(1);
+                        byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1, rawhide)).get(1);
                         LABAppendableIndex leftAppenableIndex = null;
                         LABAppendableIndex rightAppenableIndex = null;
                         try {
@@ -289,13 +288,13 @@ public class CompactableIndexes {
                             LOG.debug("Splitting with a middle of:{}", Arrays.toString(middle));
                             leftAppenableIndex.append((leftStream) -> {
                                 return effectiveFinalRightAppenableIndex.append((rightStream) -> {
-                                    return feedInterleaver.stream((rawEntry, offset, length) -> {
-                                        int c = rawhide.compareKey(rawEntry, offset, middle, 0, middle.length);
+                                    return feedInterleaver.stream((rawEntryFormat, rawEntry, offset, length) -> {
+                                        int c = rawhide.compareKey(rawEntryFormat, rawEntry, offset, 0, middle, 0, middle.length);
                                         if (c < 0) {
-                                            if (!leftStream.stream(rawEntry, offset, length)) {
+                                            if (!leftStream.stream(rawEntryFormat, rawEntry, offset, length)) {
                                                 return false;
                                             }
-                                        } else if (!rightStream.stream(rawEntry, offset, length)) {
+                                        } else if (!rightStream.stream(rawEntryFormat, rawEntry, offset, length)) {
                                             return false;
                                         }
                                         return true;
@@ -383,12 +382,13 @@ public class CompactableIndexes {
                                         LOG.debug("Doing a catchup split for a middle of:{}", Arrays.toString(middle));
                                         catchupLeftAppenableIndex.append((leftStream) -> {
                                             return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
-                                                return catchupFeedInterleaver.stream((rawEntry, offset, length) -> {
-                                                    if (UnsignedBytes.lexicographicalComparator().compare(rawEntry, middle) < 0) {
-                                                        if (!leftStream.stream(rawEntry, offset, length)) {
+                                                return catchupFeedInterleaver.stream((rawEntryFormat, rawEntry, offset, length) -> {
+
+                                                    if (rawhide.compare(rawEntry, middle) < 0) {
+                                                        if (!leftStream.stream(rawEntryFormat, rawEntry, offset, length)) {
                                                             return false;
                                                         }
-                                                    } else if (!rightStream.stream(rawEntry, offset, length)) {
+                                                    } else if (!rightStream.stream(rawEntryFormat, rawEntry, offset, length)) {
                                                         return false;
                                                     }
                                                     return true;

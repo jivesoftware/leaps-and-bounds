@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadableIndex, RawEntries {
 
-    private final ConcurrentSkipListMap<byte[], byte[]> index = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
+    private final ConcurrentSkipListMap<byte[], byte[]> index;
     private final AtomicLong approximateCount = new AtomicLong();
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
@@ -45,6 +45,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
         this.destroy = destroy;
         this.globalHeapCostInBytes = globalHeapCostInBytes;
         this.rawhide = rawhide;
+        this.index = new ConcurrentSkipListMap<>(rawhide);
         this.reader = new ReadIndex() {
 
             @Override
@@ -60,7 +61,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                         if (rawEntry == null) {
                             return false;
                         } else {
-                            result = stream.stream(rawEntry, 0, rawEntry.length);
+                            result = stream.stream(RawEntryFormat.MEMORY, rawEntry, 0, rawEntry.length);
                             return true;
                         }
                     }
@@ -78,7 +79,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(RawEntryFormat.MEMORY, next.getValue(), 0, next.getValue().length);
                         return more ? Next.more : Next.stopped;
                     }
                     return Next.eos;
@@ -91,7 +92,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(RawEntryFormat.MEMORY, next.getValue(), 0, next.getValue().length);
                         return more ? Next.more : Next.stopped;
                     }
                     return Next.eos;
@@ -150,7 +151,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     public boolean consume(RawEntryStream stream) throws Exception {
         for (Map.Entry<byte[], byte[]> e : index.entrySet()) {
             byte[] entry = e.getValue();
-            if (!stream.stream(entry, 0, entry.length)) {
+            if (!stream.stream(RawEntryFormat.MEMORY, entry, 0, entry.length)) {
                 return false;
             }
         }
@@ -159,9 +160,9 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public boolean append(RawEntries entries) throws Exception {
-        return entries.consume((rawEntry, offset, length) -> {
+        return entries.consume((rawEntryFormat, rawEntry, offset, length) -> {
 
-            byte[] key = rawhide.key(rawEntry, offset, length);
+            byte[] key = rawhide.key(rawEntryFormat, rawEntry, offset, length);
             int keyLength = key.length;
             index.compute(key, (k, v) -> {
                 byte[] merged;
@@ -173,14 +174,14 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                     globalHeapCostInBytes.addAndGet(keyLength + valueLength);
                     merged = rawEntry;
                 } else {
-                    merged = rawhide.merge(v, rawEntry);
+                    merged = rawhide.merge(RawEntryFormat.MEMORY, v, rawEntryFormat, rawEntry, RawEntryFormat.MEMORY); // ?? merged format expose
                     int mergeValueLength = ((merged == null) ? 0 : merged.length);
                     int valueLengthDelta = mergeValueLength - valueLength;
                     valuesCostInBytes += valueLengthDelta;
                     globalHeapCostInBytes.addAndGet(valueLengthDelta);
                 }
-                long timestamp = rawhide.timestamp(merged, 0, merged.length);
-                long version = rawhide.version(merged, 0, merged.length);
+                long timestamp = rawhide.timestamp(RawEntryFormat.MEMORY, merged, 0, merged.length);
+                long version = rawhide.version(RawEntryFormat.MEMORY, merged, 0, merged.length);
                 updateMaxTimestampAndVersion(timestamp, version);
                 return merged;
             });

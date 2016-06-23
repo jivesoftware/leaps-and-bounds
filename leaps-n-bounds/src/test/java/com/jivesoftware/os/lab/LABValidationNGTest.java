@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -42,8 +43,22 @@ public class LABValidationNGTest {
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, labHeapPressure, 1024 * 1024 * 10, 4, 8,
-            128, 0, 0, leapsCache);
+        LAB lab = new LAB(new LABRawhide(),
+            new RawEntryFormat(0, 0),
+            compact,
+            destroy,
+            root,
+            "lab",
+            true,
+            entriesBetweenLeaps,
+            labHeapPressure,
+            1024 * 1024 * 10,
+            4,
+            8,
+            128,
+            0,
+            0,
+            leapsCache);
 
         int writerCount = 12;
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
@@ -133,7 +148,17 @@ public class LABValidationNGTest {
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LAB lab = new LAB(new LABRawhide(), compact, destroy, root, "lab", true, entriesBetweenLeaps, labHeapPressure, 1024 * 1024 * 10, 4, 8, 128, 0, 0,
+        LAB lab = new LAB(new LABRawhide(),
+            new RawEntryFormat(0, 0),
+            compact,
+            destroy,
+            root,
+            "lab",
+            true,
+            entriesBetweenLeaps,
+            labHeapPressure,
+            1024 * 1024 * 10,
+            4, 8, 128, 0, 0,
             leapsCache);
 
         validationTest(lab);

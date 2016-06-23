@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 
@@ -35,8 +36,8 @@ public class Gets implements GetRaw, RawEntryStream {
     }
 
     @Override
-    public boolean stream(byte[] rawEntry, int offset, int length) throws Exception {
-        boolean result = activeStream.stream(rawEntry, offset, length);
+    public boolean stream(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length) throws Exception {
+        boolean result = activeStream.stream(rawEntryFormat, rawEntry, offset, length);
         found = true;
         return result;
     }

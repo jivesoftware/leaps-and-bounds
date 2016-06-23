@@ -2,36 +2,57 @@ package com.jivesoftware.os.lab.api;
 
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
+import java.util.Comparator;
 
 /**
  *
  * @author jonathan.colt
  */
-public interface Rawhide {
+public interface Rawhide extends Comparator<byte[]> {
 
-    byte[] merge(byte[] current, byte[] adding);
+    byte[] merge(RawEntryFormat currentFormat, byte[] currentRawEntry, RawEntryFormat addingFormat, byte[] addingRawEntry, RawEntryFormat mergedFromat);
 
-    boolean streamRawEntry(ValueStream stream, int index, byte[] rawEntry, int offset) throws Exception;
+    boolean streamRawEntry(ValueStream stream, int index, RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset) throws Exception;
 
-    byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception;
+    byte[] toRawEntry(long keyFormat,
+        byte[] key,
+        long timestamp,
+        boolean tombstoned,
+        long version,
+        long payloadFormat,
+        byte[] payload,
+        RawEntryFormat rawEntryFormat) throws Exception;
 
-    int entryLength(IReadable readable, byte[] lengthBuffer) throws Exception;
+    int entryLength(RawEntryFormat readableFormat, IReadable readable, byte[] lengthBuffer) throws Exception;
 
-    void writeRawEntry(byte[] rawEntry, int offset, int length, IAppendOnly appendOnly, byte[] lengthBuffer) throws Exception;
+    void writeRawEntry(RawEntryFormat rawEntryFormat,
+        byte[] rawEntry,
+        int offset,
+        int length,
+        RawEntryFormat appendFormat,
+        IAppendOnly appendOnly,
+        byte[] lengthBuffer) throws Exception;
 
-    byte[] key(byte[] rawEntry, int offset, int length) throws Exception;
+    byte[] key(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length) throws Exception;
 
-    int keyLength(byte[] rawEntry, int offset);
+    int keyLength(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset);
 
-    int keyOffset(byte[] rawEntry, int offset);
+    int keyOffset(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset);
 
-    int compareKey(byte[] rawEntry, int offset, byte[] compareKey, int compareOffset, int compareLength);
+    int compareKey(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, long compareKeyFormat, byte[] compareKey, int compareOffset, int compareLength);
 
-    int compareKeyFromEntry(IReadable readable, byte[] compareKey, int compareOffset, int compareLength, byte[] intBuffer) throws Exception;
+    int compareKeyFromEntry(RawEntryFormat readableFormat,
+        IReadable readable,
+        long compareKeyFormat,
+        byte[] compareKey,
+        int compareOffset,
+        int compareLength,
+        byte[] intBuffer)
+        throws Exception;
 
-    long timestamp(byte[] rawEntry, int offset, int length);
+    long timestamp(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length);
 
-    long version(byte[] rawEntry, int offset, int length);
+    long version(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length);
 
     boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion);
 

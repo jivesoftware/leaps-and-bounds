@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
@@ -17,6 +18,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     private final Semaphore hideABone;
     private final Rawhide rawhide;
+    private final RawEntryFormat rawhideFormat;
     private final Leaps leaps;
     private final long cacheKey;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
@@ -25,6 +27,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     public ReadLeapsAndBoundsIndex(Semaphore hideABone,
         Rawhide rawhide,
+        RawEntryFormat rawhideFormat,
         Leaps leaps,
         long cacheKey,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
@@ -32,6 +35,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         Callable<IReadable> readable) {
         this.hideABone = hideABone;
         this.rawhide = rawhide;
+        this.rawhideFormat = rawhideFormat;
         this.leaps = leaps;
         this.cacheKey = cacheKey;
         this.leapsCache = leapsCache;
@@ -52,12 +56,12 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     @Override
     public GetRaw get() throws Exception {
         // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
-        return new Gets(new ActiveScan(rawhide, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]));
+        return new Gets(new ActiveScan(rawhide, rawhideFormat, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]));
     }
 
     @Override
     public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]);
+        ActiveScan activeScan = new ActiveScan(rawhide, rawhideFormat, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]);
         activeScan.reset();
         long fp = activeScan.getInclusiveStartOfRow(from, false, new byte[4]);
         if (fp < 0) {
@@ -68,14 +72,14 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             boolean more = true;
             while (!once[0] && more) {
                 more = activeScan.next(fp,
-                    (rawEntry, offset, length) -> {
-                        int c = rawhide.compareKey(rawEntry, offset, from, 0, from.length);
+                    (rawEntryFormat, rawEntry, offset, length) -> {
+                        int c = rawhide.compareKey(rawEntryFormat, rawEntry, offset, 0, from, 0, from.length);
                         if (c >= 0) {
-                            c = to == null ? -1 : rawhide.compareKey(rawEntry, offset, to, 0, to.length);
+                            c = to == null ? -1 : rawhide.compareKey(rawEntryFormat, rawEntry, offset, 0, to, 0, to.length);
                             if (c < 0) {
                                 once[0] = true;
                             }
-                            return c < 0 && stream.stream(rawEntry, offset, length);
+                            return c < 0 && stream.stream(rawEntryFormat, rawEntry, offset, length);
                         } else {
                             return true;
                         }
@@ -88,7 +92,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public NextRawEntry rowScan() throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]);
+        ActiveScan activeScan = new ActiveScan(rawhide,rawhideFormat, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]);
         activeScan.reset();
         return (stream) -> {
             activeScan.next(0, stream);

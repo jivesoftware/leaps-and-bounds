@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -68,7 +69,7 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
         if (active != null) {
             if (active.nextRawEntry != null) {
-                if (!stream.stream(active.nextRawEntry, active.nextOffset, active.nextLength)) {
+                if (!stream.stream(active.nextRawEntryFormat, active.nextRawEntry, active.nextOffset, active.nextLength)) {
                     return Next.stopped;
                 }
             }
@@ -95,6 +96,7 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
         private int nextRawKeyLength;
         private int nextRawKeyOffset;
+        private RawEntryFormat nextRawEntryFormat;
         private byte[] nextRawEntry;
         private int nextOffset;
         private int nextLength;
@@ -106,10 +108,11 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
         }
 
         private byte[] feedNext() throws Exception {
-            Next hadNext = feed.next((rawEntry, offset, length) -> {
-                nextRawKeyLength = rawhide.keyLength(rawEntry, offset);
-                nextRawKeyOffset = rawhide.keyOffset(rawEntry, offset);
+            Next hadNext = feed.next((rawEntryFormat, rawEntry, offset, length) -> {
+                nextRawKeyLength = rawhide.keyLength(rawEntryFormat, rawEntry, offset);
+                nextRawKeyOffset = rawhide.keyOffset(rawEntryFormat, rawEntry, offset);
                 nextRawEntry = rawEntry;
+                nextRawEntryFormat = rawEntryFormat;
                 nextOffset = offset;
                 nextLength = length;
                 return true;

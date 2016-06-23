@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
@@ -51,7 +52,7 @@ public class IndexTestUtils {
                     });
                 }
                 byte[] rawEntry = rawEntry(k, time);
-                if (!stream.stream(rawEntry, 0, rawEntry.length)) {
+                if (!stream.stream(RawEntryFormat.MEMORY, rawEntry, 0, rawEntry.length)) {
                     break;
                 }
             }
@@ -73,7 +74,7 @@ public class IndexTestUtils {
         SimpleRawhide rawhide = new SimpleRawhide();
         indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
-            RawEntryStream stream = (rawEntry, offset, length) -> {
+            RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                 System.out.println("scanned:" + UIO.bytesLong(keys.get(index[0])) + " " + key(rawEntry));
                 Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), key(rawEntry));
                 index[0]++;
@@ -88,7 +89,7 @@ public class IndexTestUtils {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     byte[] expectedFP = desired.get(UIO.longBytes(key(rawEntry)));
                     if (expectedFP == null) {
                         Assert.assertTrue(expectedFP == null && value(rawEntry) == -1);
@@ -109,7 +110,7 @@ public class IndexTestUtils {
                 int _i = i;
 
                 int[] streamed = new int[1];
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     if (value(rawEntry) > -1) {
                         System.out.println("Streamed:" + key(rawEntry));
                         streamed[0]++;
@@ -131,7 +132,7 @@ public class IndexTestUtils {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
-                RawEntryStream stream = (rawEntry, offset, length) -> {
+                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
                     if (value(rawEntry) > -1) {
                         streamed[0]++;
                     }

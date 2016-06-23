@@ -19,12 +19,12 @@
  */
 package com.jivesoftware.os.lab.io.api;
 
-import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.Comparator;
 import java.util.Iterator;
 
 public class UIO {
@@ -582,7 +582,7 @@ public class UIO {
      * Lex key range splittting Copied from HBase
      * Iterate over keys within the passed range.
      */
-    public static Iterable<byte[]> iterateOnSplits(final byte[] a, final byte[] b, boolean inclusive, final int num) {
+    public static Iterable<byte[]> iterateOnSplits(byte[] a, byte[] b, boolean inclusive, int num, Comparator<byte[]> lexicographicalComparator) {
         byte[] aPadded;
         byte[] bPadded;
         if (a.length < b.length) {
@@ -595,20 +595,20 @@ public class UIO {
             aPadded = a;
             bPadded = b;
         }
-        if (UnsignedBytes.lexicographicalComparator().compare(aPadded, bPadded) >= 0) {
+        if (lexicographicalComparator.compare(aPadded, bPadded) >= 0) {
             throw new IllegalArgumentException("b <= a");
         }
         if (num <= 0) {
             throw new IllegalArgumentException("num cannot be <= 0");
         }
         byte[] prependHeader = {1, 0};
-        final BigInteger startBI = new BigInteger(add(prependHeader, aPadded));
-        final BigInteger stopBI = new BigInteger(add(prependHeader, bPadded));
+        BigInteger startBI = new BigInteger(add(prependHeader, aPadded));
+        BigInteger stopBI = new BigInteger(add(prependHeader, bPadded));
         BigInteger diffBI = stopBI.subtract(startBI);
         if (inclusive) {
             diffBI = diffBI.add(BigInteger.ONE);
         }
-        final BigInteger splitsBI = BigInteger.valueOf(num + 1);
+        BigInteger splitsBI = BigInteger.valueOf(num + 1);
         //when diffBI < splitBI, use an additional byte to increase diffBI
         if (diffBI.compareTo(splitsBI) < 0) {
             byte[] aPaddedAdditional = new byte[aPadded.length + 1];
@@ -617,9 +617,9 @@ public class UIO {
             System.arraycopy(bPadded, 0, bPaddedAdditional, 0, bPadded.length);
             aPaddedAdditional[aPadded.length] = 0;
             bPaddedAdditional[bPadded.length] = 0;
-            return iterateOnSplits(aPaddedAdditional, bPaddedAdditional, inclusive, num);
+            return iterateOnSplits(aPaddedAdditional, bPaddedAdditional, inclusive, num, lexicographicalComparator);
         }
-        final BigInteger intervalBI;
+        BigInteger intervalBI;
         try {
             intervalBI = diffBI.divide(splitsBI);
         } catch (Exception e) {
@@ -627,7 +627,7 @@ public class UIO {
             return null;
         }
 
-        final Iterator<byte[]> iterator = new Iterator<byte[]>() {
+        Iterator<byte[]> iterator = new Iterator<byte[]>() {
             private int i = -1;
 
             @Override

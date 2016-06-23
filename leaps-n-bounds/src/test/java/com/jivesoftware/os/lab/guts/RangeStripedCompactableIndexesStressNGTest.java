@@ -4,6 +4,7 @@ import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LABRawhide;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -18,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang.mutable.MutableBoolean;
 import org.apache.commons.lang.mutable.MutableLong;
 import org.testng.annotations.Test;
@@ -56,6 +58,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
             new SimpleRawhide(),
+            new AtomicReference<>(new RawEntryFormat(0, 0)),
             leapsCache);
 
         int count = 0;
@@ -77,7 +80,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
             int[] hits = {0};
             int[] misses = {0};
-            RawEntryStream hitsAndMisses = (rawEntry, offset, length) -> {
+            RawEntryStream hitsAndMisses = (rawEntryFormat, rawEntry, offset, length) -> {
                 if (rawEntry != null) {
                     hits[0]++;
                 } else {

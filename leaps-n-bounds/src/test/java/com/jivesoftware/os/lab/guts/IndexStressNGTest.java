@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -65,7 +66,7 @@ public class IndexStressNGTest {
                                 int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
                                 return new LABAppendableIndex(id, new IndexFile(mergingFile, "rw", true),
-                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry);
+                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry, new RawEntryFormat(0, 0));
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
@@ -95,7 +96,7 @@ public class IndexStressNGTest {
 
             int[] hits = {0};
             int[] misses = {0};
-            RawEntryStream hitsAndMisses = (rawEntry, offset, length) -> {
+            RawEntryStream hitsAndMisses = (rawEntryFormat, rawEntry, offset, length) -> {
                 if (rawEntry != null) {
                     hits[0]++;
                 } else {
@@ -169,7 +170,7 @@ public class IndexStressNGTest {
 
             long startMerge = System.currentTimeMillis();
             LABAppendableIndex write = new LABAppendableIndex(id,
-                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps, simpleRawEntry);
+                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps, simpleRawEntry, new RawEntryFormat(0, 0));
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.closeAppendable(fsync);
 

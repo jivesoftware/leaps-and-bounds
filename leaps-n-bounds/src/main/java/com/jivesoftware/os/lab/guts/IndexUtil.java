@@ -38,7 +38,7 @@ public class IndexUtil {
                     return result;
                 }
             }
-            result = stream.stream(null, -1, -1);
+            result = stream.stream(null, null, -1, -1);
             return result;
         }
 

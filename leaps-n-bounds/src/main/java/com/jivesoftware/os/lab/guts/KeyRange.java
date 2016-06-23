@@ -1,8 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.api.Rawhide;
 import java.util.Arrays;
-import java.util.Comparator;
 
 /**
  *
@@ -10,10 +9,12 @@ import java.util.Comparator;
  */
 public class KeyRange implements Comparable<KeyRange> {
 
+    final Rawhide rawhide;
     final byte[] start;
     final byte[] end;
 
-    public KeyRange(byte[] start, byte[] end) {
+    public KeyRange(Rawhide rawhide, byte[] start, byte[] end) {
+        this.rawhide = rawhide;
         this.start = start;
         this.end = end;
     }
@@ -22,16 +23,15 @@ public class KeyRange implements Comparable<KeyRange> {
         if (start == null || end == null) {
             return false;
         }
-        Comparator<byte[]> c = UnsignedBytes.lexicographicalComparator();
-        return c.compare(start, range.start) <= 0 && c.compare(end, range.end) >= 0;
+        return rawhide.compare(start, range.start) <= 0 && rawhide.compare(end, range.end) >= 0;
     }
 
     @Override
     public int compareTo(KeyRange o) {
         
-        int c = UnsignedBytes.lexicographicalComparator().compare(start, o.start);
+        int c = rawhide.compare(start, o.start);
         if (c == 0) {
-            c = UnsignedBytes.lexicographicalComparator().compare(o.end, end); // reversed
+            c = rawhide.compare(o.end, end); // reversed
         }
         return c;
     }
@@ -42,17 +42,15 @@ public class KeyRange implements Comparable<KeyRange> {
     }
 
     public KeyRange join(KeyRange id) {
-        return new KeyRange(min(start, id.start), max(end, id.end));
+        return new KeyRange(rawhide, min(start, id.start), max(end, id.end));
     }
 
     private byte[] min(byte[] a, byte[] b) {
-        Comparator<byte[]> c = UnsignedBytes.lexicographicalComparator();
-        return c.compare(a, b) < 0 ? a : b;
+        return rawhide.compare(a, b) < 0 ? a : b;
     }
 
     private byte[] max(byte[] a, byte[] b) {
-        Comparator<byte[]> c = UnsignedBytes.lexicographicalComparator();
-        return c.compare(a, b) > 0 ? a : b;
+        return rawhide.compare(a, b) > 0 ? a : b;
     }
 
     @Override

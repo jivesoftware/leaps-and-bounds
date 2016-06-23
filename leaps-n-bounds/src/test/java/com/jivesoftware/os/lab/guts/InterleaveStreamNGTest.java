@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
@@ -40,7 +40,7 @@ public class InterleaveStreamNGTest {
     }
 
     private void assertExpected(InterleaveStream ips, List<Expected> expected) throws Exception {
-        while (ips.next((rawEntry, offset, length) -> {
+        while (ips.next((rawEntryFormat, rawEntry, offset, length) -> {
             Expected expect = expected.remove(0);
             System.out.println("key:" + SimpleRawhide.key(rawEntry) + " vs" + expect.key + " value:" + SimpleRawhide.value(rawEntry) + " vs " + expect.value);
             Assert.assertEquals(SimpleRawhide.key(rawEntry), expect.key);
@@ -103,8 +103,9 @@ public class InterleaveStreamNGTest {
 
         Random rand = new Random();
         ExecutorService destroy = Executors.newSingleThreadExecutor();
+        SimpleRawhide rawhide = new SimpleRawhide();
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(UnsignedBytes.lexicographicalComparator());
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide);
 
         RawMemoryIndex[] memoryIndexes = new RawMemoryIndex[indexes];
         NextRawEntry[] nextRawEntrys = new NextRawEntry[indexes];
@@ -114,13 +115,13 @@ public class InterleaveStreamNGTest {
 
                 int i = (indexes - 1) - wi;
 
-                memoryIndexes[i] = new RawMemoryIndex(destroy, new AtomicLong(), new SimpleRawhide());
+                memoryIndexes[i] = new RawMemoryIndex(destroy, new AtomicLong(), rawhide);
                 IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
                 System.out.println("Index " + i);
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
                 NextRawEntry nextRawEntry = readerIndexs[wi].rowScan();
-                while (nextRawEntry.next((rawEntry, offset, length) -> {
+                while (nextRawEntry.next((rawEntryFormat, rawEntry, offset, length) -> {
                     System.out.println(SimpleRawhide.toString(rawEntry));
                     return true;
                 }) == NextRawEntry.Next.more);
@@ -129,7 +130,7 @@ public class InterleaveStreamNGTest {
                 nextRawEntrys[i] = readerIndexs[wi].rowScan();
             }
 
-            InterleaveStream ips = new InterleaveStream(nextRawEntrys, new SimpleRawhide());
+            InterleaveStream ips = new InterleaveStream(nextRawEntrys, rawhide);
 
             List<Expected> expected = new ArrayList<>();
             System.out.println("Expected:");
@@ -170,7 +171,7 @@ public class InterleaveStreamNGTest {
         return (stream) -> {
             if (index[0] < keys.length) {
                 byte[] rawEntry = SimpleRawhide.rawEntry(keys[index[0]], values[index[0]]);
-                if (!stream.stream(rawEntry, 0, rawEntry.length)) {
+                if (!stream.stream(RawEntryFormat.MEMORY, rawEntry, 0, rawEntry.length)) {
                     return Next.stopped;
                 }
             }
