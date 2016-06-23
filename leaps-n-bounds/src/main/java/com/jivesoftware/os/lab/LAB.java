@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
@@ -62,8 +63,9 @@ public class LAB implements ValueIndex {
     private final Rawhide rawhide;
     private final AtomicReference<RawEntryFormat> rawEntryFormat;
 
-    public LAB(Rawhide rawhide,
-        RawEntryFormat rawhideFormat,
+    public LAB(FormatTransformerProvider formatTransformerProvider,
+        Rawhide rawhide,
+        RawEntryFormat rawEntryFormat,
         ExecutorService compact,
         ExecutorService destroy,
         File root,
@@ -85,7 +87,7 @@ public class LAB implements ValueIndex {
         this.labHeapFlusher = labHeapFlusher;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
-        this.rawEntryFormat = new AtomicReference<>(rawhideFormat);
+        this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
             root,
             indexName,
@@ -94,6 +96,7 @@ public class LAB implements ValueIndex {
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
             splitWhenValuesAndKeysTotalExceedsNBytes,
+            formatTransformerProvider,
             rawhide,
             this.rawEntryFormat,
             leapsCache);

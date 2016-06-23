@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab.guts.api;
 
-import com.jivesoftware.os.lab.guts.api.CommitIndex;
-import com.jivesoftware.os.lab.guts.api.IndexFactory;
 import java.util.concurrent.Callable;
 
 /**

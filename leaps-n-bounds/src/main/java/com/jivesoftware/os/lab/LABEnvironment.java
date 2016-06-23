@@ -2,8 +2,9 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.guts.Leaps;
 import java.io.File;
@@ -67,10 +68,12 @@ public class LABEnvironment {
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
+        FormatTransformerProvider formatTransformerProvider,
         Rawhide rawhide,
-        RawEntryFormat rawhideFormat) throws Exception {
-        return new LAB(rawhide,
-            rawhideFormat,
+        RawEntryFormat rawEntryFormat) throws Exception {
+        return new LAB(formatTransformerProvider,
+            rawhide,
+            rawEntryFormat,
             compact,
             destroy,
             rootFile,

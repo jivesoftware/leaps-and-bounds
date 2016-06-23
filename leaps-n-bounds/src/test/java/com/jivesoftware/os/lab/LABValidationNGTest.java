@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueStream;
@@ -43,7 +44,8 @@ public class LABValidationNGTest {
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LAB lab = new LAB(new LABRawhide(),
+        LAB lab = new LAB(FormatTransformerProvider.NO_OP,
+            new LABRawhide(),
             new RawEntryFormat(0, 0),
             compact,
             destroy,
@@ -148,7 +150,8 @@ public class LABValidationNGTest {
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LAB lab = new LAB(new LABRawhide(),
+        LAB lab = new LAB(FormatTransformerProvider.NO_OP,
+            new LABRawhide(),
             new RawEntryFormat(0, 0),
             compact,
             destroy,

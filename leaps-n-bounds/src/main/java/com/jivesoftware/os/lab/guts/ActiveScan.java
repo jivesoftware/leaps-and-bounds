@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -25,6 +26,7 @@ public class ActiveScan implements ScanFromFp {
 
     private final Rawhide rawhide;
     private final RawEntryFormat rawEntryFormat;
+    private final FormatTransformer readKeyFormatTransormer;
     private final Leaps leaps;
     private final long cacheKey;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
@@ -38,6 +40,7 @@ public class ActiveScan implements ScanFromFp {
 
     public ActiveScan(Rawhide rawhide,
         RawEntryFormat rawEntryFormat,
+        FormatTransformer readKeyFormatTransormer,
         Leaps leaps,
         long cacheKey,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
@@ -48,6 +51,7 @@ public class ActiveScan implements ScanFromFp {
 
         this.rawhide = rawhide;
         this.rawEntryFormat = rawEntryFormat;
+        this.readKeyFormatTransormer = readKeyFormatTransormer;
         this.leaps = leaps;
         this.cacheKey = cacheKey;
         this.leapsCache = leapsCache;
@@ -99,18 +103,18 @@ public class ActiveScan implements ScanFromFp {
     }
 
     public long getInclusiveStartOfRow(byte[] key, boolean exact, byte[] intBuffer) throws Exception {
-        Leaps at = leaps;
+        Leaps l = leaps;
         long rowIndex = -1;
         if (rawhide.compare(leaps.lastKey, key) < 0) {
             return rowIndex;
         }
         int cacheMisses = 0;
         int cacheHits = 0;
-        while (at != null) {
+        while (l != null) {
             Leaps next;
-            int index = Arrays.binarySearch(at.keys, key, rawhide);
-            if (index == -(at.fps.length + 1)) {
-                rowIndex = binarySearchClosestFP(at, 0, key, exact, intBuffer);
+            int index = Arrays.binarySearch(l.keys, key, rawhide);
+            if (index == -(l.fps.length + 1)) {
+                rowIndex = binarySearchClosestFP(rawhide, rawEntryFormat, readable, l, 0, key, exact, intBuffer);
                 break;
             } else {
                 if (index < 0) {
@@ -118,19 +122,19 @@ public class ActiveScan implements ScanFromFp {
                 }
 
                 UIO.longBytes(cacheKey, cacheKeyBuffer, 0);
-                UIO.longBytes(at.fps[index], cacheKeyBuffer, 8);
+                UIO.longBytes(l.fps[index], cacheKeyBuffer, 8);
 
                 next = leapsCache.get(cacheKeyBuffer);
                 if (next == null) {
-                    readable.seek(at.fps[index]);
-                    next = Leaps.read(readable, lengthBuffer);
+                    readable.seek(l.fps[index]);
+                    next = Leaps.read(readKeyFormatTransormer, readable, lengthBuffer);
                     leapsCache.put(Arrays.copyOf(cacheKeyBuffer, 16), next);
                     cacheMisses++;
                 } else {
                     cacheHits++;
                 }
             }
-            at = next;
+            l = next;
         }
 
         LOG.inc("LAB>leapCache>calls");
@@ -143,7 +147,15 @@ public class ActiveScan implements ScanFromFp {
         return rowIndex;
     }
 
-    private long binarySearchClosestFP(Leaps at, long keyFormat, byte[] key, boolean exact, byte[] intBuffer) throws Exception {
+    private static long binarySearchClosestFP(Rawhide rawhide,
+        RawEntryFormat rawEntryFormat,
+        IReadable readable, 
+        Leaps at,
+        long keyFormat,
+        byte[] key,
+        boolean exact,
+        byte[] intBuffer) throws Exception {
+
         LongBuffer startOfEntryBuffer = at.startOfEntry.get(readable);
         int low = 0;
         int high = startOfEntryBuffer.limit() - 1;

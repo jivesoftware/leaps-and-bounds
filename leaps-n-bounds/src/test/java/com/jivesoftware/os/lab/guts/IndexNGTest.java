@@ -2,6 +2,8 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
@@ -41,13 +43,14 @@ public class IndexNGTest {
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
         LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10, simpleRawEntry, new RawEntryFormat(0, 0));
+            64, 10, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, leapsCache), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), FormatTransformerProvider.NO_OP, simpleRawEntry,
+            leapsCache), count, step, desired);
     }
 
     @Test(enabled = false)
@@ -82,13 +85,14 @@ public class IndexNGTest {
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
         LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10, simpleRawEntry, new RawEntryFormat(0, 0));
+            64, 10, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
         disIndex.append(memoryIndex);
         disIndex.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), simpleRawEntry, leapsCache), count, step, desired);
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), FormatTransformerProvider.NO_OP, simpleRawEntry,
+            leapsCache), count, step, desired);
 
     }
 

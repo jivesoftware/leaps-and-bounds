@@ -3,6 +3,8 @@ package com.jivesoftware.os.lab.guts;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -66,12 +68,13 @@ public class IndexStressNGTest {
                                 int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
                                 return new LABAppendableIndex(id, new IndexFile(mergingFile, "rw", true),
-                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry, new RawEntryFormat(0, 0));
+                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
                                 LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true), simpleRawEntry, leapsCache);
+                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r", true), FormatTransformerProvider.NO_OP,
+                                    simpleRawEntry, leapsCache);
                             }));
                     if (compactor != null) {
                         waitForDebtToDrain.incrementAndGet();
@@ -170,13 +173,14 @@ public class IndexStressNGTest {
 
             long startMerge = System.currentTimeMillis();
             LABAppendableIndex write = new LABAppendableIndex(id,
-                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps, simpleRawEntry, new RawEntryFormat(0, 0));
+                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.closeAppendable(fsync);
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-            indexs.append(new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true), simpleRawEntry, leapsCache));
+            indexs.append(
+                new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r", true), FormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
 
             count += batchSize;
 

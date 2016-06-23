@@ -2,6 +2,8 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.ConcurrentSplitException;
+import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
@@ -51,6 +53,7 @@ public class RangeStripedCompactableIndexes {
     private final long splitWhenKeysTotalExceedsNBytes;
     private final long splitWhenValuesTotalExceedsNBytes;
     private final long splitWhenValuesAndKeysTotalExceedsNBytes;
+    private final FormatTransformerProvider formatTransformerProvider;
     private final Rawhide rawhide;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final Semaphore appendSemaphore = new Semaphore(Short.MAX_VALUE, true);
@@ -64,6 +67,7 @@ public class RangeStripedCompactableIndexes {
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
+        FormatTransformerProvider formatTransformerProvider,
         Rawhide rawhide,
         AtomicReference<RawEntryFormat> rawhideFormat,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
@@ -76,6 +80,7 @@ public class RangeStripedCompactableIndexes {
         this.splitWhenKeysTotalExceedsNBytes = splitWhenKeysTotalExceedsNBytes;
         this.splitWhenValuesTotalExceedsNBytes = splitWhenValuesTotalExceedsNBytes;
         this.splitWhenValuesAndKeysTotalExceedsNBytes = splitWhenValuesAndKeysTotalExceedsNBytes;
+        this.formatTransformerProvider = formatTransformerProvider;
         this.rawhide = rawhide;
         this.rawhideFormat = rawhideFormat;
         this.leapsCache = leapsCache;
@@ -213,7 +218,7 @@ public class RangeStripedCompactableIndexes {
                         continue;
                     }
                     IndexFile indexFile = new IndexFile(file, "rw", useMemMap);
-                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, rawhide, leapsCache);
+                    LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, formatTransformerProvider, rawhide, leapsCache);
                     if (lab.minKey() != null && lab.maxKey() != null) {
                         if (keyRange == null) {
                             keyRange = new KeyRange(rawhide, lab.minKey(), lab.maxKey());
@@ -305,11 +310,13 @@ public class RangeStripedCompactableIndexes {
             LABAppendableIndex appendableIndex = null;
             try {
                 RawEntryFormat format = rawhideFormat.get();
+                FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
                 appendableIndex = new LABAppendableIndex(indexRangeId,
                     indexFile,
                     maxLeaps,
                     entriesBetweenLeaps,
                     rawhide,
+                    writeKeyFormatTransformer,
                     format);
                 appendableIndex.append((stream) -> {
                     ReadIndex reader = index.acquireReader();
@@ -344,7 +351,7 @@ public class RangeStripedCompactableIndexes {
             FileUtils.forceMkdir(commitedIndexFile.getParentFile());
             Files.move(commitingIndexFile.toPath(), commitedIndexFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
             IndexFile indexFile = new IndexFile(commitedIndexFile, "r", useMemMap);
-            LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, rawhide, leapsCache);
+            LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, formatTransformerProvider, rawhide, leapsCache);
             reopenedIndex.flush(fsync);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
             return reopenedIndex;
@@ -395,6 +402,9 @@ public class RangeStripedCompactableIndexes {
             return () -> {
                 appendSemaphore.acquire(Short.MAX_VALUE);
                 try {
+                    RawEntryFormat format = rawhideFormat.get();
+                    FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
+
                     return callback.call((IndexRangeId id, long worstCaseCount) -> {
                         int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                         File splitIntoDir = new File(splittingRoot, String.valueOf(nextStripeIdLeft));
@@ -403,12 +413,12 @@ public class RangeStripedCompactableIndexes {
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
-                        RawEntryFormat format = rawhideFormat.get();
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
                             entriesBetweenLeaps,
                             rawhide,
+                            writeKeyFormatTransformer,
                             format);
                         return writeLeapsAndBoundsIndex;
                     }, (IndexRangeId id, long worstCaseCount) -> {
@@ -419,12 +429,12 @@ public class RangeStripedCompactableIndexes {
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
-                        RawEntryFormat format = rawhideFormat.get();
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
                             entriesBetweenLeaps,
                             rawhide,
+                            writeKeyFormatTransformer,
                             format);
                         return writeLeapsAndBoundsIndex;
                     }, (ids) -> {
@@ -499,17 +509,21 @@ public class RangeStripedCompactableIndexes {
             File activeRoot = new File(stripeRoot, "active");
             File mergingRoot = new File(stripeRoot, "merging");
             FileUtils.forceMkdir(mergingRoot);
+
+            RawEntryFormat format = rawhideFormat.get();
+            FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
+
             return callback.build(minimumRun, fsync, (id, count) -> {
                 int maxLeaps = IndexUtil.calculateIdealMaxLeaps(count, entriesBetweenLeaps);
                 File mergingIndexFile = id.toFile(mergingRoot);
                 FileUtils.deleteQuietly(mergingIndexFile);
                 IndexFile indexFile = new IndexFile(mergingIndexFile, "rw", useMemMap);
-                RawEntryFormat format = rawhideFormat.get();
                 LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                     indexFile,
                     maxLeaps,
                     entriesBetweenLeaps,
                     rawhide,
+                    writeKeyFormatTransformer,
                     format);
                 return writeLeapsAndBoundsIndex;
             }, (ids) -> {

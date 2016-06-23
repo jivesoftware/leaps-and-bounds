@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.base.Preconditions;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -34,21 +35,24 @@ public class Leaps {
         this.startOfEntry = startOfEntry;
     }
 
-    void write(IAppendOnly writeable, byte[] lengthBuffer) throws IOException {
+    void write(FormatTransformer keyFormatTransformer, IAppendOnly writeable, byte[] lengthBuffer) throws Exception {
+        byte[] writeLastKey = keyFormatTransformer.transform(lastKey);
+        byte[][] writeKeys =  keyFormatTransformer.transform(keys);
+        
         LongBuffer startOfEntryBuffer = startOfEntry.get(null);
-        int entryLength = 4 + 4 + 4 + lastKey.length + 4 + (startOfEntryBuffer.limit() * 8) + 4;
+        int entryLength = 4 + 4 + 4 + writeLastKey.length + 4 + (startOfEntryBuffer.limit() * 8) + 4;
         for (int i = 0; i < fps.length; i++) {
-            entryLength += 8 + 4 + keys[i].length;
+            entryLength += 8 + 4 + writeKeys[i].length;
         }
         entryLength += 4;
         UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
         UIO.writeInt(writeable, index, "index", lengthBuffer);
         UIO.writeInt(writeable, lastKey.length, "lastKeyLength", lengthBuffer);
-        UIO.write(writeable, lastKey, "lastKey");
+        UIO.write(writeable, writeLastKey, "lastKey");
         UIO.writeInt(writeable, fps.length, "fpIndexLength", lengthBuffer);
         for (int i = 0; i < fps.length; i++) {
             UIO.writeLong(writeable, fps[i], "fpIndex");
-            UIO.writeByteArray(writeable, keys[i], "key", lengthBuffer);
+            UIO.writeByteArray(writeable, writeKeys[i], "key", lengthBuffer);
         }
         int startOfEntryLength = startOfEntryBuffer.limit();
         UIO.writeInt(writeable, startOfEntryLength, "startOfEntryLength", lengthBuffer);
@@ -58,7 +62,7 @@ public class Leaps {
         UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
     }
 
-    static Leaps read(IReadable readable, byte[] lengthBuffer) throws IOException {
+    static Leaps read(FormatTransformer keyFormatTransformer, IReadable readable, byte[] lengthBuffer) throws Exception {
         int entryLength = UIO.readInt(readable, "entryLength", lengthBuffer);
         int index = UIO.readInt(readable, "index", lengthBuffer);
         int lastKeyLength = UIO.readInt(readable, "lastKeyLength", lengthBuffer);
@@ -90,7 +94,7 @@ public class Leaps {
         if (UIO.readInt(readable, "entryLength", lengthBuffer) != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
-        return new Leaps(index, lastKey, fpIndex, keys, startOfEntry);
+        return new Leaps(index, keyFormatTransformer.transform(lastKey), fpIndex, keyFormatTransformer.transform(keys), startOfEntry);
     }
 
 }

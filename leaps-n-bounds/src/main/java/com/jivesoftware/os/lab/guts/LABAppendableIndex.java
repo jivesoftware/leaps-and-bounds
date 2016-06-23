@@ -1,7 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.io.AppendableHeap;
@@ -23,6 +24,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
     private final Rawhide rawhide;
+    private final FormatTransformer writeKeyFormatTransormer;
     private final RawEntryFormat rawhideFormat;
 
     private final byte[] lengthBuffer = new byte[4];
@@ -48,6 +50,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         int maxLeaps,
         int updatesBetweenLeaps,
         Rawhide rawhide,
+        FormatTransformer writeKeyFormatTransormer,
         RawEntryFormat rawhideFormat) {
 
         this.indexRangeId = indexRangeId;
@@ -55,6 +58,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         this.maxLeaps = maxLeaps;
         this.updatesBetweenLeaps = updatesBetweenLeaps;
         this.rawhide = rawhide;
+        this.writeKeyFormatTransormer = writeKeyFormatTransormer;
         this.rawhideFormat = rawhideFormat;
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
     }
@@ -119,22 +123,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
         return true;
     }
 
-    private LeapFrog writeLeaps(IAppendOnly writeIndex,
-        LeapFrog latest,
-        int index,
-        byte[] key,
-        long[] startOfEntryIndex,
-        byte[] lengthBuffer) throws IOException {
-
-        Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
-        UIO.writeByte(writeIndex, LEAP, "type");
-        long startOfLeapFp = writeIndex.getFilePointer();
-        nextLeaps.write(writeIndex, lengthBuffer);
-        return new LeapFrog(startOfLeapFp, nextLeaps);
-    }
-
     @Override
-    public void closeAppendable(boolean fsync) throws IOException {
+    public void closeAppendable(boolean fsync) throws Exception {
         try {
             if (appendOnly == null) {
                 appendOnly = index.appender();
@@ -190,6 +180,22 @@ public class LABAppendableIndex implements RawAppendableIndex {
             + ", leapCount=" + leapCount
             + ", count=" + count
             + '}';
+    }
+
+    
+
+    private LeapFrog writeLeaps(IAppendOnly writeIndex,
+        LeapFrog latest,
+        int index,
+        byte[] key,
+        long[] startOfEntryIndex,
+        byte[] lengthBuffer) throws Exception {
+
+        Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
+        UIO.writeByte(writeIndex, LEAP, "type");
+        long startOfLeapFp = writeIndex.getFilePointer();
+        nextLeaps.write(writeKeyFormatTransormer, writeIndex, lengthBuffer);
+        return new LeapFrog(startOfLeapFp, nextLeaps);
     }
 
 }

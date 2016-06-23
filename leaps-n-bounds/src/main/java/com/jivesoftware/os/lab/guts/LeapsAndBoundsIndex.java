@@ -1,9 +1,11 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
-import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IReadable;
@@ -32,6 +34,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
     private final Semaphore hideABone;
 
+    private final FormatTransformer readKeyFormatTransformer;
     private final Rawhide rawhide;
     private final RawEntryFormat rawhideFormat;
     private Leaps leaps; // loaded when reading
@@ -41,6 +44,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     public LeapsAndBoundsIndex(ExecutorService destroy,
         IndexRangeId id,
         IndexFile index,
+        FormatTransformerProvider formatTransformerProvider,
         Rawhide rawhide,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
         this.destroy = destroy;
@@ -54,8 +58,9 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         IReadable reader = index.reader(null, length, true);
         this.footer = readFooter(reader);
         this.rawhide = rawhide;
-        this.rawhideFormat = new RawEntryFormat(footer.keyFormat, footer.valueFormat);
-        this.leapsCache = leapsCache; //new ConcurrentLHash<>(3, -2, -1, concurrency); // TODO config
+        this.readKeyFormatTransformer = formatTransformerProvider.read(footer.keyFormat);
+        this.rawhideFormat = new RawEntryFormat(footer.keyFormat, footer.valueFormat); // Hmm
+        this.leapsCache = leapsCache;
     }
 
     private Footer readFooter(IReadable readable) throws IOException, LABIndexCorruptedException {
@@ -134,13 +139,23 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
                 int type = readableIndex.read();
                 if (type != LEAP) {
-                    throw new RuntimeException("4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + index.getFileName() + " length:" + index.length());
+                    throw new RuntimeException("4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + index.getFileName() + " length:" + index
+                        .length());
                 }
-                leaps = Leaps.read(readableIndex, lengthBuffer);
+                leaps = Leaps.read(readKeyFormatTransformer, readableIndex, lengthBuffer);
             }
-            ReadLeapsAndBoundsIndex i = new ReadLeapsAndBoundsIndex(hideABone, rawhide, rawhideFormat, leaps, cacheKey, leapsCache, footer, () -> {
-                return index.reader(null, index.length(), false);
-            });
+            ReadLeapsAndBoundsIndex i = new ReadLeapsAndBoundsIndex(hideABone,
+                rawhide,
+                rawhideFormat,
+                readKeyFormatTransformer,
+                leaps,
+                cacheKey,
+                leapsCache,
+                footer,
+                () -> {
+                    return index.reader(null, index.length(), false);
+                }
+            );
 
             return i;
         } catch (IOException | RuntimeException x) {

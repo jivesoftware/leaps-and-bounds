@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
@@ -29,14 +30,14 @@ public class LABEnvironmentNGTest {
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 false, labHeapPressure, 4, 8, leapsCache);
 
-            ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide(), new RawEntryFormat(0, 0));
+            ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
             indexTest(index);
 
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, labHeapPressure, 4, 8, leapsCache);
 
-            index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide(), new RawEntryFormat(0, 0));
+            index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
             indexTest(index);
 
             env.shutdown();
@@ -45,7 +46,7 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, labHeapPressure, 4, 8, leapsCache);
             env.rename("foo", "bar");
-            index = env.open("bar", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide(), new RawEntryFormat(0, 0));
+            index = env.open("bar", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
 
             indexTest(index);
 
@@ -118,7 +119,7 @@ public class LABEnvironmentNGTest {
             true, labHeapPressure, 4, 8, leapsCache);
         System.out.println("Created env");
 
-        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide(), new RawEntryFormat(0, 0));
+        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
         System.out.println("Open env");
         indexTest(index);
         System.out.println("Indexed");
@@ -131,7 +132,7 @@ public class LABEnvironmentNGTest {
             root, true, labHeapPressure, 4, 8, leapsCache);
         System.out.println("Recreate env");
 
-        index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, new LABRawhide(), new RawEntryFormat(0, 0));
+        index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
         System.out.println("Re-open env");
         indexTest(index);
         System.out.println("Re-indexed");

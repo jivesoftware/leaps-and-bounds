@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
@@ -19,6 +20,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     private final Semaphore hideABone;
     private final Rawhide rawhide;
     private final RawEntryFormat rawhideFormat;
+    private final FormatTransformer readKeyFormatTransormer;
     private final Leaps leaps;
     private final long cacheKey;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
@@ -28,6 +30,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     public ReadLeapsAndBoundsIndex(Semaphore hideABone,
         Rawhide rawhide,
         RawEntryFormat rawhideFormat,
+        FormatTransformer readKeyFormatTransormer,
         Leaps leaps,
         long cacheKey,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
@@ -36,6 +39,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         this.hideABone = hideABone;
         this.rawhide = rawhide;
         this.rawhideFormat = rawhideFormat;
+        this.readKeyFormatTransormer = readKeyFormatTransormer;
         this.leaps = leaps;
         this.cacheKey = cacheKey;
         this.leapsCache = leapsCache;
@@ -56,12 +60,31 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     @Override
     public GetRaw get() throws Exception {
         // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
-        return new Gets(new ActiveScan(rawhide, rawhideFormat, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]));
+        return new Gets(new ActiveScan(rawhide,
+            rawhideFormat,
+            readKeyFormatTransormer,
+            leaps,
+            cacheKey,
+            leapsCache,
+            footer,
+            readable.call(),
+            new byte[16],
+            new byte[8])
+        );
     }
 
     @Override
     public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide, rawhideFormat, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]);
+        ActiveScan activeScan = new ActiveScan(rawhide,
+            rawhideFormat,
+            readKeyFormatTransormer,
+            leaps,
+            cacheKey,
+            leapsCache,
+            footer,
+            readable.call(),
+            new byte[16],
+            new byte[8]);
         activeScan.reset();
         long fp = activeScan.getInclusiveStartOfRow(from, false, new byte[4]);
         if (fp < 0) {
@@ -92,7 +115,16 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public NextRawEntry rowScan() throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide,rawhideFormat, leaps, cacheKey, leapsCache, footer, readable.call(), new byte[16], new byte[8]);
+        ActiveScan activeScan = new ActiveScan(rawhide, 
+            rawhideFormat,
+            readKeyFormatTransormer,
+            leaps,
+            cacheKey,
+            leapsCache,
+            footer,
+            readable.call(),
+            new byte[16],
+            new byte[8]);
         activeScan.reset();
         return (stream) -> {
             activeScan.next(0, stream);
