@@ -2,7 +2,6 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FormatTransformer;
-import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
@@ -19,8 +18,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     private final Semaphore hideABone;
     private final Rawhide rawhide;
-    private final RawEntryFormat rawhideFormat;
     private final FormatTransformer readKeyFormatTransormer;
+    private final FormatTransformer readValueFormatTransormer;
     private final Leaps leaps;
     private final long cacheKey;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
@@ -29,8 +28,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     public ReadLeapsAndBoundsIndex(Semaphore hideABone,
         Rawhide rawhide,
-        RawEntryFormat rawhideFormat,
         FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
         Leaps leaps,
         long cacheKey,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
@@ -38,8 +37,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         Callable<IReadable> readable) {
         this.hideABone = hideABone;
         this.rawhide = rawhide;
-        this.rawhideFormat = rawhideFormat;
         this.readKeyFormatTransormer = readKeyFormatTransormer;
+        this.readValueFormatTransormer = readValueFormatTransormer;
         this.leaps = leaps;
         this.cacheKey = cacheKey;
         this.leapsCache = leapsCache;
@@ -61,8 +60,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     public GetRaw get() throws Exception {
         // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
         return new Gets(new ActiveScan(rawhide,
-            rawhideFormat,
             readKeyFormatTransormer,
+            readValueFormatTransormer,
             leaps,
             cacheKey,
             leapsCache,
@@ -76,8 +75,8 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     @Override
     public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
         ActiveScan activeScan = new ActiveScan(rawhide,
-            rawhideFormat,
             readKeyFormatTransormer,
+            readValueFormatTransormer,
             leaps,
             cacheKey,
             leapsCache,
@@ -95,14 +94,14 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             boolean more = true;
             while (!once[0] && more) {
                 more = activeScan.next(fp,
-                    (rawEntryFormat, rawEntry, offset, length) -> {
-                        int c = rawhide.compareKey(rawEntryFormat, rawEntry, offset, 0, from, 0, from.length);
+                    (readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, length) -> {
+                        int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, from, 0, from.length);
                         if (c >= 0) {
-                            c = to == null ? -1 : rawhide.compareKey(rawEntryFormat, rawEntry, offset, 0, to, 0, to.length);
+                            c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, to, 0, to.length);
                             if (c < 0) {
                                 once[0] = true;
                             }
-                            return c < 0 && stream.stream(rawEntryFormat, rawEntry, offset, length);
+                            return c < 0 && stream.stream(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, length);
                         } else {
                             return true;
                         }
@@ -115,9 +114,9 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public NextRawEntry rowScan() throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide, 
-            rawhideFormat,
+        ActiveScan activeScan = new ActiveScan(rawhide,
             readKeyFormatTransormer,
+            readValueFormatTransormer,
             leaps,
             cacheKey,
             leapsCache,

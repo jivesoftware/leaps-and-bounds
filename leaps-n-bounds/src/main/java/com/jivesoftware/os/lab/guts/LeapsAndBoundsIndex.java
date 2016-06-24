@@ -4,7 +4,6 @@ import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
-import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
@@ -35,9 +34,9 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     private final Semaphore hideABone;
 
     private final FormatTransformer readKeyFormatTransformer;
+    private final FormatTransformer readValueFormatTransformer;
     private final Rawhide rawhide;
-    private final RawEntryFormat rawhideFormat;
-    private Leaps leaps; // loaded when reading
+   private Leaps leaps; // loaded when reading
 
     private final long cacheKey = CACHE_KEYS.incrementAndGet();
 
@@ -59,7 +58,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         this.footer = readFooter(reader);
         this.rawhide = rawhide;
         this.readKeyFormatTransformer = formatTransformerProvider.read(footer.keyFormat);
-        this.rawhideFormat = new RawEntryFormat(footer.keyFormat, footer.valueFormat); // Hmm
+        this.readValueFormatTransformer = formatTransformerProvider.read(footer.valueFormat);
         this.leapsCache = leapsCache;
     }
 
@@ -146,8 +145,8 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
             }
             ReadLeapsAndBoundsIndex i = new ReadLeapsAndBoundsIndex(hideABone,
                 rawhide,
-                rawhideFormat,
                 readKeyFormatTransformer,
+                readValueFormatTransformer,
                 leaps,
                 cacheKey,
                 leapsCache,

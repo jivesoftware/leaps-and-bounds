@@ -87,25 +87,25 @@ public class Footer {
         long valuesSizeInBytes = UIO.readLong(readable, "valuesSizeInBytes", lengthBuffer);
         read += 8;
         byte[] minKey = UIO.readByteArray(readable, "minKey", lengthBuffer);
-        read += minKey.length;
-        byte[] maxKey = UIO.readByteArray(readable, "minKey", lengthBuffer);
-        read += minKey.length;
+        read += 4 + minKey.length;
+        byte[] maxKey = UIO.readByteArray(readable, "maxKey", lengthBuffer);
+        read += 4 + maxKey.length;
         long maxTimestamp = UIO.readLong(readable, "maxTimestamp", lengthBuffer);
         read += 8;
         long maxTimestampVersion = UIO.readLong(readable, "maxTimestampVersion", lengthBuffer);
         read += 8;
 
         long keyFormat = 0;
-        long valueForamt = 0;
+        long valueFormat = 0;
         if (entryLength > read) {
             keyFormat = UIO.readLong(readable, "keyFormat", lengthBuffer);
-            valueForamt = UIO.readLong(readable, "valueFormat", lengthBuffer);
+            valueFormat = UIO.readLong(readable, "valueFormat", lengthBuffer);
         }
 
         if (UIO.readInt(readable, "entryLength", lengthBuffer) != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
-        return new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, minKey, maxKey, keyFormat, valueForamt, new TimestampAndVersion(maxTimestamp,
+        return new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, minKey, maxKey, keyFormat, valueFormat, new TimestampAndVersion(maxTimestamp,
             maxTimestampVersion));
     }
 

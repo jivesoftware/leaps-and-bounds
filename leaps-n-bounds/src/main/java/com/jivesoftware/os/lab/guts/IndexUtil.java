@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.google.common.primitives.UnsignedLongs;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
@@ -38,7 +39,7 @@ public class IndexUtil {
                     return result;
                 }
             }
-            result = stream.stream(null, null, -1, -1);
+            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, null, -1, -1);
             return result;
         }
 
@@ -72,12 +73,7 @@ public class IndexUtil {
         return new InterleaveStream(feeders, rawhide);
     }
 
-    public static int calculateIdealMaxLeaps(long entryCount, int entriesBetweenLeaps) {
-        int approximateLeapCount = (int) Math.max(1, entryCount / entriesBetweenLeaps);
-        int maxLeaps = (int) (Math.log(approximateLeapCount) / Math.log(2));
-        return 1 + maxLeaps;
-    }
-
+   
     /**
      * Borrowed from guava.
      */

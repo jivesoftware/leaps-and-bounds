@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
@@ -370,29 +371,33 @@ public class LAB implements ValueIndex {
             appended = memoryIndex.append((stream) -> {
                 RawEntryFormat format = rawEntryFormat.get();
                 return values != null && values.consume((index, key, timestamp, tombstoned, version, value) -> {
-                    byte[] rawEntry = rawhide.toRawEntry(0, key, timestamp, tombstoned, version, 0, value, format);
+                    byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
 
                     RawMemoryIndex copy = flushingMemoryIndex;
                     TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
                     if ((copy == null || isNewerThan(timestamp, version, copy))
                         && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
-                        return stream.stream(format, rawEntry, 0, rawEntry.length);
+                        return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
                     } else {
                         rangeTx(false, -1, key, key, timestamp, version,
                             (index1, fromKey, toKey, readIndexes) -> {
                                 GetRaw getRaw = IndexUtil.get(readIndexes);
-                                return getRaw.get(key, (existingEntryFormat, existingEntry, offset, length) -> {
-                                    if (existingEntry == null) {
-                                        return stream.stream(format, rawEntry, 0, rawEntry.length);
-                                    } else {
-                                        long existingTimestamp = rawhide.timestamp(existingEntryFormat, existingEntry, offset, length);
-                                        long existingVersion = rawhide.version(existingEntryFormat, existingEntry, offset, length);
-                                        if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
-                                            return stream.stream(format, rawEntry, 0, rawEntry.length);
+                                return getRaw.get(key,
+                                    (existingReadKeyFormatTransformer, existingReadValueFormatTransformer, existingEntry, offset, length) -> {
+                                        if (existingEntry == null) {
+                                            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+                                        } else {
+                                            long existingTimestamp = rawhide.timestamp(existingReadKeyFormatTransformer, existingReadValueFormatTransformer,
+                                                existingEntry, offset, length);
+                                            long existingVersion = rawhide.version(existingReadKeyFormatTransformer, existingReadValueFormatTransformer,
+                                                existingEntry, offset, length);
+
+                                            if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
+                                                return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+                                            }
                                         }
-                                    }
-                                    return false;
-                                });
+                                        return false;
+                                    });
                             });
                         return true;
                     }
@@ -548,13 +553,15 @@ public class LAB implements ValueIndex {
     }
 
     private boolean rawToReal(int index, byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
-        return getRaw.get(key, (rawEntryFormat, rawEntry, offset, length) -> rawhide.streamRawEntry(valueStream, index, rawEntryFormat, rawEntry, offset));
+        return getRaw.get(key, (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+            return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream);
+        });
     }
 
     private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
         while (true) {
-            Next next = nextRawEntry.next((rawEntryFormat, rawEntry, offset, length) -> {
-                return rawhide.streamRawEntry(valueStream, -1, rawEntryFormat, rawEntry, offset);
+            Next next = nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                return rawhide.streamRawEntry(-1, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream);
             });
             if (next == Next.stopped) {
                 return false;

@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
@@ -40,7 +40,7 @@ public class InterleaveStreamNGTest {
     }
 
     private void assertExpected(InterleaveStream ips, List<Expected> expected) throws Exception {
-        while (ips.next((rawEntryFormat, rawEntry, offset, length) -> {
+        while (ips.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
             Expected expect = expected.remove(0);
             System.out.println("key:" + SimpleRawhide.key(rawEntry) + " vs" + expect.key + " value:" + SimpleRawhide.value(rawEntry) + " vs " + expect.value);
             Assert.assertEquals(SimpleRawhide.key(rawEntry), expect.key);
@@ -121,7 +121,7 @@ public class InterleaveStreamNGTest {
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
                 NextRawEntry nextRawEntry = readerIndexs[wi].rowScan();
-                while (nextRawEntry.next((rawEntryFormat, rawEntry, offset, length) -> {
+                while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
                     System.out.println(SimpleRawhide.toString(rawEntry));
                     return true;
                 }) == NextRawEntry.Next.more);
@@ -171,7 +171,7 @@ public class InterleaveStreamNGTest {
         return (stream) -> {
             if (index[0] < keys.length) {
                 byte[] rawEntry = SimpleRawhide.rawEntry(keys[index[0]], values[index[0]]);
-                if (!stream.stream(RawEntryFormat.MEMORY, rawEntry, 0, rawEntry.length)) {
+                if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length)) {
                     return Next.stopped;
                 }
             }

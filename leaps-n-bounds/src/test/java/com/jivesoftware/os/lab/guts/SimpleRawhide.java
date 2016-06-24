@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
-import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.io.AppendableHeap;
@@ -20,8 +20,16 @@ public class SimpleRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] merge(RawEntryFormat currentFormat, byte[] current, RawEntryFormat addingFormat, byte[] adding, RawEntryFormat mergeFormat) {
-        return value(current) > value(adding) ? current : adding;
+    public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
+        FormatTransformer currentReadValueFormatTransormer,
+        byte[] currentRawEntry,
+        FormatTransformer addingReadKeyFormatTransormer,
+        FormatTransformer addingReadValueFormatTransormer,
+        byte[] addingRawEntry,
+        FormatTransformer mergedReadKeyFormatTransormer,
+        FormatTransformer mergedReadValueFormatTransormer) {
+
+        return value(currentRawEntry) > value(addingRawEntry) ? currentRawEntry : addingRawEntry;
     }
 
     public static long key(byte[] rawEntry) {
@@ -29,12 +37,22 @@ public class SimpleRawhide implements Rawhide {
     }
 
     @Override
-    public long timestamp(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length) {
+    public long timestamp(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        int length) {
+
         return value(rawEntry);
     }
 
     @Override
-    public long version(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length) {
+    public long version(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        int length) {
+
         return -1;
     }
 
@@ -51,7 +69,9 @@ public class SimpleRawhide implements Rawhide {
     }
 
     @Override
-    public boolean streamRawEntry(ValueStream stream, int index, RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset) throws Exception {
+    public boolean streamRawEntry(int index, FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, byte[] rawEntry, int offset,
+        ValueStream stream) throws Exception {
+
         if (rawEntry == null) {
             return stream.stream(index, null, -1, false, -1, null);
         }
@@ -68,38 +88,45 @@ public class SimpleRawhide implements Rawhide {
         long version = UIO.bytesLong(rawEntry, o);
         o += 8;
 
-        int payloadLength = UIO.bytesInt(rawEntry, o);
+        int valueLength = UIO.bytesInt(rawEntry, o);
         o += 4;
-        byte[] payload = new byte[payloadLength];
-        System.arraycopy(rawEntry, o, payload, 0, payloadLength);
-        o += payloadLength;
+        byte[] value = new byte[valueLength];
+        System.arraycopy(rawEntry, o, value, 0, valueLength);
+        o += valueLength;
 
-        return stream.stream(index, k, timestamp, tombstone, version, payload);
+        return stream.stream(index, readKeyFormatTransormer.transform(k), timestamp, tombstone, version, readValueFormatTransormer.transform(value));
     }
 
     @Override
-    public byte[] toRawEntry(long keyFormat, byte[] key, long timestamp, boolean tombstoned, long version, long payloadFormat, byte[] payload,
-        RawEntryFormat rawEntryFormat) throws IOException {
+    public byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] value) throws IOException {
 
-        AppendableHeap indexEntryFiler = new AppendableHeap(4 + key.length + 8 + 1 + 4 + payload.length); // TODO somthing better
+        AppendableHeap indexEntryFiler = new AppendableHeap(4 + key.length + 8 + 1 + 4 + value.length); // TODO somthing better
         byte[] lengthBuffer = new byte[4];
         UIO.writeByteArray(indexEntryFiler, key, "key", lengthBuffer);
         UIO.writeLong(indexEntryFiler, timestamp, "timestamp");
         UIO.writeByte(indexEntryFiler, tombstoned ? (byte) 1 : (byte) 0, "tombstone");
         UIO.writeLong(indexEntryFiler, version, "version");
-        UIO.writeByteArray(indexEntryFiler, payload, "payload", lengthBuffer);
+        UIO.writeByteArray(indexEntryFiler, value, "value", lengthBuffer);
         return indexEntryFiler.getBytes();
     }
 
     @Override
-    public int entryLength(RawEntryFormat readableFormat, IReadable readable, byte[] lengthBuffer) throws Exception {
+    public int rawEntryLength(IReadable readable, byte[] lengthBuffer) throws Exception {
         int length = UIO.readInt(readable, "entryLength", lengthBuffer);
         return length - 4;
     }
 
     @Override
-    public void writeRawEntry(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length, RawEntryFormat appendFormat, IAppendOnly appendOnly,
+    public void writeRawEntry(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        int length,
+        FormatTransformer appendKeyFormatTransormer,
+        FormatTransformer appendValueFormatTransormer,
+        IAppendOnly appendOnly,
         byte[] lengthBuffer) throws Exception {
+
         int entryLength = 4 + length + 4;
         UIO.writeInt(appendOnly, entryLength, "entryLength", lengthBuffer);
         appendOnly.append(rawEntry, offset, length);
@@ -107,7 +134,12 @@ public class SimpleRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] key(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length) {
+    public byte[] key(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        int length) {
+
         int keyLength = UIO.bytesInt(rawEntry, offset);
         byte[] key = new byte[keyLength];
         System.arraycopy(rawEntry, 4, key, 0, keyLength);
@@ -115,49 +147,51 @@ public class SimpleRawhide implements Rawhide {
     }
 
     @Override
-    public int keyLength(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset) {
-        return UIO.bytesInt(rawEntry, offset);
-    }
+    public int compareKey(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, byte[] rawEntry, int offset, byte[] compareKey,
+        int compareOffset, int compareLength) {
 
-    @Override
-    public int keyOffset(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset) {
-        return offset + 4;
-    }
-
-    @Override
-    public int compareKey(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, long keyFormat, byte[] compareKey, int compareOffset, int compareLength) {
         int keylength = UIO.bytesInt(rawEntry, offset);
         return IndexUtil.compare(rawEntry, offset + 4, keylength, compareKey, compareOffset, compareLength);
     }
 
     @Override
-    public int compareKeyFromEntry(RawEntryFormat readableFormat, IReadable readable, long compareKeyFormat, byte[] compareKey, int compareOffset,
-        int compareLength, byte[] intBuffer) throws Exception {
+    public int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        IReadable readable,
+        byte[] compareKey,
+        int compareOffset,
+        int compareLength,
+        byte[] intBuffer) throws Exception {
+
         readable.seek(readable.getFilePointer() + 4); // skip the entry length
         int keyLength = UIO.readInt(readable, "keyLength", intBuffer);
         return IndexUtil.compare(readable, keyLength, compareKey, compareOffset, compareLength);
     }
 
     @Override
-    public boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
-        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) >= 0;
-    }
-
-    @Override
-    public boolean isNewerThan(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
-        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) > 0;
-    }
-
-    private static int compare(long timestamp, long timestampVersion, long otherTimestamp, long otherTimestampVersion) {
-        int c = Long.compare(timestamp, otherTimestamp);
-        if (c != 0) {
-            return c;
-        }
-        return Long.compare(timestampVersion, otherTimestampVersion);
-    }
-
-    @Override
     public int compare(byte[] o1, byte[] o2) {
         return UnsignedBytes.lexicographicalComparator().compare(o1, o2);
+    }
+
+    @Override
+    public int compareKey(FormatTransformer aReadKeyFormatTransormer,
+        FormatTransformer aReadValueFormatTransormer,
+        byte[] aRawEntry,
+        FormatTransformer bReadKeyFormatTransormer,
+        FormatTransformer bReadValueFormatTransormer,
+        byte[] bRawEntry) {
+
+        if (aRawEntry == null && bRawEntry == null) {
+            return 0;
+        } else if (aRawEntry == null) {
+            return -bRawEntry.length;
+        } else if (bRawEntry == null) {
+            return aRawEntry.length;
+        } else {
+            return compare(
+                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, 0, aRawEntry.length),
+                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry, 0, bRawEntry.length)
+            );
+        }
     }
 }

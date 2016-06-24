@@ -10,51 +10,95 @@ import java.util.Comparator;
  */
 public interface Rawhide extends Comparator<byte[]> {
 
-    byte[] merge(RawEntryFormat currentFormat, byte[] currentRawEntry, RawEntryFormat addingFormat, byte[] addingRawEntry, RawEntryFormat mergedFromat);
+    byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
+        FormatTransformer currentReadValueFormatTransormer,
+        byte[] currentRawEntry,
+        FormatTransformer addingReadKeyFormatTransormer,
+        FormatTransformer addingReadValueFormatTransormer,
+        byte[] addingRawEntry,
+        FormatTransformer mergedReadKeyFormatTransormer,
+        FormatTransformer mergedReadValueFormatTransormer);
 
-    boolean streamRawEntry(ValueStream stream, int index, RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset) throws Exception;
+    boolean streamRawEntry(int index,
+        FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        ValueStream stream) throws Exception;
 
-    byte[] toRawEntry(long keyFormat,
-        byte[] key,
+    byte[] toRawEntry(byte[] key,
         long timestamp,
         boolean tombstoned,
         long version,
-        long payloadFormat,
-        byte[] payload,
-        RawEntryFormat rawEntryFormat) throws Exception;
+        byte[] value) throws Exception;
 
-    int entryLength(RawEntryFormat readableFormat, IReadable readable, byte[] lengthBuffer) throws Exception;
+    int rawEntryLength(IReadable readable, byte[] lengthBuffer) throws Exception;
 
-    void writeRawEntry(RawEntryFormat rawEntryFormat,
+    void writeRawEntry(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
         byte[] rawEntry,
         int offset,
         int length,
-        RawEntryFormat appendFormat,
+        FormatTransformer writeKeyFormatTransormer,
+        FormatTransformer writeValueFormatTransormer,
         IAppendOnly appendOnly,
         byte[] lengthBuffer) throws Exception;
 
-    byte[] key(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length) throws Exception;
+    byte[] key(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        int length) throws Exception;
 
-    int keyLength(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset);
+    int compareKey(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        byte[] compareKey,
+        int compareOffset,
+        int compareLength);
 
-    int keyOffset(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset);
-
-    int compareKey(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, long compareKeyFormat, byte[] compareKey, int compareOffset, int compareLength);
-
-    int compareKeyFromEntry(RawEntryFormat readableFormat,
+    int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
         IReadable readable,
-        long compareKeyFormat,
         byte[] compareKey,
         int compareOffset,
         int compareLength,
         byte[] intBuffer)
         throws Exception;
 
-    long timestamp(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length);
+    int compareKey(FormatTransformer aReadKeyFormatTransormer,
+        FormatTransformer aReadValueFormatTransormer,
+        byte[] aRawEntry,
+        FormatTransformer bReadKeyFormatTransormer,
+        FormatTransformer bReadValueFormatTransormer,
+        byte[] bRawEntry);
 
-    long version(RawEntryFormat rawEntryFormat, byte[] rawEntry, int offset, int length);
+    long timestamp(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        int length);
 
-    boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion);
+    long version(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        int length);
 
-    boolean isNewerThan(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion);
+    default boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
+        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) >= 0;
+    }
+
+    default boolean isNewerThan(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
+        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) > 0;
+    }
+
+    default int compare(long timestamp, long timestampVersion, long otherTimestamp, long otherTimestampVersion) {
+        int c = Long.compare(timestamp, otherTimestamp);
+        if (c != 0) {
+            return c;
+        }
+        return Long.compare(timestampVersion, otherTimestampVersion);
+    }
 }

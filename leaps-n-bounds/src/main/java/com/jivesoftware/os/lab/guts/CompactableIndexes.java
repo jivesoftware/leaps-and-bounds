@@ -288,13 +288,13 @@ public class CompactableIndexes {
                             LOG.debug("Splitting with a middle of:{}", Arrays.toString(middle));
                             leftAppenableIndex.append((leftStream) -> {
                                 return effectiveFinalRightAppenableIndex.append((rightStream) -> {
-                                    return feedInterleaver.stream((rawEntryFormat, rawEntry, offset, length) -> {
-                                        int c = rawhide.compareKey(rawEntryFormat, rawEntry, offset, 0, middle, 0, middle.length);
+                                    return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                                        int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, middle, 0, middle.length);
                                         if (c < 0) {
-                                            if (!leftStream.stream(rawEntryFormat, rawEntry, offset, length)) {
+                                            if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length)) {
                                                 return false;
                                             }
-                                        } else if (!rightStream.stream(rawEntryFormat, rawEntry, offset, length)) {
+                                        } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length)) {
                                             return false;
                                         }
                                         return true;
@@ -382,13 +382,13 @@ public class CompactableIndexes {
                                         LOG.debug("Doing a catchup split for a middle of:{}", Arrays.toString(middle));
                                         catchupLeftAppenableIndex.append((leftStream) -> {
                                             return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
-                                                return catchupFeedInterleaver.stream((rawEntryFormat, rawEntry, offset, length) -> {
+                                                return catchupFeedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
 
                                                     if (rawhide.compare(rawEntry, middle) < 0) {
-                                                        if (!leftStream.stream(rawEntryFormat, rawEntry, offset, length)) {
+                                                        if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length)) {
                                                             return false;
                                                         }
-                                                    } else if (!rightStream.stream(rawEntryFormat, rawEntry, offset, length)) {
+                                                    } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length)) {
                                                         return false;
                                                     }
                                                     return true;

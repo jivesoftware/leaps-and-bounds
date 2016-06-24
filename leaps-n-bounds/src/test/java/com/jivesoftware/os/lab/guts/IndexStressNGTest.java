@@ -65,10 +65,10 @@ public class IndexStressNGTest {
                             (id, worstCaseCount) -> {
 
                                 long m = merge.incrementAndGet();
-                                int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
+                                int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
                                 return new LABAppendableIndex(id, new IndexFile(mergingFile, "rw", true),
-                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
@@ -99,7 +99,7 @@ public class IndexStressNGTest {
 
             int[] hits = {0};
             int[] misses = {0};
-            RawEntryStream hitsAndMisses = (rawEntryFormat, rawEntry, offset, length) -> {
+            RawEntryStream hitsAndMisses = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
                 if (rawEntry != null) {
                     hits[0]++;
                 } else {
@@ -165,7 +165,7 @@ public class IndexStressNGTest {
 
         });
 
-        int maxLeaps = IndexUtil.calculateIdealMaxLeaps(batchSize, entriesBetweenLeaps);
+        int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(batchSize, entriesBetweenLeaps);
         for (int b = 0; b < numBatches; b++) {
 
             IndexRangeId id = new IndexRangeId(b, b, 0);
@@ -173,7 +173,8 @@ public class IndexStressNGTest {
 
             long startMerge = System.currentTimeMillis();
             LABAppendableIndex write = new LABAppendableIndex(id,
-                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+                new IndexFile(indexFiler, "rw", true), maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
+                new RawEntryFormat(0, 0));
             long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.closeAppendable(fsync);
 

@@ -47,7 +47,7 @@ public class Leaps {
         entryLength += 4;
         UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
         UIO.writeInt(writeable, index, "index", lengthBuffer);
-        UIO.writeInt(writeable, lastKey.length, "lastKeyLength", lengthBuffer);
+        UIO.writeInt(writeable, writeLastKey.length, "lastKeyLength", lengthBuffer);
         UIO.write(writeable, writeLastKey, "lastKey");
         UIO.writeInt(writeable, fps.length, "fpIndexLength", lengthBuffer);
         for (int i = 0; i < fps.length; i++) {

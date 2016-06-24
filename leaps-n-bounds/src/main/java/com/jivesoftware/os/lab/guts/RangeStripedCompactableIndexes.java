@@ -302,7 +302,7 @@ public class RangeStripedCompactableIndexes {
 
             LOG.debug("Commiting memory index ({}) to on disk index: {}", index.count(), activeRoot);
 
-            int maxLeaps = IndexUtil.calculateIdealMaxLeaps(index.count(), entriesBetweenLeaps);
+            int maxLeaps = calculateIdealMaxLeaps(index.count(), entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
             File commitingIndexFile = indexRangeId.toFile(commitingRoot);
             FileUtils.deleteQuietly(commitingIndexFile);
@@ -311,12 +311,14 @@ public class RangeStripedCompactableIndexes {
             try {
                 RawEntryFormat format = rawhideFormat.get();
                 FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
+                FormatTransformer writeValueFormatTransformer = formatTransformerProvider.write(format.getValueFormat());
                 appendableIndex = new LABAppendableIndex(indexRangeId,
                     indexFile,
                     maxLeaps,
                     entriesBetweenLeaps,
                     rawhide,
                     writeKeyFormatTransformer,
+                    writeValueFormatTransformer,
                     format);
                 appendableIndex.append((stream) -> {
                     ReadIndex reader = index.acquireReader();
@@ -404,9 +406,10 @@ public class RangeStripedCompactableIndexes {
                 try {
                     RawEntryFormat format = rawhideFormat.get();
                     FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
-
+                    FormatTransformer writeValueFormatTransformer = formatTransformerProvider.write(format.getValueFormat());
+                
                     return callback.call((IndexRangeId id, long worstCaseCount) -> {
-                        int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
+                        int maxLeaps = calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                         File splitIntoDir = new File(splittingRoot, String.valueOf(nextStripeIdLeft));
                         FileUtils.deleteQuietly(splitIntoDir);
                         FileUtils.forceMkdir(splitIntoDir);
@@ -419,10 +422,11 @@ public class RangeStripedCompactableIndexes {
                             entriesBetweenLeaps,
                             rawhide,
                             writeKeyFormatTransformer,
+                            writeValueFormatTransformer,
                             format);
                         return writeLeapsAndBoundsIndex;
                     }, (IndexRangeId id, long worstCaseCount) -> {
-                        int maxLeaps = IndexUtil.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
+                        int maxLeaps = calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                         File splitIntoDir = new File(splittingRoot, String.valueOf(nextStripeIdRight));
                         FileUtils.deleteQuietly(splitIntoDir);
                         FileUtils.forceMkdir(splitIntoDir);
@@ -435,6 +439,7 @@ public class RangeStripedCompactableIndexes {
                             entriesBetweenLeaps,
                             rawhide,
                             writeKeyFormatTransformer,
+                            writeValueFormatTransformer,
                             format);
                         return writeLeapsAndBoundsIndex;
                     }, (ids) -> {
@@ -512,9 +517,10 @@ public class RangeStripedCompactableIndexes {
 
             RawEntryFormat format = rawhideFormat.get();
             FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
-
+            FormatTransformer writeValueFormatTransformer = formatTransformerProvider.write(format.getValueFormat());
+                
             return callback.build(minimumRun, fsync, (id, count) -> {
-                int maxLeaps = IndexUtil.calculateIdealMaxLeaps(count, entriesBetweenLeaps);
+                int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
                 File mergingIndexFile = id.toFile(mergingRoot);
                 FileUtils.deleteQuietly(mergingIndexFile);
                 IndexFile indexFile = new IndexFile(mergingIndexFile, "rw", useMemMap);
@@ -524,6 +530,7 @@ public class RangeStripedCompactableIndexes {
                     entriesBetweenLeaps,
                     rawhide,
                     writeKeyFormatTransformer,
+                    writeValueFormatTransformer,
                     format);
                 return writeLeapsAndBoundsIndex;
             }, (ids) -> {
@@ -734,4 +741,12 @@ public class RangeStripedCompactableIndexes {
             index.close();
         }
     }
+
+
+     public static int calculateIdealMaxLeaps(long entryCount, int entriesBetweenLeaps) {
+        int approximateLeapCount = (int) Math.max(1, entryCount / entriesBetweenLeaps);
+        int maxLeaps = (int) (Math.log(approximateLeapCount) / Math.log(2));
+        return 1 + maxLeaps;
+    }
+
 }

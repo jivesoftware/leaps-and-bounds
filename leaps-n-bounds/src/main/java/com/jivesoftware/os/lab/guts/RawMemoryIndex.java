@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
@@ -61,7 +61,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                         if (rawEntry == null) {
                             return false;
                         } else {
-                            result = stream.stream(RawEntryFormat.MEMORY, rawEntry, 0, rawEntry.length);
+                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
                             return true;
                         }
                     }
@@ -79,7 +79,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(RawEntryFormat.MEMORY, next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, next.getValue(), 0, next.getValue().length);
                         return more ? Next.more : Next.stopped;
                     }
                     return Next.eos;
@@ -92,7 +92,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(RawEntryFormat.MEMORY, next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, next.getValue(), 0, next.getValue().length);
                         return more ? Next.more : Next.stopped;
                     }
                     return Next.eos;
@@ -151,7 +151,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     public boolean consume(RawEntryStream stream) throws Exception {
         for (Map.Entry<byte[], byte[]> e : index.entrySet()) {
             byte[] entry = e.getValue();
-            if (!stream.stream(RawEntryFormat.MEMORY, entry, 0, entry.length)) {
+            if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, entry, 0, entry.length)) {
                 return false;
             }
         }
@@ -160,28 +160,31 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public boolean append(RawEntries entries) throws Exception {
-        return entries.consume((rawEntryFormat, rawEntry, offset, length) -> {
+        return entries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
 
-            byte[] key = rawhide.key(rawEntryFormat, rawEntry, offset, length);
+            byte[] key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
             int keyLength = key.length;
-            index.compute(key, (k, v) -> {
+            index.compute(key, (k, value) -> {
                 byte[] merged;
                 int valueLength = ((rawEntry == null) ? 0 : rawEntry.length);
-                if (v == null) {
+                if (value == null) {
                     approximateCount.incrementAndGet();
                     keysCostInBytes += keyLength;
                     valuesCostInBytes += valueLength;
                     globalHeapCostInBytes.addAndGet(keyLength + valueLength);
                     merged = rawEntry;
                 } else {
-                    merged = rawhide.merge(RawEntryFormat.MEMORY, v, rawEntryFormat, rawEntry, RawEntryFormat.MEMORY); // ?? merged format expose
+                    merged = rawhide.merge(FormatTransformer.NO_OP, FormatTransformer.NO_OP, value,
+                        readKeyFormatTransformer, readValueFormatTransformer,
+                        rawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP);
+
                     int mergeValueLength = ((merged == null) ? 0 : merged.length);
                     int valueLengthDelta = mergeValueLength - valueLength;
                     valuesCostInBytes += valueLengthDelta;
                     globalHeapCostInBytes.addAndGet(valueLengthDelta);
                 }
-                long timestamp = rawhide.timestamp(RawEntryFormat.MEMORY, merged, 0, merged.length);
-                long version = rawhide.version(RawEntryFormat.MEMORY, merged, 0, merged.length);
+                long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged, 0, merged.length);
+                long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged, 0, merged.length);
                 updateMaxTimestampAndVersion(timestamp, version);
                 return merged;
             });

@@ -82,7 +82,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
             int[] hits = {0};
             int[] misses = {0};
-            RawEntryStream hitsAndMisses = (rawEntryFormat, rawEntry, offset, length) -> {
+            RawEntryStream hitsAndMisses = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
                 if (rawEntry != null) {
                     hits[0]++;
                 } else {

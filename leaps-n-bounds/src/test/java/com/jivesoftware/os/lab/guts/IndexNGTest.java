@@ -43,7 +43,7 @@ public class IndexNGTest {
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
         LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+            64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
@@ -85,7 +85,7 @@ public class IndexNGTest {
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
         LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
-            64, 10, simpleRawEntry, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+            64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
         disIndex.append(memoryIndex);
         disIndex.closeAppendable(false);
@@ -104,7 +104,7 @@ public class IndexNGTest {
         ReadIndex reader = walIndex.acquireReader();
         try {
             NextRawEntry rowScan = reader.rowScan();
-            RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
                 System.out.println("rowScan:" + SimpleRawhide.key(rawEntry));
                 Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawhide.key(rawEntry));
                 index[0]++;
@@ -122,7 +122,7 @@ public class IndexNGTest {
             try {
                 GetRaw getRaw = reader.get();
                 byte[] key = UIO.longBytes(k);
-                RawEntryStream stream = (rawEntryFormat, rawEntry, offset, length) -> {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
 
                     System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
                     if (rawEntry != null) {
@@ -151,7 +151,7 @@ public class IndexNGTest {
             int _i = i;
 
             int[] streamed = new int[1];
-            RawEntryStream stream = (rawEntryFormat, entry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry, offset, length) -> {
                 if (entry != null) {
                     System.out.println("Streamed:" + SimpleRawhide.toString(entry));
                     streamed[0]++;
@@ -174,7 +174,7 @@ public class IndexNGTest {
         for (int i = 0; i < keys.size() - 3; i++) {
             int _i = i;
             int[] streamed = new int[1];
-            RawEntryStream stream = (rawEntryFormat, entry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry, offset, length) -> {
                 if (entry != null) {
                     streamed[0]++;
                 }

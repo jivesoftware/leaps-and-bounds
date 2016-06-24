@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -12,11 +12,13 @@ import java.util.PriorityQueue;
  */
 class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
+    private final Rawhide rawhide;
     private final PriorityQueue<Feed> feeds = new PriorityQueue<>();
     private Feed active;
     private Feed until;
 
     public InterleaveStream(NextRawEntry[] nextRawEntries, Rawhide rawhide) throws Exception {
+        this.rawhide = rawhide;
         for (int i = 0; i < nextRawEntries.length; i++) {
             Feed feed = new Feed(i, nextRawEntries[i], rawhide);
             feed.feedNext();
@@ -69,7 +71,11 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
         if (active != null) {
             if (active.nextRawEntry != null) {
-                if (!stream.stream(active.nextRawEntryFormat, active.nextRawEntry, active.nextOffset, active.nextLength)) {
+                if (!stream.stream(active.nextReadKeyFormatTransformer,
+                    active.nextReadValueFormatTransformer,
+                    active.nextRawEntry,
+                    active.nextOffset,
+                    active.nextLength)) {
                     return Next.stopped;
                 }
             }
@@ -84,8 +90,8 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
     }
 
     private int compare(Feed left, Feed right) {
-        return IndexUtil.compare(left.nextRawEntry, left.nextRawKeyOffset, left.nextRawKeyLength,
-            right.nextRawEntry, right.nextRawKeyOffset, right.nextRawKeyLength);
+        return rawhide.compareKey(left.nextReadKeyFormatTransformer, left.nextReadValueFormatTransformer, left.nextRawEntry,
+            right.nextReadKeyFormatTransformer, right.nextReadValueFormatTransformer, right.nextRawEntry);
     }
 
     private static class Feed implements Comparable<Feed> {
@@ -94,9 +100,8 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
         private final NextRawEntry feed;
         private final Rawhide rawhide;
 
-        private int nextRawKeyLength;
-        private int nextRawKeyOffset;
-        private RawEntryFormat nextRawEntryFormat;
+        private FormatTransformer nextReadKeyFormatTransformer;
+        private FormatTransformer nextReadValueFormatTransformer;
         private byte[] nextRawEntry;
         private int nextOffset;
         private int nextLength;
@@ -108,11 +113,10 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
         }
 
         private byte[] feedNext() throws Exception {
-            Next hadNext = feed.next((rawEntryFormat, rawEntry, offset, length) -> {
-                nextRawKeyLength = rawhide.keyLength(rawEntryFormat, rawEntry, offset);
-                nextRawKeyOffset = rawhide.keyOffset(rawEntryFormat, rawEntry, offset);
+            Next hadNext = feed.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
                 nextRawEntry = rawEntry;
-                nextRawEntryFormat = rawEntryFormat;
+                nextReadKeyFormatTransformer = readKeyFormatTransformer;
+                nextReadValueFormatTransformer = readValueFormatTransformer;
                 nextOffset = offset;
                 nextLength = length;
                 return true;
@@ -125,7 +129,8 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
         @Override
         public int compareTo(Feed o) {
-            int c = IndexUtil.compare(nextRawEntry, nextRawKeyOffset, nextRawKeyLength, o.nextRawEntry, o.nextRawKeyOffset, o.nextRawKeyLength);
+            int c = rawhide.compareKey(nextReadKeyFormatTransformer, nextReadValueFormatTransformer, nextRawEntry,
+                o.nextReadKeyFormatTransformer, o.nextReadValueFormatTransformer, o.nextRawEntry);
             if (c == 0) {
                 c = Integer.compare(index, o.index);
             }
