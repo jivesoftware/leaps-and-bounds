@@ -15,6 +15,8 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static jdk.nashorn.internal.runtime.regexp.joni.Config.log;
+
 /**
  * @author jonathan.colt
  */
@@ -184,6 +186,11 @@ public class IndexFile implements ICloseable {
                     throw new IOException("Cannot ensureOpen on an index that is already closed.");
                 }
                 if (!channel.isOpen()) {
+                    try {
+                        randomAccessFile.close();
+                    } catch (IOException e) {
+                        LOG.error("Failed to close existing random access file while reacquiring channel");
+                    }
                     randomAccessFile = new RandomAccessFile(file, mode);
                     channel = randomAccessFile.getChannel();
                 }
