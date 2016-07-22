@@ -17,14 +17,7 @@ import java.io.IOException;
 public class LABRawhide implements Rawhide {
 
     @Override
-    public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
-        FormatTransformer currentReadValueFormatTransormer,
-        byte[] currentRawEntry,
-        FormatTransformer addingReadKeyFormatTransormer,
-        FormatTransformer addingReadValueFormatTransormer,
-        byte[] addingRawEntry,
-        FormatTransformer mergedReadKeyFormatTransormer,
-        FormatTransformer mergedReadValueFormatTransormer) {
+    public byte[] merge(byte[] currentRawEntry, byte[] addingRawEntry) {
 
         int currentKeyLength = UIO.bytesInt(currentRawEntry);
         int addingKeyLength = UIO.bytesInt(addingRawEntry);

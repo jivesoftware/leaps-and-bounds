@@ -10,14 +10,7 @@ import java.util.Comparator;
  */
 public interface Rawhide extends Comparator<byte[]> {
 
-    byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
-        FormatTransformer currentReadValueFormatTransormer,
-        byte[] currentRawEntry,
-        FormatTransformer addingReadKeyFormatTransormer,
-        FormatTransformer addingReadValueFormatTransormer,
-        byte[] addingRawEntry,
-        FormatTransformer mergedReadKeyFormatTransormer,
-        FormatTransformer mergedReadValueFormatTransormer);
+    byte[] merge(byte[] currentRawEntry, byte[] addingRawEntry);
 
     boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,

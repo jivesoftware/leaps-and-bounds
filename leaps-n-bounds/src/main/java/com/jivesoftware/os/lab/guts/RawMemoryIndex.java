@@ -174,9 +174,8 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                     globalHeapCostInBytes.addAndGet(keyLength + valueLength);
                     merged = rawEntry;
                 } else {
-                    merged = rawhide.merge(FormatTransformer.NO_OP, FormatTransformer.NO_OP, value,
-                        readKeyFormatTransformer, readValueFormatTransformer,
-                        rawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP);
+                    merged = rawhide.merge(value,
+                        rawEntry);
 
                     int mergeValueLength = ((merged == null) ? 0 : merged.length);
                     int valueLengthDelta = mergeValueLength - valueLength;

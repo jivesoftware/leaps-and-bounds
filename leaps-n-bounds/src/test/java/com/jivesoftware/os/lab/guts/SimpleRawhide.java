@@ -20,14 +20,7 @@ public class SimpleRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
-        FormatTransformer currentReadValueFormatTransormer,
-        byte[] currentRawEntry,
-        FormatTransformer addingReadKeyFormatTransormer,
-        FormatTransformer addingReadValueFormatTransormer,
-        byte[] addingRawEntry,
-        FormatTransformer mergedReadKeyFormatTransormer,
-        FormatTransformer mergedReadValueFormatTransormer) {
+    public byte[] merge(byte[] currentRawEntry, byte[] addingRawEntry) {
 
         return value(currentRawEntry) > value(addingRawEntry) ? currentRawEntry : addingRawEntry;
     }
