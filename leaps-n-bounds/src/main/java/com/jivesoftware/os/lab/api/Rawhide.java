@@ -32,7 +32,7 @@ public interface Rawhide extends Comparator<byte[]> {
         long version,
         byte[] value) throws Exception;
 
-    int rawEntryLength(IReadable readable, byte[] lengthBuffer) throws Exception;
+    int rawEntryLength(IReadable readable) throws Exception;
 
     void writeRawEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
@@ -41,8 +41,7 @@ public interface Rawhide extends Comparator<byte[]> {
         int length,
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
-        IAppendOnly appendOnly,
-        byte[] lengthBuffer) throws Exception;
+        IAppendOnly appendOnly) throws Exception;
 
     byte[] key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
@@ -63,8 +62,7 @@ public interface Rawhide extends Comparator<byte[]> {
         IReadable readable,
         byte[] compareKey,
         int compareOffset,
-        int compareLength,
-        byte[] intBuffer)
+        int compareLength)
         throws Exception;
 
     int compareKey(FormatTransformer aReadKeyFormatTransormer,

@@ -56,6 +56,68 @@ public class AppendableHeap implements IAppendOnly {
     }
 
     @Override
+    public void appendByte(byte b) throws IOException {
+        if (fp + 1 > bytes.length) {
+            bytes = grow(bytes, Math.max(((fp + 1) - bytes.length), bytes.length));
+        }
+        bytes[fp] = b;
+        fp++;
+        maxLength = Math.max(maxLength, fp);
+    }
+
+    @Override
+    public void appendShort(short s) throws IOException {
+        if (fp + 2 > bytes.length) {
+            bytes = grow(bytes, Math.max(((fp + 2) - bytes.length), bytes.length));
+        }
+        bytes[fp] = (byte) (s >>> 8);
+        fp++;
+        bytes[fp] = (byte) (s);
+        fp++;
+        maxLength = Math.max(maxLength, fp);
+    }
+
+    @Override
+    public void appendInt(int i) throws IOException {
+        if (fp + 4 > bytes.length) {
+            bytes = grow(bytes, Math.max(((fp + 4) - bytes.length), bytes.length));
+        }
+        bytes[fp] = (byte) (i >>> 24);
+        fp++;
+        bytes[fp] = (byte) (i >>> 16);
+        fp++;
+        bytes[fp] = (byte) (i >>> 8);
+        fp++;
+        bytes[fp] = (byte) (i);
+        fp++;
+        maxLength = Math.max(maxLength, fp);
+    }
+
+    @Override
+    public void appendLong(long l) throws IOException {
+        if (fp + 8 > bytes.length) {
+            bytes = grow(bytes, Math.max(((fp + 8) - bytes.length), bytes.length));
+        }
+        bytes[fp] = (byte) (l >>> 56);
+        fp++;
+        bytes[fp] = (byte) (l >>> 48);
+        fp++;
+        bytes[fp] = (byte) (l >>> 40);
+        fp++;
+        bytes[fp] = (byte) (l >>> 32);
+        fp++;
+        bytes[fp] = (byte) (l >>> 24);
+        fp++;
+        bytes[fp] = (byte) (l >>> 16);
+        fp++;
+        bytes[fp] = (byte) (l >>> 8);
+        fp++;
+        bytes[fp] = (byte) (l);
+        fp++;
+        maxLength = Math.max(maxLength, fp);
+    }
+
+    @Override
     public void append(byte _b[], int _offset, int _len) throws IOException {
         if (fp + _len > bytes.length) {
             bytes = grow(bytes, Math.max(((fp + _len) - bytes.length), bytes.length));

@@ -67,8 +67,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             leapsCache,
             footer,
             readable.call(),
-            new byte[16],
-            new byte[8])
+            new byte[16])
         );
     }
 
@@ -82,10 +81,9 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             leapsCache,
             footer,
             readable.call(),
-            new byte[16],
-            new byte[8]);
+            new byte[16]);
         activeScan.reset();
-        long fp = activeScan.getInclusiveStartOfRow(from, false, new byte[4]);
+        long fp = activeScan.getInclusiveStartOfRow(from, false);
         if (fp < 0) {
             return (stream) -> Next.eos;
         }
@@ -122,8 +120,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             leapsCache,
             footer,
             readable.call(),
-            new byte[16],
-            new byte[8]);
+            new byte[16]);
         activeScan.reset();
         return (stream) -> {
             activeScan.next(0, stream);

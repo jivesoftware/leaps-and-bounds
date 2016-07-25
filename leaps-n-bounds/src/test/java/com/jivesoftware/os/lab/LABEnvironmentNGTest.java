@@ -177,10 +177,16 @@ public class LABEnvironmentNGTest {
 
             AtomicLong hits = new AtomicLong();
             for (int i = 0; i < getCount; i++) {
-                index.get(UIO.longBytes(rand.nextInt(1_000_000)), (index1, key, timestamp, tombstoned, version1, value1) -> {
-                    hits.incrementAndGet();
-                    return true;
-                });
+                index.get(
+                    (keyStream) -> {
+                        byte[] key = UIO.longBytes(rand.nextInt(1_000_000));
+                        keyStream.key(0, key, 0, key.length);
+                        return true;
+                    },
+                    (index1, key, timestamp, tombstoned, version1, value1) -> {
+                        hits.incrementAndGet();
+                        return true;
+                    });
             }
             System.out.println("Get (" + hits.get() + ") Elapse:" + (System.currentTimeMillis() - start));
 

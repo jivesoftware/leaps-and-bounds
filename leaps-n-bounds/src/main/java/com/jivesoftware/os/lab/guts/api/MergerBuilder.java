@@ -12,7 +12,7 @@ public interface MergerBuilder {
 
     public static interface MergerBuilderCallback {
 
-        Callable<Void> build(int minimumRun, boolean fsync, IndexFactory indexFactory, CommitIndex commitIndex) throws Exception;
+        Callable<Void> call(int minimumRun, boolean fsync, IndexFactory indexFactory, CommitIndex commitIndex) throws Exception;
     }
 
 }

@@ -13,15 +13,14 @@ public class Gets implements GetRaw, RawEntryStream {
     private final ActiveScan activeScan;
     private RawEntryStream activeStream;
     private boolean found = false;
-    private final byte[] intBuffer = new byte[4];
-
+    
     public Gets(ActiveScan activeScan) {
         this.activeScan = activeScan;
     }
 
     @Override
     public boolean get(byte[] key, RawEntryStream stream) throws Exception {
-        long activeFp = activeScan.getInclusiveStartOfRow(key, true, intBuffer);
+        long activeFp = activeScan.getInclusiveStartOfRow(key, true);
         if (activeFp < 0) {
             return false;
         }

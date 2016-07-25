@@ -56,7 +56,7 @@ public class LabHeapPressure {
                     try {
                         LOG.inc("lab>commit>global>" + efsyncOnFlush);
                         LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
-                        LOG.info("Forcing flush due to heap pressure. lab:{}", lab);
+                        LOG.debug("Forcing flush due to heap pressure. lab:{}", lab);
                         keys[i].commit(efsyncOnFlush);
                     } catch (LABIndexCorruptedException | LABIndexClosedException x) {
                     } catch (Exception x) {

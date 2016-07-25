@@ -42,6 +42,10 @@ public class ByteBufferBackedFiler implements IFiler {
         return p;
     }
 
+    public boolean hasRemaining(int len) {
+        return buffer.remaining() >= len;
+    }
+
     @Override
     public long length() throws IOException {
         return buffer.capacity();
@@ -80,6 +84,21 @@ public class ByteBufferBackedFiler implements IFiler {
     }
 
     @Override
+    public short readShort() throws IOException {
+        return buffer.getShort();
+    }
+
+    @Override
+    public int readInt() throws IOException {
+        return buffer.getInt();
+    }
+
+    @Override
+    public long readLong() throws IOException {
+        return buffer.getLong();
+    }
+
+    @Override
     public int read(byte[] b) throws IOException {
         return read(b, 0, b.length);
     }
@@ -113,6 +132,26 @@ public class ByteBufferBackedFiler implements IFiler {
     @Override
     public void close() throws IOException {
 
+    }
+
+    @Override
+    public void writeByte(byte b) throws IOException {
+        buffer.put(b);
+    }
+
+    @Override
+    public void writeShort(short s) throws IOException {
+        buffer.putShort(s);
+    }
+
+    @Override
+    public void writeInt(int i) throws IOException {
+        buffer.putInt(i);
+    }
+
+    @Override
+    public void writeLong(long l) throws IOException {
+        buffer.putLong(l);
     }
 
     @Override

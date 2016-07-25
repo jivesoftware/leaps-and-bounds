@@ -28,8 +28,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final FormatTransformer writeValueFormatTransormer;
     private final RawEntryFormat rawhideFormat;
 
-    private final byte[] lengthBuffer = new byte[4];
-
     private LeapFrog latestLeapFrog;
     private int updatesSinceLeap;
 
@@ -86,7 +84,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
             UIO.writeByte(entryBuffer, ENTRY, "type");
 
             rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length,
-                writeKeyFormatTransormer, writeValueFormatTransormer, entryBuffer, lengthBuffer);
+                writeKeyFormatTransormer, writeValueFormatTransormer, entryBuffer);
 
             byte[] key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
             int keyLength = key.length;
@@ -113,7 +111,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 appendOnly.append(entryBuffer.leakBytes(), 0, (int) entryBuffer.length());
                 long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
                 System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
-                latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, key, copyOfStartOfEntryIndex, lengthBuffer);
+                latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, key, copyOfStartOfEntryIndex);
                 updatesSinceLeap = 0;
                 leapCount++;
 
@@ -141,7 +139,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
             if (updatesSinceLeap > 0) {
                 long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
                 System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
-                latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, lastKey, copyOfStartOfEntryIndex, lengthBuffer);
+                latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, lastKey, copyOfStartOfEntryIndex);
                 leapCount++;
             }
 
@@ -156,7 +154,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 rawhideFormat.getValueFormat(),
                 new TimestampAndVersion(maxTimestamp,
                     maxTimestampVersion));
-            footer.write(appendOnly, lengthBuffer);
+            footer.write(appendOnly);
             appendOnly.flush(fsync);
         } finally {
             close();
@@ -191,13 +189,12 @@ public class LABAppendableIndex implements RawAppendableIndex {
         LeapFrog latest,
         int index,
         byte[] key,
-        long[] startOfEntryIndex,
-        byte[] lengthBuffer) throws Exception {
+        long[] startOfEntryIndex) throws Exception {
 
         Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
         UIO.writeByte(writeIndex, LEAP, "type");
         long startOfLeapFp = writeIndex.getFilePointer();
-        nextLeaps.write(writeKeyFormatTransormer, writeIndex, lengthBuffer);
+        nextLeaps.write(writeKeyFormatTransormer, writeIndex);
         return new LeapFrog(startOfLeapFp, nextLeaps);
     }
 

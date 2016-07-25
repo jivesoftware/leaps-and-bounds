@@ -160,13 +160,13 @@ public class RangeStripedCompactableIndexesStressNGTest {
             long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
             indexs.append(index, fsync);
 
-            int debt = indexs.debt(minMergeDebt);
-            if (debt == 0) {
+            int debt = indexs.debt();
+            if (debt < minMergeDebt) {
                 continue;
             }
 
             while (true) {
-                List<Callable<Void>> compactors = indexs.buildCompactors(minMergeDebt, fsync);
+                List<Callable<Void>> compactors = indexs.buildCompactors(fsync, minMergeDebt);
                 if (compactors != null && !compactors.isEmpty()) {
                     for (Callable<Void> compactor : compactors) {
                         //LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, indexs, debt);
@@ -196,7 +196,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                             break;
                         }
                     }
-                    debt = indexs.debt(minMergeDebt);
+                    debt = indexs.debt();
                 } else {
                     break;
                 }
@@ -207,7 +207,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             count += batchSize;
 
             System.out.println("Insertions:" + format.format(count) + " ips:" + format.format(
-                ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " mergeDebut:" + indexs.debt(minMergeDebt));
+                ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " mergeDebut:" + indexs.debt());
         }
 
         running.setValue(false);

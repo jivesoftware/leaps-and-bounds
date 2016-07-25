@@ -1,8 +1,7 @@
 package com.jivesoftware.os.lab.io;
 
 import com.jivesoftware.os.lab.io.api.ByteBufferFactory;
-import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IFiler;
+import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -10,7 +9,7 @@ import java.nio.ByteBuffer;
 /**
  *
  */
-public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
+public class AutoGrowingByteBufferBackedFiler implements IReadable {
 
     public static final long MAX_BUFFER_SEGMENT_SIZE = UIO.chunkLength(30);
     public static final long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
@@ -21,7 +20,7 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
 
     private ByteBufferBackedFiler[] filers;
     private int fpFilerIndex;
-    private long length = 0;
+    private final long length;
 
     private final int fShift;
     private final long fseekMask;
@@ -29,8 +28,8 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
     public AutoGrowingByteBufferBackedFiler(long initialBufferSegmentSize,
         long maxBufferSegmentSize,
         ByteBufferFactory byteBufferFactory) throws IOException {
-        this.initialBufferSegmentSize = initialBufferSegmentSize > 0 ? UIO.chunkLength(UIO.chunkPower(initialBufferSegmentSize, 0)) : -1;
 
+        this.initialBufferSegmentSize = initialBufferSegmentSize > 0 ? UIO.chunkLength(UIO.chunkPower(initialBufferSegmentSize, 0)) : -1;
         this.maxBufferSegmentSize = Math.min(UIO.chunkLength(UIO.chunkPower(maxBufferSegmentSize, 0)), MAX_BUFFER_SEGMENT_SIZE);
 
         this.byteBufferFactory = byteBufferFactory;
@@ -148,7 +147,6 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
         position(position);
     }
 
-    @Override
     public long skip(long skip) throws IOException {
         long fp = getFilePointer();
         position(fp + skip);
@@ -158,18 +156,6 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
     @Override
     public long length() throws IOException {
         return length;
-        /*
-        if (filers.length == 0) {
-            return 0;
-        }
-        return ((filers.length - 1) * maxBufferSegmentSize) + filers[filers.length - 1].length();
-        */
-    }
-
-    @Override
-    public void setLength(long len) throws IOException {
-        position(len);
-        length = Math.max(len, length);
     }
 
     @Override
@@ -181,7 +167,6 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
         return fp;
     }
 
-    @Override
     public void eof() throws IOException {
         position(length());
     }
@@ -195,6 +180,79 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
             read = filers[fpFilerIndex].read();
         }
         return read;
+    }
+
+    @Override
+    public short readShort() throws IOException {
+        if (filers[fpFilerIndex].hasRemaining(2)) {
+            return filers[fpFilerIndex].readShort();
+        } else {
+            int b0 = read();
+            int b1 = read();
+
+            short v = 0;
+            v |= (b0 & 0xFF);
+            v <<= 8;
+            v |= (b1 & 0xFF);
+            return v;
+        }
+    }
+
+    @Override
+    public int readInt() throws IOException {
+        if (filers[fpFilerIndex].hasRemaining(4)) {
+            return filers[fpFilerIndex].readInt();
+        } else {
+            int b0 = read();
+            int b1 = read();
+            int b2 = read();
+            int b3 = read();
+
+            int v = 0;
+            v |= (b0 & 0xFF);
+            v <<= 8;
+            v |= (b1 & 0xFF);
+            v <<= 8;
+            v |= (b2 & 0xFF);
+            v <<= 8;
+            v |= (b3 & 0xFF);
+            return v;
+        }
+    }
+
+    @Override
+    public long readLong() throws IOException {
+        if (filers[fpFilerIndex].hasRemaining(8)) {
+            return filers[fpFilerIndex].readLong();
+        } else {
+            int b0 = read();
+            int b1 = read();
+            int b2 = read();
+            int b3 = read();
+            int b4 = read();
+            int b5 = read();
+            int b6 = read();
+            int b7 = read();
+
+            long v = 0;
+            v |= (b0 & 0xFF);
+            v <<= 8;
+            v |= (b1 & 0xFF);
+            v <<= 8;
+            v |= (b2 & 0xFF);
+            v <<= 8;
+            v |= (b3 & 0xFF);
+            v <<= 8;
+            v |= (b4 & 0xFF);
+            v <<= 8;
+            v |= (b5 & 0xFF);
+            v <<= 8;
+            v |= (b6 & 0xFF);
+            v <<= 8;
+            v |= (b7 & 0xFF);
+
+            return v;
+        }
     }
 
     @Override
@@ -245,37 +303,10 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
         }
     }
 
-    @Override
-    public void write(byte[] b, int offset, int len) throws IOException {
-        append(b, offset, len);
-    }
-    
-    @Override
-    public void append(byte[] b, int offset, int len) throws IOException {
-        long count = ensure(len);
-
-        long canWrite = Math.min(len, filers[fpFilerIndex].length() - filers[fpFilerIndex].getFilePointer());
-        filers[fpFilerIndex].write(b, offset, (int) canWrite);
-        long remaingToWrite = len - canWrite;
-        offset += canWrite;
-        while (remaingToWrite > 0) {
-            fpFilerIndex++;
-            filers[fpFilerIndex].seek(0);
-            canWrite = Math.min(remaingToWrite, filers[fpFilerIndex].length() - filers[fpFilerIndex].getFilePointer());
-            filers[fpFilerIndex].write(b, offset, (int) canWrite);
-            remaingToWrite -= canWrite;
-            offset += canWrite;
-        }
-
-        length += count;
-    }
-
-
 //    @Override
 //    public void write(ByteBuffer... byteBuffers) throws IOException {
 //        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
 //    }
-
     @Override
     public void close() throws IOException {
         if (filers.length > 0) {
@@ -288,13 +319,5 @@ public class AutoGrowingByteBufferBackedFiler implements IFiler, IAppendOnly {
             }
         }
     }
-
-    @Override
-    public void flush(boolean fsync) throws IOException {
-        for (ByteBufferBackedFiler filer : filers) {
-            filer.flush(fsync);
-        }
-    }
-
 
 }

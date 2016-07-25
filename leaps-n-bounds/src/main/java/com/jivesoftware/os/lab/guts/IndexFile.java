@@ -7,6 +7,7 @@ import com.jivesoftware.os.lab.io.api.ICloseable;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -14,8 +15,6 @@ import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static jdk.nashorn.internal.runtime.regexp.joni.Config.log;
 
 /**
  * @author jonathan.colt
@@ -110,8 +109,31 @@ public class IndexFile implements ICloseable {
         if (closed.get()) {
             throw new IOException("Cannot get an appender from an index that is already closed.");
         }
-        FileOutputStream writer = new FileOutputStream(file, true);
+        DataOutputStream writer = new DataOutputStream(new FileOutputStream(file, true));
         return new IAppendOnly() {
+            @Override
+            public void appendByte(byte b) throws IOException {
+                writer.writeByte(b);
+                size.addAndGet(1);
+            }
+
+            @Override
+            public void appendShort(short s) throws IOException {
+                writer.writeShort(s);
+                size.addAndGet(2);
+            }
+
+            @Override
+            public void appendInt(int i) throws IOException {
+                writer.writeInt(i);
+                size.addAndGet(4);
+            }
+
+            @Override
+            public void appendLong(long l) throws IOException {
+                writer.writeLong(l);
+                size.addAndGet(8);
+            }
 
             @Override
             public void append(byte[] b, int _offset, int _len) throws IOException {

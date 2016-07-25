@@ -18,6 +18,7 @@ import com.jivesoftware.os.lab.guts.RawMemoryIndex;
 import com.jivesoftware.os.lab.guts.ReaderTx;
 import com.jivesoftware.os.lab.guts.TimestampAndVersion;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
+import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
@@ -107,7 +108,7 @@ public class LAB implements ValueIndex {
 
     @Override
     public int debt() throws Exception {
-        return rangeStripedCompactableIndexes.debt(minDebt);
+        return rangeStripedCompactableIndexes.debt();
     }
 
     @Override
@@ -121,17 +122,17 @@ public class LAB implements ValueIndex {
         LOG.inc("LAB>gets", count[0]);
     }
 
-    @Override
-    public boolean get(byte[] key, ValueStream stream) throws Exception {
-        boolean result = rangeTx(true, -1, key, key, -1, -1,
-            (index, fromKey, toKey, readIndexes) -> {
-                GetRaw getRaw = IndexUtil.get(readIndexes);
-                return rawToReal(index, fromKey, getRaw, stream);
-            });
-        LOG.inc("LAB>gets");
-        return result;
-    }
-
+//    @Override
+//    public boolean get(byte[] key, ValueStream stream) throws Exception {
+//        boolean result = rangeTx(true, -1, key, key, -1, -1,
+//            (index, fromKey, toKey, readIndexes) -> {
+//                GetRaw getRaw = IndexUtil.get(readIndexes);
+//                return rawToReal(index, fromKey, getRaw, stream);
+//            });
+//        LOG.inc("LAB>gets");
+//        return result;
+//    }
+    
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
         return rangeTx(true, -1, from, to, -1, -1,
@@ -239,6 +240,8 @@ public class LAB implements ValueIndex {
                         i++;
                     }
                     System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
+                    pointTxCalled.incrementAndGet();
+                    pointTxIndexCount.addAndGet(indexes.length);
                     return tx.tx(index, fromKey, toKey, indexes);
                 });
         } finally {
@@ -251,6 +254,9 @@ public class LAB implements ValueIndex {
         }
 
     }
+
+    public static final AtomicLong pointTxCalled = new AtomicLong();
+    public static final AtomicLong pointTxIndexCount = new AtomicLong();
 
     private boolean rangeTx(boolean acquireCommitSemaphore,
         int index,
@@ -331,6 +337,8 @@ public class LAB implements ValueIndex {
                         i++;
                     }
                     System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
+                    pointTxCalled.incrementAndGet();
+                    pointTxIndexCount.addAndGet(indexes.length);
                     return tx.tx(index1, fromKey, toKey, indexes);
                 });
         } finally {
@@ -429,7 +437,7 @@ public class LAB implements ValueIndex {
             return Collections.emptyList();
         }
 
-        return compact(fsync);
+        return compact(fsync, minDebt, maxDebt);
     }
 
     private boolean internalCommit(boolean fsync) throws Exception, InterruptedException {
@@ -450,10 +458,11 @@ public class LAB implements ValueIndex {
         return true;
     }
 
-    private List<Future<Object>> compact(boolean fsync) throws Exception {
+    @Override
+    public List<Future<Object>> compact(boolean fsync, int minDebt, int maxDebt) throws Exception {
 
-        int debt = rangeStripedCompactableIndexes.debt(minDebt);
-        if (debt == 0) {
+        int debt = rangeStripedCompactableIndexes.debt();
+        if (debt == 0 || debt < minDebt) {
             return Collections.emptyList();
         }
 
@@ -462,7 +471,7 @@ public class LAB implements ValueIndex {
             if (corrupt) {
                 throw new LABIndexCorruptedException();
             }
-            List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(minDebt, fsync);
+            List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(fsync, minDebt);
             if (compactors != null && !compactors.isEmpty()) {
                 if (awaitable == null) {
                     awaitable = new ArrayList<>(compactors.size());
@@ -503,7 +512,7 @@ public class LAB implements ValueIndex {
                         break;
                     }
                 }
-                debt = rangeStripedCompactableIndexes.debt(minDebt);
+                debt = rangeStripedCompactableIndexes.debt();
             } else {
                 break;
             }
@@ -569,6 +578,10 @@ public class LAB implements ValueIndex {
                 return true;
             }
         }
+    }
+
+    public void auditRanges(KeyToString keyToString) {
+        rangeStripedCompactableIndexes.auditRanges(keyToString);
     }
 
 }

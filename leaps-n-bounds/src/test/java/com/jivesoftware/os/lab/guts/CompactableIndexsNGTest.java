@@ -144,7 +144,7 @@ public class CompactableIndexsNGTest {
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
         Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minimumRun, fsync,
-            (minimumRun1, fsync1, callback) -> callback.build(minimumRun1,
+            (minimumRun1, fsync1, callback) -> callback.call(minimumRun,
                 fsync1,
                 (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
@@ -222,8 +222,8 @@ public class CompactableIndexsNGTest {
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
 
-        Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minimumRun, fsync,
-            (minimumRun1, fsync1, callback) -> callback.build(minimumRun1,
+        Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minimumRun,fsync,
+            (minimumRun1, fsync1, callback) -> callback.call(minimumRun1,
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);

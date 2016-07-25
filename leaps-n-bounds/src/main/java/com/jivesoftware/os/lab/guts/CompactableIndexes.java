@@ -5,6 +5,7 @@ import com.jivesoftware.os.lab.api.ConcurrentSplitException;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
+import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
@@ -86,12 +87,19 @@ public class CompactableIndexes {
         return maxTimestampAndVersion;
     }
 
-    public int debt(int mergableIfDebtLargerThan) {
+//    public int debt(int mergableIfDebtLargerThan) {
+//        if (disposed) {
+//            return 0;
+//        }
+//        int debt = merging.length - mergableIfDebtLargerThan;
+//        return debt < 0 ? 0 : debt + 1;
+//    }
+    public int debt() {
         if (disposed) {
             return 0;
         }
-        int debt = merging.length - mergableIfDebtLargerThan;
-        return debt < 0 ? 0 : debt + 1;
+        int debt = (merging.length - 1);
+        return debt < 0 ? 0 : debt;
     }
 
     public Callable<Void> compactor(
@@ -99,7 +107,7 @@ public class CompactableIndexes {
         long splittableIfValuesLargerThanBytes,
         long splittableIfLargerThanBytes,
         SplitterBuilder splitterBuilder,
-        int mergableIfDebtLargerThan,
+        int minimumRun,
         boolean fsync,
         MergerBuilder mergerBuilder
     ) throws Exception {
@@ -111,7 +119,7 @@ public class CompactableIndexes {
 
         while (true) {
             if (splittable(splittableIfKeysLargerThanBytes, splittableIfValuesLargerThanBytes, splittableIfLargerThanBytes)) {
-                Callable<Void> splitter = splitterBuilder.build(fsync, this::buildSplitter);
+                Callable<Void> splitter = splitterBuilder.buildSplitter(fsync, this::buildSplitter);
                 if (splitter != null) {
                     return () -> {
                         try {
@@ -121,8 +129,8 @@ public class CompactableIndexes {
                         }
                     };
                 }
-            } else if (debt(mergableIfDebtLargerThan) > 0) {
-                Callable<Void> merger = mergerBuilder.build(mergableIfDebtLargerThan, fsync, this::buildMerger);
+            } else if (debt() > 0) {
+                Callable<Void> merger = mergerBuilder.build(minimumRun, fsync, this::buildMerger);
                 if (merger != null) {
                     return () -> {
                         try {
@@ -289,7 +297,8 @@ public class CompactableIndexes {
                             leftAppenableIndex.append((leftStream) -> {
                                 return effectiveFinalRightAppenableIndex.append((rightStream) -> {
                                     return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                                        int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, middle, 0, middle.length);
+                                        int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, middle, 0,
+                                            middle.length);
                                         if (c < 0) {
                                             if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length)) {
                                                 return false;
@@ -382,17 +391,20 @@ public class CompactableIndexes {
                                         LOG.debug("Doing a catchup split for a middle of:{}", Arrays.toString(middle));
                                         catchupLeftAppenableIndex.append((leftStream) -> {
                                             return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
-                                                return catchupFeedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                                                return catchupFeedInterleaver.stream(
+                                                    (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
 
-                                                    if (rawhide.compare(rawEntry, middle) < 0) {
-                                                        if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length)) {
+                                                        if (rawhide.compare(rawEntry, middle) < 0) {
+                                                            if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset,
+                                                                length)) {
+                                                                return false;
+                                                            }
+                                                        } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset,
+                                                            length)) {
                                                             return false;
                                                         }
-                                                    } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length)) {
-                                                        return false;
-                                                    }
-                                                    return true;
-                                                });
+                                                        return true;
+                                                    });
                                             });
                                         });
                                     } finally {
@@ -598,7 +610,7 @@ public class CompactableIndexes {
                     version++;
                 }
 
-                LOG.info("Merged:  {} millis counts:{} gens:{} {}",
+                LOG.debug("Merged:  {} millis counts:{} gens:{} {}",
                     (System.currentTimeMillis() - startMerge),
                     TieredCompaction.range(counts, mergeRange.offset, mergeRange.length),
                     Arrays.toString(generations),
@@ -722,6 +734,16 @@ public class CompactableIndexes {
             copy = indexes;
         }
         return copy;
+    }
+
+    void auditRanges(String prefix, KeyToString keyToString) {
+        RawConcurrentReadableIndex[] copy;
+        synchronized (indexesLock) {
+            copy = indexes;
+        }
+        for (int i = 0; i < copy.length; i++) {
+            System.out.println(prefix + keyToString.keyToString(copy[i].minKey()) + "->" + keyToString.keyToString(copy[i].maxKey()));
+        }
     }
 
 }

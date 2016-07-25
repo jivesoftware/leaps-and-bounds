@@ -31,7 +31,6 @@ public class ActiveScan implements ScanFromFp {
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final Footer footer;
     private final IReadable readable;
-    private final byte[] lengthBuffer;
     private final byte[] cacheKeyBuffer;
     private byte[] entryBuffer;
     private long activeFp = Long.MAX_VALUE;
@@ -45,8 +44,7 @@ public class ActiveScan implements ScanFromFp {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         Footer footer,
         IReadable readable,
-        byte[] cacheKeyBuffer,
-        byte[] lengthBuffer) {
+        byte[] cacheKeyBuffer) {
 
         this.rawhide = rawhide;
         this.readKeyFormatTransormer = readKeyFormatTransormer;
@@ -57,7 +55,6 @@ public class ActiveScan implements ScanFromFp {
         this.footer = footer;
         this.readable = readable;
         this.cacheKeyBuffer = cacheKeyBuffer;
-        this.lengthBuffer = lengthBuffer;
     }
 
     @Override
@@ -70,7 +67,7 @@ public class ActiveScan implements ScanFromFp {
         int type;
         while ((type = readable.read()) >= 0) {
             if (type == ENTRY) {
-                int entryLength = rawhide.rawEntryLength(readable, lengthBuffer);
+                int entryLength = rawhide.rawEntryLength(readable);
                 if (entryBuffer == null || entryBuffer.length < entryLength) {
                     entryBuffer = new byte[entryLength];
                 }
@@ -81,7 +78,7 @@ public class ActiveScan implements ScanFromFp {
                 activeResult = false;
                 return false;
             } else if (type == LEAP) {
-                int length = UIO.readInt(readable, "entryLength", lengthBuffer);
+                int length = readable.readInt(); // entryLength
                 readable.seek(readable.getFilePointer() + (length - 4));
             } else {
                 throw new IllegalStateException("Bad row type:" + type + " at fp:" + (readable.getFilePointer() - 1));
@@ -101,7 +98,7 @@ public class ActiveScan implements ScanFromFp {
         activeResult = false;
     }
 
-    public long getInclusiveStartOfRow(byte[] key, boolean exact, byte[] intBuffer) throws Exception {
+    public long getInclusiveStartOfRow(byte[] key, boolean exact) throws Exception {
         Leaps l = leaps;
         long rowIndex = -1;
         if (rawhide.compare(l.lastKey, key) < 0) {
@@ -113,7 +110,7 @@ public class ActiveScan implements ScanFromFp {
             Leaps next;
             int index = Arrays.binarySearch(l.keys, key, rawhide);
             if (index == -(l.fps.length + 1)) {
-                rowIndex = binarySearchClosestFP(rawhide, readKeyFormatTransormer, readValueFormatTransormer, readable, l, key, exact, intBuffer);
+                rowIndex = binarySearchClosestFP(rawhide, readKeyFormatTransormer, readValueFormatTransormer, readable, l, key, exact);
                 break;
             } else {
                 if (index < 0) {
@@ -126,7 +123,7 @@ public class ActiveScan implements ScanFromFp {
                 next = leapsCache.get(cacheKeyBuffer);
                 if (next == null) {
                     readable.seek(l.fps[index]);
-                    next = Leaps.read(readKeyFormatTransormer, readable, lengthBuffer);
+                    next = Leaps.read(readKeyFormatTransormer, readable);
                     leapsCache.put(Arrays.copyOf(cacheKeyBuffer, 16), next);
                     cacheMisses++;
                 } else {
@@ -152,8 +149,7 @@ public class ActiveScan implements ScanFromFp {
         IReadable readable,
         Leaps leaps,
         byte[] key,
-        boolean exact,
-        byte[] intBuffer) throws Exception {
+        boolean exact) throws Exception {
 
         LongBuffer startOfEntryBuffer = leaps.startOfEntry.get(readable);
         int low = 0;
@@ -165,7 +161,7 @@ public class ActiveScan implements ScanFromFp {
 
             readable.seek(fp + 1); // skip 1 type byte
 
-            int cmp = rawhide.compareKeyFromEntry(readKeyFormatTransormer, readValueFormatTransormer, readable, key, 0, key.length, intBuffer);
+            int cmp = rawhide.compareKeyFromEntry(readKeyFormatTransormer, readValueFormatTransormer, readable, key, 0, key.length);
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {

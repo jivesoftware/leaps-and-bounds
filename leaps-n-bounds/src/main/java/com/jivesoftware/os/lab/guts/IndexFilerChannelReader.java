@@ -20,7 +20,7 @@ public class IndexFilerChannelReader implements IReadable {
     private FileChannel fc;
     private long fp;
 
-    private final ByteBuffer singleByteBuffer = ByteBuffer.allocate(1);
+    private final ByteBuffer singleByteBuffer = ByteBuffer.allocateDirect(1);
     private final Object fileLock = new Object();
 
     public IndexFilerChannelReader(IndexFile parent, FileChannel fc) {
@@ -64,6 +64,49 @@ public class IndexFilerChannelReader implements IReadable {
     @Override
     public int read(byte[] b) throws IOException {
         return read(b, 0, b.length);
+    }
+
+    @Override
+    public short readShort() throws IOException {
+        int v = 0;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        return (short) v;
+    }
+
+    @Override
+    public int readInt() throws IOException {
+        int v = 0;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        return v;
+    }
+
+    @Override
+    public long readLong() throws IOException {
+        long v = 0;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        v <<= 8;
+        v |= (read() & 0xFF);
+        return v;
     }
 
     @Override

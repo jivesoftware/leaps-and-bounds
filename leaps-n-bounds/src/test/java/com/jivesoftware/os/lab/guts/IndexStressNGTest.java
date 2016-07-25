@@ -61,7 +61,7 @@ public class IndexStressNGTest {
                 try {
 
                     Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minMergeDebt, fsync,
-                        (minimumRun, fsync1, callback) -> callback.build(minimumRun, fsync1,
+                        (minimumRun1, fsync1, callback) -> callback.call(minimumRun1, fsync1,
                             (id, worstCaseCount) -> {
 
                                 long m = merge.incrementAndGet();
@@ -187,9 +187,9 @@ public class IndexStressNGTest {
 
             System.out.println("Insertions:" + format.format(count) + " ips:" + format.format(
                 ((count / (double) (System.currentTimeMillis() - start))) * 1000) + " elapse:" + format.format(
-                    (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.debt(minMergeDebt));
+                    (System.currentTimeMillis() - startMerge)) + " mergeDebut:" + indexs.debt());
 
-            if (indexs.debt(minMergeDebt) > 10) {
+            if (indexs.debt() > 10) {
                 synchronized (waitForDebtToDrain) {
                     if (waitForDebtToDrain.get() > 0) {
                         System.out.println("Waiting because debt is two high....");

@@ -7,6 +7,7 @@ import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
@@ -40,6 +41,9 @@ import org.apache.commons.io.FileUtils;
 public class RangeStripedCompactableIndexes {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
+    public static final AtomicLong splitCount = new AtomicLong();
+    public static final AtomicLong mergeCount = new AtomicLong();
 
     private final AtomicLong largestStripeId = new AtomicLong();
     private final AtomicLong largestIndexId = new AtomicLong();
@@ -371,8 +375,8 @@ public class RangeStripedCompactableIndexes {
             compactableIndexes.close();
         }
 
-        int debt(int minMergeDebt) {
-            return compactableIndexes.debt(minMergeDebt);
+        int debt() {
+            return compactableIndexes.debt();
         }
 
         Callable<Void> compactor(int minMergeDebt, boolean fsync) throws Exception {
@@ -387,7 +391,7 @@ public class RangeStripedCompactableIndexes {
         }
 
         @Override
-        public Callable<Void> build(boolean fsync, SplitterBuilderCallback callback) throws Exception {
+        public Callable<Void> buildSplitter(boolean fsync, SplitterBuilderCallback callback) throws Exception {
 
             File indexRoot = new File(root, indexName);
             File stripeRoot = new File(indexRoot, String.valueOf(stripeId));
@@ -401,13 +405,14 @@ public class RangeStripedCompactableIndexes {
             long nextStripeIdLeft = largestStripeId.incrementAndGet();
             long nextStripeIdRight = largestStripeId.incrementAndGet();
             FileBackMergableIndexs self = this;
+            splitCount.incrementAndGet();
             return () -> {
                 appendSemaphore.acquire(Short.MAX_VALUE);
                 try {
                     RawEntryFormat format = rawhideFormat.get();
                     FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
                     FormatTransformer writeValueFormatTransformer = formatTransformerProvider.write(format.getValueFormat());
-                
+
                     return callback.call((IndexRangeId id, long worstCaseCount) -> {
                         int maxLeaps = calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                         File splitIntoDir = new File(splittingRoot, String.valueOf(nextStripeIdLeft));
@@ -518,8 +523,9 @@ public class RangeStripedCompactableIndexes {
             RawEntryFormat format = rawhideFormat.get();
             FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
             FormatTransformer writeValueFormatTransformer = formatTransformerProvider.write(format.getValueFormat());
-                
-            return callback.build(minimumRun, fsync, (id, count) -> {
+
+            mergeCount.incrementAndGet();
+            return callback.call(minimumRun, fsync, (id, count) -> {
                 int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
                 File mergingIndexFile = id.toFile(mergingRoot);
                 FileUtils.deleteQuietly(mergingIndexFile);
@@ -539,6 +545,10 @@ public class RangeStripedCompactableIndexes {
                 FileUtils.deleteQuietly(file);
                 return moveIntoPlace(mergedIndexFile, file, ids.get(0), fsync);
             });
+        }
+
+        private void auditRanges(String prefix, KeyToString keyToString) {
+            compactableIndexes.auditRanges(prefix, keyToString);
         }
 
     }
@@ -701,24 +711,25 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public int debt(int minMergeDebt) throws Exception {
+    public int debt() throws Exception {
         int maxDebt = 0;
         for (FileBackMergableIndexs index : indexes.values()) {
-            maxDebt = Math.max(index.debt(minMergeDebt), maxDebt);
+            maxDebt = Math.max(index.debt(), maxDebt);
         }
         return maxDebt;
     }
 
-    public List<Callable<Void>> buildCompactors(int minimumRun,
-        boolean fsync) throws Exception {
+    public List<Callable<Void>> buildCompactors(boolean fsync, int minDebt) throws Exception {
         List<Callable<Void>> compactors = null;
         for (FileBackMergableIndexs index : indexes.values()) {
-            Callable<Void> compactor = index.compactor(minimumRun, fsync);
-            if (compactor != null) {
-                if (compactors == null) {
-                    compactors = new ArrayList<>();
+            if (index.debt() >= minDebt) {
+                Callable<Void> compactor = index.compactor(minDebt, fsync);
+                if (compactor != null) {
+                    if (compactors == null) {
+                        compactors = new ArrayList<>();
+                    }
+                    compactors.add(compactor);
                 }
-                compactors.add(compactor);
             }
         }
         return compactors;
@@ -742,11 +753,19 @@ public class RangeStripedCompactableIndexes {
         }
     }
 
-
-     public static int calculateIdealMaxLeaps(long entryCount, int entriesBetweenLeaps) {
+    public static int calculateIdealMaxLeaps(long entryCount, int entriesBetweenLeaps) {
         int approximateLeapCount = (int) Math.max(1, entryCount / entriesBetweenLeaps);
         int maxLeaps = (int) (Math.log(approximateLeapCount) / Math.log(2));
         return 1 + maxLeaps;
+    }
+
+    public void auditRanges(KeyToString keyToString) {
+        for (Entry<byte[], FileBackMergableIndexs> entry : indexes.entrySet()) {
+
+            System.out.println("key:" + keyToString.keyToString(entry.getKey()));
+            FileBackMergableIndexs indexs = entry.getValue();
+            indexs.auditRanges("\t\t", keyToString);
+        }
     }
 
 }

@@ -13,6 +13,8 @@ public interface AppendableValuesIndex {
 
     List<Future<Object>> commit(boolean fsync) throws Exception;
 
+    List<Future<Object>> compact(boolean fsync, int minDebt, int maxDebt) throws Exception;
+
     void close(boolean flushUncommited, boolean fsync) throws Exception;
 
 }

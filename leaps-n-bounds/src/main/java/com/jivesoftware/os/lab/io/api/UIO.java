@@ -52,9 +52,8 @@ public class UIO {
      * @param fieldName
      * @throws IOException
      */
-    public static void writeByte(IAppendOnly _filer, byte v,
-        String fieldName) throws IOException {
-        _filer.append(new byte[]{v}, 0, 1);
+    public static void writeByte(IAppendOnly _filer, byte v, String fieldName) throws IOException {
+        _filer.appendByte(v);
     }
 
     /**
@@ -64,13 +63,8 @@ public class UIO {
      * @param fieldName
      * @throws IOException
      */
-    public static void writeInt(IAppendOnly _filer, int v, String fieldName, byte[] intBuffer) throws IOException {
-        intBuffer[0] = (byte) (v >>> 24);
-        intBuffer[1] = (byte) (v >>> 16);
-        intBuffer[2] = (byte) (v >>> 8);
-        intBuffer[3] = (byte) (v);
-
-        _filer.append(intBuffer, 0, 4);
+    public static void writeInt(IAppendOnly _filer, int v, String fieldName) throws IOException {
+        _filer.appendInt(v);
     }
 
     /**
@@ -100,12 +94,12 @@ public class UIO {
      * @param l
      * @throws IOException
      */
-    private static void writeLength(IAppendOnly _filer, int l, byte[] lengthBuffer) throws IOException {
-        writeInt(_filer, l, "length", lengthBuffer);
+    private static void writeLength(IAppendOnly _filer, int l) throws IOException {
+        _filer.appendInt(l);
     }
 
-    public static void writeByteArray(IAppendOnly _filer, byte[] array, String fieldName, byte[] lengthBuffer) throws IOException {
-        writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName, lengthBuffer);
+    public static void writeByteArray(IAppendOnly _filer, byte[] array, String fieldName) throws IOException {
+        writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName);
     }
 
     /**
@@ -118,14 +112,14 @@ public class UIO {
      * @throws IOException
      */
     public static void writeByteArray(IAppendOnly _filer, byte[] array,
-        int _start, int _len, String fieldName, byte[] lengthBuffer) throws IOException {
+        int _start, int _len, String fieldName) throws IOException {
         int len;
         if (array == null) {
             len = -1;
         } else {
             len = _len;
         }
-        writeLength(_filer, len, lengthBuffer);
+        writeLength(_filer, len);
         if (len < 0) {
             return;
         }
@@ -133,14 +127,14 @@ public class UIO {
     }
 
     public static void writeLongArray(IAppendOnly _filer, long[] array,
-        String fieldName, byte[] lengthBuffer) throws IOException {
+        String fieldName) throws IOException {
         int len;
         if (array == null) {
             len = -1;
         } else {
             len = array.length;
         }
-        writeLength(_filer, len, lengthBuffer);
+        writeLength(_filer, len);
         if (len < 0) {
             return;
         }
@@ -153,8 +147,8 @@ public class UIO {
 
     }
 
-    public static long[] readLongArray(IReadable _filer, String fieldName, byte[] lengthBuffer) throws IOException {
-        int len = readLength(_filer, lengthBuffer);
+    public static long[] readLongArray(IReadable _filer, String fieldName) throws IOException {
+        int len = readLength(_filer);
         if (len < 0) {
             return null;
         }
@@ -194,8 +188,8 @@ public class UIO {
      * @return
      * @throws IOException
      */
-    public static int readLength(IReadable _filer, byte[] lengthBuffer) throws IOException {
-        return readInt(_filer, "length", lengthBuffer);
+    public static int readLength(IReadable _filer) throws IOException {
+        return _filer.readInt();
     }
 
     public static int readLength(byte[] array, int _offset) throws IOException {
@@ -219,8 +213,8 @@ public class UIO {
      * @return
      * @throws IOException
      */
-    public static byte[] readByteArray(IReadable _filer, String fieldName, byte[] lengthBuffer) throws IOException {
-        int len = readLength(_filer, lengthBuffer);
+    public static byte[] readByteArray(IReadable _filer, String fieldName) throws IOException {
+        int len = readLength(_filer);
         if (len < 0) {
             return null;
         }
@@ -283,17 +277,8 @@ public class UIO {
      * @return
      * @throws IOException
      */
-    public static int readInt(IReadable _filer, String fieldName, byte[] intBuffer) throws IOException {
-        readFully(_filer, intBuffer, 4);
-        int v = 0;
-        v |= (intBuffer[0] & 0xFF);
-        v <<= 8;
-        v |= (intBuffer[1] & 0xFF);
-        v <<= 8;
-        v |= (intBuffer[2] & 0xFF);
-        v <<= 8;
-        v |= (intBuffer[3] & 0xFF);
-        return v;
+    public static int readInt(IReadable _filer, String fieldName) throws IOException {
+        return _filer.readInt();
     }
 
     /**
@@ -303,25 +288,8 @@ public class UIO {
      * @return
      * @throws IOException
      */
-    public static long readLong(IReadable _filer, String fieldName, byte[] longBuffer) throws IOException {
-        readFully(_filer, longBuffer, 8);
-        long v = 0;
-        v |= (longBuffer[0] & 0xFF);
-        v <<= 8;
-        v |= (longBuffer[1] & 0xFF);
-        v <<= 8;
-        v |= (longBuffer[2] & 0xFF);
-        v <<= 8;
-        v |= (longBuffer[3] & 0xFF);
-        v <<= 8;
-        v |= (longBuffer[4] & 0xFF);
-        v <<= 8;
-        v |= (longBuffer[5] & 0xFF);
-        v <<= 8;
-        v |= (longBuffer[6] & 0xFF);
-        v <<= 8;
-        v |= (longBuffer[7] & 0xFF);
-        return v;
+    public static long readLong(IReadable _filer, String fieldName) throws IOException {
+        return _filer.readLong();
     }
 
     public static boolean bytesBoolean(byte[] bytes, int _offset) {

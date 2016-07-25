@@ -291,11 +291,18 @@ public class LABValidationNGTest {
                         long maxId = nextId.get();
                         Set<Long> found = new HashSet<>();
                         for (int i = 0; i < maxId; i++) {
-                            lab.get(UIO.longBytes(i), (index, key, timestamp, tombstoned, version1, value1) -> {
-                                hits.incrementAndGet();
-                                found.add(UIO.bytesLong(key));
-                                return true;
-                            });
+                            int ii = i;
+                            lab.get(
+                                (keyStream) -> {
+                                    byte[] key = UIO.longBytes(ii);
+                                    keyStream.key(0, key, 0, key.length);
+                                    return true;
+                                },
+                                (index, key, timestamp, tombstoned, version1, value1) -> {
+                                    hits.incrementAndGet();
+                                    found.add(UIO.bytesLong(key));
+                                    return true;
+                                });
                         }
 
 //                        Set<Long> scanFound = new HashSet<>();

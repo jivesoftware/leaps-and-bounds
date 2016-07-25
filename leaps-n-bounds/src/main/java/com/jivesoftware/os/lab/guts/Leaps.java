@@ -35,7 +35,7 @@ public class Leaps {
         this.startOfEntry = startOfEntry;
     }
 
-    void write(FormatTransformer keyFormatTransformer, IAppendOnly writeable, byte[] lengthBuffer) throws Exception {
+    void write(FormatTransformer keyFormatTransformer, IAppendOnly writeable) throws Exception {
         byte[] writeLastKey = keyFormatTransformer.transform(lastKey);
         byte[][] writeKeys =  keyFormatTransformer.transform(keys);
         
@@ -45,37 +45,37 @@ public class Leaps {
             entryLength += 8 + 4 + writeKeys[i].length;
         }
         entryLength += 4;
-        UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
-        UIO.writeInt(writeable, index, "index", lengthBuffer);
-        UIO.writeInt(writeable, writeLastKey.length, "lastKeyLength", lengthBuffer);
+        UIO.writeInt(writeable, entryLength, "entryLength");
+        UIO.writeInt(writeable, index, "index");
+        UIO.writeInt(writeable, writeLastKey.length, "lastKeyLength");
         UIO.write(writeable, writeLastKey, "lastKey");
-        UIO.writeInt(writeable, fps.length, "fpIndexLength", lengthBuffer);
+        UIO.writeInt(writeable, fps.length, "fpIndexLength");
         for (int i = 0; i < fps.length; i++) {
             UIO.writeLong(writeable, fps[i], "fpIndex");
-            UIO.writeByteArray(writeable, writeKeys[i], "key", lengthBuffer);
+            UIO.writeByteArray(writeable, writeKeys[i], "key");
         }
         int startOfEntryLength = startOfEntryBuffer.limit();
-        UIO.writeInt(writeable, startOfEntryLength, "startOfEntryLength", lengthBuffer);
+        UIO.writeInt(writeable, startOfEntryLength, "startOfEntryLength");
         for (int i = 0; i < startOfEntryLength; i++) {
             UIO.writeLong(writeable, startOfEntryBuffer.get(i), "entry");
         }
-        UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
+        UIO.writeInt(writeable, entryLength, "entryLength");
     }
 
-    static Leaps read(FormatTransformer keyFormatTransformer, IReadable readable, byte[] lengthBuffer) throws Exception {
-        int entryLength = UIO.readInt(readable, "entryLength", lengthBuffer);
-        int index = UIO.readInt(readable, "index", lengthBuffer);
-        int lastKeyLength = UIO.readInt(readable, "lastKeyLength", lengthBuffer);
+    static Leaps read(FormatTransformer keyFormatTransformer, IReadable readable) throws Exception {
+        int entryLength = UIO.readInt(readable, "entryLength");
+        int index = UIO.readInt(readable, "index");
+        int lastKeyLength = UIO.readInt(readable, "lastKeyLength");
         byte[] lastKey = new byte[lastKeyLength];
         UIO.read(readable, lastKey);
-        int fpIndexLength = UIO.readInt(readable, "fpIndexLength", lengthBuffer);
+        int fpIndexLength = UIO.readInt(readable, "fpIndexLength");
         long[] fpIndex = new long[fpIndexLength];
         byte[][] keys = new byte[fpIndexLength][];
         for (int i = 0; i < fpIndexLength; i++) {
-            fpIndex[i] = UIO.readLong(readable, "fpIndex", lengthBuffer);
-            keys[i] = UIO.readByteArray(readable, "keyLength", lengthBuffer);
+            fpIndex[i] = UIO.readLong(readable, "fpIndex");
+            keys[i] = UIO.readByteArray(readable, "keyLength");
         }
-        int startOfEntryLength = UIO.readInt(readable, "startOfEntryLength", lengthBuffer);
+        int startOfEntryLength = UIO.readInt(readable, "startOfEntryLength");
         int startOfEntryNumBytes = startOfEntryLength * 8;
         StartOfEntry startOfEntry;
         if (readable.canSlice(startOfEntryNumBytes)) {
@@ -91,7 +91,7 @@ public class Leaps {
             LongBuffer startOfEntryBuffer = ByteBuffer.wrap(startOfEntryBytes).asLongBuffer();
             startOfEntry = readable1 -> startOfEntryBuffer;
         }
-        if (UIO.readInt(readable, "entryLength", lengthBuffer) != entryLength) {
+        if (UIO.readInt(readable, "entryLength") != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
         return new Leaps(index, keyFormatTransformer.transform(lastKey), fpIndex, keyFormatTransformer.transform(keys), startOfEntry);

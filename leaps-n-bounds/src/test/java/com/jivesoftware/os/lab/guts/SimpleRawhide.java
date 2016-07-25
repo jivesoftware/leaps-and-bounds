@@ -102,17 +102,17 @@ public class SimpleRawhide implements Rawhide {
 
         AppendableHeap indexEntryFiler = new AppendableHeap(4 + key.length + 8 + 1 + 4 + value.length); // TODO somthing better
         byte[] lengthBuffer = new byte[4];
-        UIO.writeByteArray(indexEntryFiler, key, "key", lengthBuffer);
+        UIO.writeByteArray(indexEntryFiler, key, "key");
         UIO.writeLong(indexEntryFiler, timestamp, "timestamp");
         UIO.writeByte(indexEntryFiler, tombstoned ? (byte) 1 : (byte) 0, "tombstone");
         UIO.writeLong(indexEntryFiler, version, "version");
-        UIO.writeByteArray(indexEntryFiler, value, "value", lengthBuffer);
+        UIO.writeByteArray(indexEntryFiler, value, "value");
         return indexEntryFiler.getBytes();
     }
 
     @Override
-    public int rawEntryLength(IReadable readable, byte[] lengthBuffer) throws Exception {
-        int length = UIO.readInt(readable, "entryLength", lengthBuffer);
+    public int rawEntryLength(IReadable readable) throws Exception {
+        int length = UIO.readInt(readable, "entryLength");
         return length - 4;
     }
 
@@ -124,13 +124,12 @@ public class SimpleRawhide implements Rawhide {
         int length,
         FormatTransformer appendKeyFormatTransormer,
         FormatTransformer appendValueFormatTransormer,
-        IAppendOnly appendOnly,
-        byte[] lengthBuffer) throws Exception {
+        IAppendOnly appendOnly) throws Exception {
 
         int entryLength = 4 + length + 4;
-        UIO.writeInt(appendOnly, entryLength, "entryLength", lengthBuffer);
+        UIO.writeInt(appendOnly, entryLength, "entryLength");
         appendOnly.append(rawEntry, offset, length);
-        UIO.writeInt(appendOnly, entryLength, "entryLength", lengthBuffer);
+        UIO.writeInt(appendOnly, entryLength, "entryLength");
     }
 
     @Override
@@ -160,11 +159,10 @@ public class SimpleRawhide implements Rawhide {
         IReadable readable,
         byte[] compareKey,
         int compareOffset,
-        int compareLength,
-        byte[] intBuffer) throws Exception {
+        int compareLength) throws Exception {
 
         readable.seek(readable.getFilePointer() + 4); // skip the entry length
-        int keyLength = UIO.readInt(readable, "keyLength", intBuffer);
+        int keyLength = readable.readInt(); // keyLength
         return IndexUtil.compare(readable, keyLength, compareKey, compareOffset, compareLength);
     }
 

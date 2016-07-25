@@ -212,10 +212,17 @@ public class LABNGTest {
     private void testExpected(ValueIndex index, long[] expected) throws Exception {
         for (int i = 0; i < expected.length; i++) {
             long e = expected[i];
-            index.get(UIO.longBytes(expected[i]), (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-                Assert.assertEquals(UIO.bytesLong(payload), e);
-                return true;
-            });
+            int ii = i;
+            index.get(
+                (keyStream) -> {
+                    byte[] key = UIO.longBytes(expected[ii]);
+                    keyStream.key(0, key, 0, key.length);
+                    return true;
+                },
+                (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+                    Assert.assertEquals(UIO.bytesLong(payload), e);
+                    return true;
+                });
         }
     }
 
@@ -235,12 +242,19 @@ public class LABNGTest {
 
     private void testNotExpected(ValueIndex index, long[] notExpected) throws Exception {
         for (long i : notExpected) {
-            index.get(UIO.longBytes(i), (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-                if (key != null || payload != null) {
-                    Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
-                }
-                return true;
-            });
+            long ii = i;
+            index.get(
+                (keyStream) -> {
+                    byte[] key = UIO.longBytes(ii);
+                    keyStream.key(0, key, 0, key.length);
+                    return true;
+                },
+                (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+                    if (key != null || payload != null) {
+                        Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
+                    }
+                    return true;
+                });
         }
     }
 

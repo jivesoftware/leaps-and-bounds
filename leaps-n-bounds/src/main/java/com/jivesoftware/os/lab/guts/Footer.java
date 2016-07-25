@@ -59,50 +59,50 @@ public class Footer {
             + '}';
     }
 
-    void write(IAppendOnly writeable, byte[] lengthBuffer) throws IOException {
+    void write(IAppendOnly writeable) throws IOException {
         int entryLength = 4 + 4 + 8 + 8 + 8 + 4 + (minKey == null ? 0 : minKey.length) + 4 + (maxKey == null ? 0 : maxKey.length) + 8 + 8 + 8 + 8 + 4;
-        UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
-        UIO.writeInt(writeable, leapCount, "leapCount", lengthBuffer);
+        UIO.writeInt(writeable, entryLength, "entryLength");
+        UIO.writeInt(writeable, leapCount, "leapCount");
         UIO.writeLong(writeable, count, "count");
         UIO.writeLong(writeable, keysSizeInBytes, "keysSizeInBytes");
         UIO.writeLong(writeable, valuesSizeInBytes, "valuesSizeInBytes");
-        UIO.writeByteArray(writeable, minKey, "minKey", lengthBuffer);
-        UIO.writeByteArray(writeable, maxKey, "maxKey", lengthBuffer);
+        UIO.writeByteArray(writeable, minKey, "minKey");
+        UIO.writeByteArray(writeable, maxKey, "maxKey");
         UIO.writeLong(writeable, maxTimestampAndVersion.maxTimestamp, "maxTimestamp");
         UIO.writeLong(writeable, maxTimestampAndVersion.maxTimestampVersion, "maxTimestampVersion");
         UIO.writeLong(writeable, keyFormat, "keyFormat");
         UIO.writeLong(writeable, valueFormat, "valueFormat");
-        UIO.writeInt(writeable, entryLength, "entryLength", lengthBuffer);
+        UIO.writeInt(writeable, entryLength, "entryLength");
     }
 
-    static Footer read(IReadable readable, byte[] lengthBuffer) throws IOException {
-        int entryLength = UIO.readInt(readable, "entryLength", lengthBuffer);
+    static Footer read(IReadable readable) throws IOException {
+        int entryLength = UIO.readInt(readable, "entryLength");
         int read = 4;
-        int leapCount = UIO.readInt(readable, "leapCount", lengthBuffer);
+        int leapCount = UIO.readInt(readable, "leapCount");
         read += 4;
-        long count = UIO.readLong(readable, "count", lengthBuffer);
+        long count = UIO.readLong(readable, "count");
         read += 8;
-        long keysSizeInBytes = UIO.readLong(readable, "keysSizeInBytes", lengthBuffer);
+        long keysSizeInBytes = UIO.readLong(readable, "keysSizeInBytes");
         read += 8;
-        long valuesSizeInBytes = UIO.readLong(readable, "valuesSizeInBytes", lengthBuffer);
+        long valuesSizeInBytes = UIO.readLong(readable, "valuesSizeInBytes");
         read += 8;
-        byte[] minKey = UIO.readByteArray(readable, "minKey", lengthBuffer);
+        byte[] minKey = UIO.readByteArray(readable, "minKey");
         read += 4 + minKey.length;
-        byte[] maxKey = UIO.readByteArray(readable, "maxKey", lengthBuffer);
+        byte[] maxKey = UIO.readByteArray(readable, "maxKey");
         read += 4 + maxKey.length;
-        long maxTimestamp = UIO.readLong(readable, "maxTimestamp", lengthBuffer);
+        long maxTimestamp = UIO.readLong(readable, "maxTimestamp");
         read += 8;
-        long maxTimestampVersion = UIO.readLong(readable, "maxTimestampVersion", lengthBuffer);
+        long maxTimestampVersion = UIO.readLong(readable, "maxTimestampVersion");
         read += 8;
 
         long keyFormat = 0;
         long valueFormat = 0;
         if (entryLength > read) {
-            keyFormat = UIO.readLong(readable, "keyFormat", lengthBuffer);
-            valueFormat = UIO.readLong(readable, "valueFormat", lengthBuffer);
+            keyFormat = UIO.readLong(readable, "keyFormat");
+            valueFormat = UIO.readLong(readable, "valueFormat");
         }
 
-        if (UIO.readInt(readable, "entryLength", lengthBuffer) != entryLength) {
+        if (UIO.readInt(readable, "entryLength") != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
         return new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, minKey, maxKey, keyFormat, valueFormat, new TimestampAndVersion(maxTimestamp,

@@ -46,6 +46,14 @@ public class TieredCompaction {
      */
     public static MergeRange hbaseSause(int minimumRun, boolean[] mergingCopy, long[] indexCounts, long[] indexSizes, long[] generations) {
 
+        if (minimumRun < 3 && mergingCopy.length > 1) {
+            long g = 0;
+            for (int i = 0; i < generations.length; i++) {
+                g = Math.max(g, generations[i]);
+            }
+            return new MergeRange(g, 0, mergingCopy.length, null, null);
+        }
+
         int maxMergedAtOnce = 10;
 
         for (int i = mergingCopy.length - 1; i > -1; i--) {

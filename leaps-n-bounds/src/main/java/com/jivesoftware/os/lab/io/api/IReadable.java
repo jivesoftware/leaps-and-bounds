@@ -34,6 +34,24 @@ public interface IReadable extends ICloseable, ISeekable {
      */
     int read() throws IOException;
 
+     /**
+     *
+     * @return @throws IOException
+     */
+    short readShort() throws IOException;
+
+     /**
+     *
+     * @return @throws IOException
+     */
+    int readInt() throws IOException;
+
+     /**
+     *
+     * @return @throws IOException
+     */
+    long readLong() throws IOException;
+
     /**
      *
      * @param b

@@ -115,8 +115,8 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
-    public int rawEntryLength(IReadable readable, byte[] lengthBuffer) throws Exception {
-        int length = UIO.readInt(readable, "entryLength", lengthBuffer);
+    public int rawEntryLength(IReadable readable) throws Exception {
+        int length = UIO.readInt(readable, "entryLength");
         return length - 4;
     }
 
@@ -128,13 +128,12 @@ public class LABRawhide implements Rawhide {
         int length,
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
-        IAppendOnly appendOnly,
-        byte[] lengthBuffer) throws Exception {
+        IAppendOnly appendOnly) throws Exception {
 
         int entryLength = 4 + length + 4;
-        UIO.writeInt(appendOnly, entryLength, "entryLength", lengthBuffer);
+        UIO.writeInt(appendOnly, entryLength, "entryLength");
         appendOnly.append(rawEntry, offset, length);
-        UIO.writeInt(appendOnly, entryLength, "entryLength", lengthBuffer);
+        UIO.writeInt(appendOnly, entryLength, "entryLength");
     }
 
     @Override
@@ -155,6 +154,7 @@ public class LABRawhide implements Rawhide {
         int compareOffset, int compareLength) {
 
         int keylength = UIO.bytesInt(rawEntry, offset);
+
         return IndexUtil.compare(rawEntry, offset + 4, keylength, compareKey, compareOffset, compareLength);
     }
 
@@ -164,11 +164,10 @@ public class LABRawhide implements Rawhide {
         IReadable readable,
         byte[] compareKey,
         int compareOffset,
-        int compareLength,
-        byte[] intBuffer) throws Exception {
+        int compareLength) throws Exception {
 
         readable.seek(readable.getFilePointer() + 4); // skip the entry length
-        int keyLength = UIO.readInt(readable, "keyLength", intBuffer);
+        int keyLength = readable.readInt(); // "keyLength"
         return IndexUtil.compare(readable, keyLength, compareKey, compareOffset, compareLength);
     }
 
@@ -197,6 +196,11 @@ public class LABRawhide implements Rawhide {
                 key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry, 0, bRawEntry.length)
             );
         }
+    }
+
+    @Override
+    public String toString() {
+        return "LABRawhide{" + '}';
     }
 
 }

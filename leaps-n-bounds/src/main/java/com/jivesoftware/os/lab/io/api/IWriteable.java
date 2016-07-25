@@ -23,6 +23,14 @@ import java.io.IOException;
 
 public interface IWriteable extends ICloseable, ISeekable {
 
+    void writeByte(byte b) throws IOException;
+
+    void writeShort(short s) throws IOException;
+
+    void writeInt(int i) throws IOException;
+
+    void writeLong(long l) throws IOException;
+
     void write(byte b[], int _offset, int _len) throws IOException;
 
     void flush(boolean fsync) throws IOException;

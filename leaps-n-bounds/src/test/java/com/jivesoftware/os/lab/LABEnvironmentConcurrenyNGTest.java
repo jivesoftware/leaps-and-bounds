@@ -113,10 +113,16 @@ public class LABEnvironmentConcurrenyNGTest {
                 try {
 
                     while (running.get() > 0) {
-                        index.get(UIO.longBytes(rand.nextInt(1_000_000)), (index1, key, timestamp, tombstoned, version1, value1) -> {
-                            hits.incrementAndGet();
-                            return true;
-                        });
+                        index.get(
+                            (keyStream) -> {
+                                byte[] key = UIO.longBytes(rand.nextInt(1_000_000));
+                                keyStream.key(0, key, 0, key.length);
+                                return true;
+                            },
+                            (index1, key, timestamp, tombstoned, version1, value1) -> {
+                                hits.incrementAndGet();
+                                return true;
+                            });
                     }
                     System.out.println("Reader (" + readerId + ") finished.");
                     return null;
