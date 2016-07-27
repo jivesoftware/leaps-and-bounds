@@ -39,6 +39,8 @@ public class LABValidationNGTest {
         ExecutorService destroy = Executors.newFixedThreadPool(1,
             new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
 
+        ExecutorService scheduler = LABEnvironment.buildLABSchedulerThreadPool(1);
+
         File root = com.google.common.io.Files.createTempDir();
         File finalRoot = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
@@ -47,6 +49,7 @@ public class LABValidationNGTest {
         LAB lab = new LAB(FormatTransformerProvider.NO_OP,
             new LABRawhide(),
             new RawEntryFormat(0, 0),
+            scheduler,
             compact,
             destroy,
             root,
@@ -110,7 +113,7 @@ public class LABValidationNGTest {
                             return true;
                         }, fsync);
 
-                        lab.commit(fsync);
+                        lab.commit(fsync, true);
                     }
                     System.out.println("Writer " + wi + " done...");
                     return null;
@@ -132,6 +135,7 @@ public class LABValidationNGTest {
             f.get();
         }
         writers.shutdownNow();
+        scheduler.shutdownNow();
         compact.shutdownNow();
         destroy.shutdownNow();
 
@@ -146,6 +150,8 @@ public class LABValidationNGTest {
         ExecutorService destroy = Executors.newFixedThreadPool(1,
             new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
 
+        ExecutorService scheduler = LABEnvironment.buildLABSchedulerThreadPool(1);
+
         File root = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
@@ -153,6 +159,7 @@ public class LABValidationNGTest {
         LAB lab = new LAB(FormatTransformerProvider.NO_OP,
             new LABRawhide(),
             new RawEntryFormat(0, 0),
+            scheduler,
             compact,
             destroy,
             root,
@@ -167,6 +174,7 @@ public class LABValidationNGTest {
         validationTest(lab);
 
         lab.close(true, true);
+        scheduler.shutdownNow();
         compact.shutdownNow();
         destroy.shutdownNow();
 
@@ -208,7 +216,7 @@ public class LABValidationNGTest {
                             }
                             return true;
                         }, fsync);
-                        lab.commit(fsync);
+                        lab.commit(fsync, true);
                         System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + lab.debt());
                     }
                     return null;

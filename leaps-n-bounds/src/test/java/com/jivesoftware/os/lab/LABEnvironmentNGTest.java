@@ -27,14 +27,16 @@ public class LABEnvironmentNGTest {
             System.out.println("root" + root.getAbsolutePath());
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
             LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-            LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+                LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 false, labHeapPressure, 4, 8, leapsCache);
 
             ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
             indexTest(index);
 
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+                LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, labHeapPressure, 4, 8, leapsCache);
 
             index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
@@ -43,7 +45,8 @@ public class LABEnvironmentNGTest {
             env.shutdown();
 
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+                LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, labHeapPressure, 4, 8, leapsCache);
             env.rename("foo", "bar");
             index = env.open("bar", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
@@ -52,7 +55,8 @@ public class LABEnvironmentNGTest {
 
             env.shutdown();
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-            env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+                LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, labHeapPressure, 4, 8, leapsCache);
             env.remove("bar");
         } catch (Throwable x) {
@@ -115,7 +119,8 @@ public class LABEnvironmentNGTest {
         System.out.println("Created root");
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
             true, labHeapPressure, 4, 8, leapsCache);
         System.out.println("Created env");
 
@@ -128,7 +133,8 @@ public class LABEnvironmentNGTest {
         System.out.println("Shutdown");
 
         labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
+        env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             root, true, labHeapPressure, 4, 8, leapsCache);
         System.out.println("Recreate env");
 
@@ -171,7 +177,7 @@ public class LABEnvironmentNGTest {
 
             System.out.println("Append Elapse:" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
-            index.commit(true);
+            index.commit(true, true);
             System.out.println("Commit Elapse:" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
 

@@ -22,6 +22,7 @@ import org.apache.commons.io.FileUtils;
 public class LABEnvironment {
 
     private final File rootFile;
+    private final ExecutorService scheduler;
     private final ExecutorService compact;
     private final ExecutorService destroy;
     private final boolean useMemMap;
@@ -29,6 +30,11 @@ public class LABEnvironment {
     private final int minMergeDebt;
     private final int maxMergeDebt;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
+
+    public static ExecutorService buildLABSchedulerThreadPool(int count) {
+        return Executors.newFixedThreadPool(count,
+            new ThreadFactoryBuilder().setNameFormat("lab-scheduler-%d").build());
+    }
 
     public static ExecutorService buildLABCompactorThreadPool(int count) {
         return Executors.newFixedThreadPool(count,
@@ -44,7 +50,8 @@ public class LABEnvironment {
         return new LRUConcurrentBAHLinkedHash<>(10, maxCapacity, 0.5f, true, concurrency);
     }
 
-    public LABEnvironment(ExecutorService compact,
+    public LABEnvironment(ExecutorService scheduler,
+        ExecutorService compact,
         final ExecutorService destroy,
         File rootFile,
         boolean useMemMap,
@@ -52,6 +59,8 @@ public class LABEnvironment {
         int minMergeDebt,
         int maxMergeDebt,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) {
+
+        this.scheduler = scheduler;
         this.compact = compact;
         this.destroy = destroy;
         this.rootFile = rootFile;
@@ -74,6 +83,7 @@ public class LABEnvironment {
         return new LAB(formatTransformerProvider,
             rawhide,
             rawEntryFormat,
+            scheduler,
             compact,
             destroy,
             rootFile,

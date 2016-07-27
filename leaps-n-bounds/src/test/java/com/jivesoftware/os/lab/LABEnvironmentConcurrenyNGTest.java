@@ -31,7 +31,8 @@ public class LABEnvironmentConcurrenyNGTest {
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4),
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
             root,
             false,
@@ -49,8 +50,15 @@ public class LABEnvironmentConcurrenyNGTest {
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
-            true, labHeapPressure, 4, 10, leapsCache);
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            root,
+            true, 
+            labHeapPressure,
+            4,
+            10,
+            leapsCache);
 
         concurentTest(env);
     }
@@ -93,7 +101,7 @@ public class LABEnvironmentConcurrenyNGTest {
                             }
                             return true;
                         }, fsync);
-                        index.commit(fsync);
+                        index.commit(fsync, true);
                         System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt());
                     }
                     return null;

@@ -46,6 +46,7 @@ public class LAB implements ValueIndex {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
+    final ExecutorService schedule;
     private final ExecutorService destroy;
     private final ExecutorService compact;
     private final LabHeapPressure labHeapFlusher;
@@ -68,6 +69,7 @@ public class LAB implements ValueIndex {
     public LAB(FormatTransformerProvider formatTransformerProvider,
         Rawhide rawhide,
         RawEntryFormat rawEntryFormat,
+        ExecutorService schedule,
         ExecutorService compact,
         ExecutorService destroy,
         File root,
@@ -84,6 +86,7 @@ public class LAB implements ValueIndex {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
 
         this.rawhide = rawhide;
+        this.schedule = schedule;
         this.compact = compact;
         this.destroy = destroy;
         this.labHeapFlusher = labHeapFlusher;
@@ -132,7 +135,6 @@ public class LAB implements ValueIndex {
 //        LOG.inc("LAB>gets");
 //        return result;
 //    }
-    
     @Override
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
         return rangeTx(true, -1, from, to, -1, -1,
@@ -421,7 +423,7 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public List<Future<Object>> commit(boolean fsync) throws Exception {
+    public List<Future<Object>> commit(boolean fsync, boolean waitIfToFarBehind) throws Exception {
         if (memoryIndex.isEmpty()) {
             return Collections.emptyList();
         }
@@ -436,8 +438,11 @@ public class LAB implements ValueIndex {
         if (!internalCommit(fsync)) {
             return Collections.emptyList();
         }
-
-        return compact(fsync, minDebt, maxDebt);
+        if (waitIfToFarBehind) {
+            return compact(fsync, minDebt, maxDebt, waitIfToFarBehind);
+        } else {
+            return Collections.singletonList(schedule.submit(() -> compact(fsync, minDebt, maxDebt, waitIfToFarBehind)));
+        }
     }
 
     private boolean internalCommit(boolean fsync) throws Exception, InterruptedException {
@@ -459,7 +464,7 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public List<Future<Object>> compact(boolean fsync, int minDebt, int maxDebt) throws Exception {
+    public List<Future<Object>> compact(boolean fsync, int minDebt, int maxDebt, boolean waitIfToFarBehind) throws Exception {
 
         int debt = rangeStripedCompactableIndexes.debt();
         if (debt == 0 || debt < minDebt) {
@@ -503,7 +508,7 @@ public class LAB implements ValueIndex {
                 }
             }
 
-            if (debt >= maxDebt) {
+            if (waitIfToFarBehind && debt >= maxDebt) {
                 synchronized (compactLock) {
                     if (!closeRequested.get() && ongoingCompactions.get() > 0) {
                         LOG.debug("Waiting because debt is too high for index:{} debt:{}", rangeStripedCompactableIndexes, debt);

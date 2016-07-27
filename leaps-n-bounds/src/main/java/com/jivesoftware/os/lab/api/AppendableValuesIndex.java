@@ -11,9 +11,9 @@ public interface AppendableValuesIndex {
 
     boolean append(Values values, boolean fsyncOnFlush) throws Exception;
 
-    List<Future<Object>> commit(boolean fsync) throws Exception;
+    List<Future<Object>> commit(boolean fsync, boolean waitIfToFarBehind) throws Exception;
 
-    List<Future<Object>> compact(boolean fsync, int minDebt, int maxDebt) throws Exception;
+    List<Future<Object>> compact(boolean fsync, int minDebt, int maxDebt, boolean waitIfToFarBehind) throws Exception;
 
     void close(boolean flushUncommited, boolean fsync) throws Exception;
 

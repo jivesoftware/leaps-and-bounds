@@ -35,7 +35,7 @@ public class LabHeapPressure {
         if (lab.approximateHeapPressureInBytes() > labMaxHeapPressureInBytes) {
             LOG.inc("lab>commit>instance>" + fsyncOnFlush);
             labs.remove(lab);
-            lab.commit(fsyncOnFlush);
+            lab.commit(fsyncOnFlush, false); // todo config
         } else {
             labs.compute(lab, (LAB t, Boolean u) -> {
                 return u == null ? fsyncOnFlush : (boolean) u || fsyncOnFlush;
@@ -45,29 +45,32 @@ public class LabHeapPressure {
         LOG.set(ValueType.VALUE, "lab>heap>pressure", globalHeap);
         LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
         if (globalHeap > maxHeapPressureInBytes) {
-            LAB[] keys = labs.keySet().toArray(new LAB[0]);
-            Arrays.sort(keys, (LAB o1, LAB o2) -> {
-                return -Long.compare(o1.approximateHeapPressureInBytes(), o2.approximateHeapPressureInBytes());
-            });
-            int i = 0;
-            while (i < keys.length && globalHeapCostInBytes.get() > maxHeapPressureInBytes) {
-                Boolean efsyncOnFlush = labs.remove(keys[i]);
-                if (efsyncOnFlush != null) {
-                    try {
-                        LOG.inc("lab>commit>global>" + efsyncOnFlush);
-                        LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
-                        LOG.debug("Forcing flush due to heap pressure. lab:{}", lab);
-                        keys[i].commit(efsyncOnFlush);
-                    } catch (LABIndexCorruptedException | LABIndexClosedException x) {
-                    } catch (Exception x) {
-                        labs.compute(keys[i], (LAB t, Boolean u) -> {
-                            return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;
-                        });
-                        throw x;
+            lab.schedule.submit(() -> {
+                LAB[] keys = labs.keySet().toArray(new LAB[0]);
+                Arrays.sort(keys, (LAB o1, LAB o2) -> {
+                    return -Long.compare(o1.approximateHeapPressureInBytes(), o2.approximateHeapPressureInBytes());
+                });
+                int i = 0;
+                while (i < keys.length && globalHeapCostInBytes.get() > maxHeapPressureInBytes) {
+                    Boolean efsyncOnFlush = labs.remove(keys[i]);
+                    if (efsyncOnFlush != null) {
+                        try {
+                            LOG.inc("lab>commit>global>" + efsyncOnFlush);
+                            LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
+                            LOG.debug("Forcing flush due to heap pressure. lab:{}", lab);
+                            keys[i].commit(efsyncOnFlush, false); // todo config
+                        } catch (LABIndexCorruptedException | LABIndexClosedException x) {
+                        } catch (Exception x) {
+                            labs.compute(keys[i], (LAB t, Boolean u) -> {
+                                return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;
+                            });
+                            throw x;
+                        }
                     }
+                    i++;
                 }
-                i++;
-            }
+                return null;
+            });
         }
     }
 

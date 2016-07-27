@@ -31,7 +31,7 @@ public class LABNGTest {
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4),
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1), LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
             root,
             false, labHeapPressure, 1, 2, leapsCache);
@@ -63,7 +63,7 @@ public class LABNGTest {
                 }
                 fails.addAndGet(f.get());
             } while (f.get() > 0);
-            index.commit(true);
+            index.commit(true, true);
             do {
                 f = new AtomicLong();
                 assertRangeScan(c, index, f);
@@ -132,7 +132,8 @@ public class LABNGTest {
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
             false, labHeapPressure, 1, 2, leapsCache);
 
         ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, 16, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
@@ -143,7 +144,7 @@ public class LABNGTest {
             stream.stream(-1, UIO.longBytes(3), System.currentTimeMillis(), false, 0, UIO.longBytes(3));
             return true;
         }, fsync);
-        List<Future<Object>> awaitable = index.commit(fsync);
+        List<Future<Object>> awaitable = index.commit(fsync, true);
         for (Future<Object> future : awaitable) {
             future.get();
         }
@@ -154,7 +155,7 @@ public class LABNGTest {
             stream.stream(-1, UIO.longBytes(9), System.currentTimeMillis(), false, 0, UIO.longBytes(9));
             return true;
         }, fsync);
-        awaitable = index.commit(fsync);
+        awaitable = index.commit(fsync, true);
         for (Future<Object> future : awaitable) {
             future.get();
         }
@@ -176,7 +177,7 @@ public class LABNGTest {
         testRangeScanExpected(index, UIO.longBytes(2), UIO.longBytes(7), new long[]{2, 3});
         testRangeScanExpected(index, UIO.longBytes(4), UIO.longBytes(7), new long[]{});
 
-        index.commit(fsync);
+        index.commit(fsync, true);
 
         index.append((stream) -> {
             stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), true, 1, UIO.longBytes(1));

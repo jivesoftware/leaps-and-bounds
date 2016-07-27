@@ -58,8 +58,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public GetRaw get() throws Exception {
-        // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
-        return new Gets(new ActiveScan(rawhide,
+        ActiveScan activeScan = new ActiveScan(rawhide,
             readKeyFormatTransormer,
             readValueFormatTransormer,
             leaps,
@@ -67,8 +66,9 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             leapsCache,
             footer,
             readable.call(),
-            new byte[16])
-        );
+            new byte[16]);
+        // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
+        return new Gets(activeScan);
     }
 
     @Override

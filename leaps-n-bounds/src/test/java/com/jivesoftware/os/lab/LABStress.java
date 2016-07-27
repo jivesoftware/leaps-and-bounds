@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
  *
  * @author jonathan.colt
  */
-public class LABStressWrites {
+public class LABStress {
 
     @Test(enabled = false)
     public void stressWrites() throws Exception {
@@ -31,23 +31,21 @@ public class LABStressWrites {
         File root = Files.createTempDir();
         ValueIndex index = createIndex(root);
 
-        boolean writeMonotonicly = false;
+        int totalCardinality = 100_000_000;
 
-        System.out.println("Sample, Writes, Writes/Sec, Reads, Reads/Sec, Hits, Miss, Merged, Split, ReadAmplification");
-
-        int iterations = 1000;
-        int batchSize = 500;
-        int totalCardinality = 500_000; // iterations * batchSize * 2;
+        System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
 
         String write = stress("warm:jit",
             index,
             totalCardinality,
-            iterations, // writeCount
-            batchSize, //writeBatchSize
-            writeMonotonicly, // writeMonotonicly
-            batchSize, //getCount
+            300_000, // writesPerSecond
+            1_000_000, //writeCount
+            true, // writeMonotonicly
+            1, //readForNSeconds
+            1_000_000, // readCount
             false); // removes
-        List<Future<Object>> futures = index.commit(true);
+
+        List<Future<Object>> futures = index.commit(true, false);
         for (Future<Object> future : futures) {
             future.get();
         }
@@ -68,19 +66,18 @@ public class LABStressWrites {
         index = createIndex(root);
 
         // ---
-        System.out.println("Sample, Writes, Writes/Sec, Reads, Reads/Sec, Hits, Miss, Merged, Split, ReadAmplification");
+        System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
 
-        iterations = 1000;
-        batchSize = 50000;
-        totalCardinality = 500_000; //iterations * batchSize * 2;
+        totalCardinality = 100_000_000;
 
         write = stress("stress:RW",
             index,
             totalCardinality,
-            iterations, // iterations
-            batchSize, //writeBatchSize
-            writeMonotonicly, // writeMonotonicly
-            batchSize, //getCount
+            300_000, // writesPerSecond
+            50_000_000, //writeCount
+            true, // writeMonotonicly
+            0, //readForNSeconds
+            0, // readCount
             false); // removes
 
         System.out.println("\n\n");
@@ -92,27 +89,31 @@ public class LABStressWrites {
         System.out.println("\n\n");
 
         System.out.println("COMMIT ALL");
-        futures = index.commit(true);
+        futures = index.commit(true, true);
         for (Future<Object> future : (futures != null) ? futures : Collections.<Future<Object>>emptyList()) {
             future.get();
         }
         System.out.println("COMMITED ALL");
 
         System.out.println("COMPACT ALL");
-        futures = index.compact(true, 0, 0);
+        futures = index.compact(true, 0, 0, true);
         for (Future<Object> future : (futures != null) ? futures : Collections.<Future<Object>>emptyList()) {
             future.get();
         }
         System.out.println("COMPACTED ALL");
 
+        System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
+
         write = stress("stress:R",
             index,
             totalCardinality,
-            iterations, // iterations
-            0, //writeBatchSize
-            writeMonotonicly, // writeMonotonicly
-            batchSize, //getCount
+            0, // writesPerSecond
+            0, //writeCount
+            false, // writeMonotonicly
+            10, //readForNSeconds
+            50_000_000, // readCount
             false); // removes
+
         System.out.println("\n\n");
         ((LAB) index).auditRanges((key) -> "" + UIO.bytesLong(key));
         System.out.println("\n\n");
@@ -127,7 +128,8 @@ public class LABStressWrites {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABCompactorThreadPool(4), // compact
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
             root, // rootFile
             true, // useMemMap
@@ -137,7 +139,7 @@ public class LABStressWrites {
             leapsCache);
         System.out.println("Created env");
         ValueIndex index = env.open("foo",
-            2048, // entriesBetweenLeaps
+            1024 * 10, // entriesBetweenLeaps
             1024 * 1024 * 512, // maxHeapPressureInBytes
             -1, // splitWhenKeysTotalExceedsNBytes
             -1, // splitWhenValuesTotalExceedsNBytes
@@ -151,9 +153,10 @@ public class LABStressWrites {
     private String stress(String name,
         ValueIndex index,
         int totalCardinality,
+        int writesPerSecond,
         int writeCount,
-        int writeBatchSize,
         boolean writeMonotonicly,
+        int readForNSeconds,
         int readCount,
         boolean removes) throws Exception {
 
@@ -161,10 +164,11 @@ public class LABStressWrites {
         AtomicLong value = new AtomicLong();
         AtomicLong count = new AtomicLong();
 
-        long totalReadTime = 0;
-        long totalReads = 0;
         long totalWriteTime = 0;
         long totalWrites = 0;
+
+        long totalReadTime = 0;
+        long totalReads = 0;
 
         long totalHits = 0;
         long totalMiss = 0;
@@ -172,13 +176,15 @@ public class LABStressWrites {
         Random rand = new Random(12345);
         AtomicLong monotonic = new AtomicLong();
 
-        for (int c = 0; c < writeCount; c++) {
+        int c = 0;
+        while ((writeCount > 0 && totalWrites < writeCount) || (readCount > 0 && totalReads < readCount)) {
             long start = System.currentTimeMillis();
             long writeElapse = 0;
             double writeRate = 0;
-            if (writeBatchSize > 0) {
+            if (writeCount > 0 && totalWrites < writeCount) {
+                long preWriteCount = count.get();
                 index.append((ValueStream stream) -> {
-                    for (int i = 0; i < writeBatchSize; i++) {
+                    for (int i = 0; i < writesPerSecond; i++) {
                         count.incrementAndGet();
                         long key = rand.nextInt(totalCardinality);
                         if (writeMonotonicly) {
@@ -195,60 +201,59 @@ public class LABStressWrites {
                 }, true);
 
                 //index.commit(true);
-                totalWrites += writeBatchSize;
+                long wrote = count.get() - preWriteCount;
+                totalWrites += wrote;
                 //System.out.println("Commit Elapse:" + (System.currentTimeMillis() - start));
                 writeElapse = (System.currentTimeMillis() - start);
                 totalWriteTime += writeElapse;
-                writeRate = (double) writeBatchSize * 1000 / (writeElapse);
+                writeRate = (double) wrote * 1000 / (writeElapse);
+                if (writeElapse < 1000) {
+                    Thread.sleep(1000 - writeElapse);
+                }
             } else {
                 monotonic.addAndGet(readCount);
             }
 
             start = System.currentTimeMillis();
-            AtomicLong hits = new AtomicLong();
             long readElapse = 0;
             double readRate = 0;
-            if (readCount > 0) {
-                long m = monotonic.get();
+            AtomicLong misses = new AtomicLong();
+            AtomicLong hits = new AtomicLong();
+            if (readCount > 0 && totalReads < readCount) {
                 LAB.pointTxCalled.set(0);
                 LAB.pointTxIndexCount.set(0);
-                for (int i = 0; i < readCount; i++) {
+                long s = start;
 
-//                    index.get(UIO.longBytes(rand.nextInt(totalCardinality)), (index1, key, timestamp, tombstoned, version1, value1) -> {
-//                        if (value1 != null && !tombstoned) {
-//                            hits.incrementAndGet();
-//                        }
-//                        return true;
-//                    });
-                    int ii = i;
+                while (System.currentTimeMillis() - s < (1000 * readForNSeconds)) {
+
                     index.get((Keys.KeyStream keyStream) -> {
-                        long k = 0;
-                        if (writeMonotonicly) {
-                            k = Math.max(0, (m - readCount) + ii);
-                        } else {
-                            k = rand.nextInt(totalCardinality);
-                        }
+                        long k = rand.nextInt(totalCardinality);
                         byte[] key = UIO.longBytes(k);
                         keyStream.key(0, key, 0, key.length);
                         return true;
                     }, (index1, key, timestamp, tombstoned, version1, value1) -> {
                         if (value1 != null && !tombstoned) {
                             hits.incrementAndGet();
+                        } else {
+                            misses.incrementAndGet();
                         }
                         return true;
                     });
                 }
-                totalReads += readCount;
+                totalReads += misses.get() + hits.get();
                 readElapse = (System.currentTimeMillis() - start);
                 totalReadTime += readElapse;
-                readRate = (double) readCount * 1000 / (readElapse);
+                readRate = (double) (misses.get() + hits.get()) * 1000 / (readElapse);
                 totalHits += hits.get();
-                totalMiss += (readCount - hits.get());
+                totalMiss += misses.get();
             }
 
-            System.out.println(name + ":" + c + ", " + count.get() + ", " + writeRate + ", " + readCount + ", " + readRate + ", " + hits
-                .get() + ", " + (readCount - hits.get()) + ", " + RangeStripedCompactableIndexes.mergeCount.get() + ", " + RangeStripedCompactableIndexes.splitCount
-                .get() + ", " + (LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get()));
+            c++;
+            System.out.println(
+                name + ":" + c + ", " + writesPerSecond + ", " + writeRate + ", " + writeElapse + ", " + (misses.get() + hits.get()) + ", " + readRate + ", " + readElapse
+                + ", " + hits.get() + ", " + misses.get()
+                + ", " + RangeStripedCompactableIndexes.mergeCount.get() + ", " + RangeStripedCompactableIndexes.splitCount.get()
+                + ", " + (LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get()));
 
         }
 
