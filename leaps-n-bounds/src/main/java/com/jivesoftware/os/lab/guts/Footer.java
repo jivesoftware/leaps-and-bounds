@@ -97,7 +97,7 @@ public class Footer {
 
         long keyFormat = 0;
         long valueFormat = 0;
-        if (entryLength > read) {
+        if (entryLength == read + 8 + 8 + 4) {
             keyFormat = UIO.readLong(readable, "keyFormat");
             valueFormat = UIO.readLong(readable, "valueFormat");
         }
