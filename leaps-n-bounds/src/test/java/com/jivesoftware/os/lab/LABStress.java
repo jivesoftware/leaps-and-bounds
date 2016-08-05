@@ -238,7 +238,7 @@ public class LABStress {
                             misses.incrementAndGet();
                         }
                         return true;
-                    });
+                    }, true);
                 }
                 totalReads += misses.get() + hits.get();
                 readElapse = (System.currentTimeMillis() - start);
@@ -266,7 +266,7 @@ public class LABStress {
                 scanCount.incrementAndGet();
             }
             return true;
-        });
+        }, true);
 
         String punchLine = "index:" + scanCount.get()
             + " writeMillis:" + totalWriteTime

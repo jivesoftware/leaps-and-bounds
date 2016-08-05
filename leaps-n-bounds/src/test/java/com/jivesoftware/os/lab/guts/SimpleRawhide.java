@@ -69,8 +69,13 @@ public class SimpleRawhide implements Rawhide {
     }
 
     @Override
-    public boolean streamRawEntry(int index, FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, byte[] rawEntry, int offset,
-        ValueStream stream) throws Exception {
+    public boolean streamRawEntry(int index,
+        FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        ValueStream stream,
+        boolean hydrateValues) throws Exception {
 
         if (rawEntry == null) {
             return stream.stream(index, null, -1, false, -1, null);
@@ -88,12 +93,14 @@ public class SimpleRawhide implements Rawhide {
         long version = UIO.bytesLong(rawEntry, o);
         o += 8;
 
-        int valueLength = UIO.bytesInt(rawEntry, o);
-        o += 4;
-        byte[] value = new byte[valueLength];
-        System.arraycopy(rawEntry, o, value, 0, valueLength);
-        o += valueLength;
-
+        byte[] value = null;
+        if (hydrateValues) {
+            int valueLength = UIO.bytesInt(rawEntry, o);
+            o += 4;
+            value = new byte[valueLength];
+            System.arraycopy(rawEntry, o, value, 0, valueLength);
+            o += valueLength;
+        }
         return stream.stream(index, readKeyFormatTransormer.transform(k), timestamp, tombstone, version, readValueFormatTransormer.transform(value));
     }
 

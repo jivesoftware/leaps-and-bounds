@@ -125,7 +125,7 @@ public class IndexStressNGTest {
                     Thread.sleep(10);
                     continue;
                 }
-                while (indexs.tx(-1, null, null, (index, fromKey, toKey, acquire) -> {
+                while (indexs.tx(-1, null, null, (index, fromKey, toKey, acquire, hydrateValues) -> {
                     GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {
@@ -144,7 +144,7 @@ public class IndexStressNGTest {
                         Thread.sleep(10);
                     }
                     return true;
-                }));
+                }, true));
 
                 long getEnd = System.currentTimeMillis();
                 long elapse = (getEnd - getStart);

@@ -24,7 +24,8 @@ public interface Rawhide extends Comparator<byte[]> {
         FormatTransformer readValueFormatTransormer,
         byte[] rawEntry,
         int offset,
-        ValueStream stream) throws Exception;
+        ValueStream stream,
+        boolean hydrateValues) throws Exception;
 
     byte[] toRawEntry(byte[] key,
         long timestamp,

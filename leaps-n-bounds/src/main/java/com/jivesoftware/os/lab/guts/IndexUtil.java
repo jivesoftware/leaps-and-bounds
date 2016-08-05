@@ -73,7 +73,6 @@ public class IndexUtil {
         return new InterleaveStream(feeders, rawhide);
     }
 
-   
     /**
      * Borrowed from guava.
      */

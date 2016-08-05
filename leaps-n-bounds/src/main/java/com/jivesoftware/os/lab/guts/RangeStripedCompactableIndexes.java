@@ -363,8 +363,8 @@ public class RangeStripedCompactableIndexes {
             return reopenedIndex;
         }
 
-        boolean tx(int index, byte[] fromKey, byte[] toKey, ReaderTx tx) throws Exception {
-            return compactableIndexes.tx(index, fromKey, toKey, tx);
+        boolean tx(int index, byte[] fromKey, byte[] toKey, ReaderTx tx, boolean hydrateValues) throws Exception {
+            return compactableIndexes.tx(index, fromKey, toKey, tx, hydrateValues);
         }
 
         long count() throws Exception {
@@ -638,10 +638,11 @@ public class RangeStripedCompactableIndexes {
     public boolean pointTx(Keys keys,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
-        ReaderTx tx) throws Exception {
+        ReaderTx tx,
+        boolean hydrateValues) throws Exception {
 
         return keys.keys((int index, byte[] key, int offset, int length) -> {
-            rangeTx(index, key, key, newerThanTimestamp, newerThanTimestampVersion, tx);
+            rangeTx(index, key, key, newerThanTimestamp, newerThanTimestampVersion, tx, hydrateValues);
             return true;
         });
     }
@@ -651,13 +652,14 @@ public class RangeStripedCompactableIndexes {
         byte[] to,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
-        ReaderTx tx) throws Exception {
+        ReaderTx tx,
+        boolean hydrateValues) throws Exception {
 
         THE_INSANITY:
         while (true) {
             ConcurrentSkipListMap<byte[], FileBackMergableIndexs> stackCopy = indexes;
             if (stackCopy.isEmpty()) {
-                return tx.tx(index, from, to, new ReadIndex[0]);
+                return tx.tx(index, from, to, new ReadIndex[0], hydrateValues);
             }
             SortedMap<byte[], FileBackMergableIndexs> map;
             if (from != null && to != null) {
@@ -681,7 +683,7 @@ public class RangeStripedCompactableIndexes {
             }
 
             if (map.isEmpty()) {
-                return tx.tx(index, from, to, new ReadIndex[0]);
+                return tx.tx(index, from, to, new ReadIndex[0], hydrateValues);
             } else {
                 @SuppressWarnings("unchecked")
                 Entry<byte[], FileBackMergableIndexs>[] entries = map.entrySet().toArray(new Entry[0]);
@@ -696,7 +698,7 @@ public class RangeStripedCompactableIndexes {
                             timestampAndVersion.maxTimestampVersion,
                             newerThanTimestamp,
                             newerThanTimestampVersion)) {
-                            if (!mergableIndex.tx(index, start, end, tx)) {
+                            if (!mergableIndex.tx(index, start, end, tx, hydrateValues)) {
                                 return false;
                             }
                         }

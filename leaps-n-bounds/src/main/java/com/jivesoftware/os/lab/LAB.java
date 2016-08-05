@@ -115,43 +115,36 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public void get(Keys keys, ValueStream stream) throws Exception {
+    public void get(Keys keys, ValueStream stream, boolean hydrateValues) throws Exception {
         int[] count = {0};
-        pointTx(keys, -1, -1, (index, fromKey, toKey, readIndexes) -> {
+        pointTx(keys, -1, -1, (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
             count[0]++;
-            return rawToReal(index, fromKey, getRaw, stream);
-        });
+            return rawToReal(index, fromKey, getRaw, stream, hydrateValues1);
+        }, hydrateValues);
         LOG.inc("LAB>gets", count[0]);
     }
 
-//    @Override
-//    public boolean get(byte[] key, ValueStream stream) throws Exception {
-//        boolean result = rangeTx(true, -1, key, key, -1, -1,
-//            (index, fromKey, toKey, readIndexes) -> {
-//                GetRaw getRaw = IndexUtil.get(readIndexes);
-//                return rawToReal(index, fromKey, getRaw, stream);
-//            });
-//        LOG.inc("LAB>gets");
-//        return result;
-//    }
     @Override
-    public boolean rangeScan(byte[] from, byte[] to, ValueStream stream) throws Exception {
+    public boolean rangeScan(byte[] from, byte[] to, ValueStream stream, boolean hydrateValues) throws Exception {
         return rangeTx(true, -1, from, to, -1, -1,
-            (index, fromKey, toKey, readIndexes) -> {
-                //System.out.println("rangeScan:" + UIO.bytesLong(fromKey) + " " + UIO.bytesLong(toKey));
-                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream);
-            });
+            (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
+                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
+            },
+            hydrateValues
+        );
     }
 
     private final static byte[] smallestPossibleKey = new byte[0];
 
     @Override
-    public boolean rowScan(ValueStream stream) throws Exception {
+    public boolean rowScan(ValueStream stream, boolean hydrateValues) throws Exception {
         return rangeTx(true, -1, smallestPossibleKey, null, -1, -1,
-            (index, fromKey, toKey, readIndexes) -> {
-                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream);
-            });
+            (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
+                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
+            },
+            hydrateValues
+        );
     }
 
     @Override
@@ -175,7 +168,8 @@ public class LAB implements ValueIndex {
     private boolean pointTx(Keys keys,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
-        ReaderTx tx) throws Exception {
+        ReaderTx tx,
+        boolean hydrateValues) throws Exception {
 
         ReadIndex memoryIndexReader = null;
         ReadIndex flushingMemoryIndexReader = null;
@@ -228,7 +222,7 @@ public class LAB implements ValueIndex {
             return rangeStripedCompactableIndexes.pointTx(keys,
                 newerThanTimestamp,
                 newerThanTimestampVersion,
-                (index, fromKey, toKey, acquired) -> {
+                (index, fromKey, toKey, acquired, hydrateValues1) -> {
                     int active = (reader == null) ? 0 : 1;
                     int flushing = (flushingReader == null) ? 0 : 1;
                     ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
@@ -244,8 +238,8 @@ public class LAB implements ValueIndex {
                     System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
                     pointTxCalled.incrementAndGet();
                     pointTxIndexCount.addAndGet(indexes.length);
-                    return tx.tx(index, fromKey, toKey, indexes);
-                });
+                    return tx.tx(index, fromKey, toKey, indexes, hydrateValues1);
+                }, hydrateValues);
         } finally {
             if (memoryIndexReader != null) {
                 memoryIndexReader.release();
@@ -266,7 +260,8 @@ public class LAB implements ValueIndex {
         byte[] to,
         long newerThanTimestamp,
         long newerThanTimestampVersion,
-        ReaderTx tx) throws Exception {
+        ReaderTx tx,
+        boolean hydrateValues) throws Exception {
 
         ReadIndex memoryIndexReader = null;
         ReadIndex flushingMemoryIndexReader = null;
@@ -325,7 +320,7 @@ public class LAB implements ValueIndex {
                 to,
                 newerThanTimestamp,
                 newerThanTimestampVersion,
-                (index1, fromKey, toKey, acquired) -> {
+                (index1, fromKey, toKey, acquired, hydrateValues1) -> {
                     int active = (reader == null) ? 0 : 1;
                     int flushing = (flushingReader == null) ? 0 : 1;
                     ReadIndex[] indexes = new ReadIndex[acquired.length + active + flushing];
@@ -341,8 +336,10 @@ public class LAB implements ValueIndex {
                     System.arraycopy(acquired, 0, indexes, active + flushing, acquired.length);
                     pointTxCalled.incrementAndGet();
                     pointTxIndexCount.addAndGet(indexes.length);
-                    return tx.tx(index1, fromKey, toKey, indexes);
-                });
+                    return tx.tx(index1, fromKey, toKey, indexes, hydrateValues1);
+                },
+                hydrateValues
+            );
         } finally {
             if (memoryIndexReader != null) {
                 memoryIndexReader.release();
@@ -390,7 +387,7 @@ public class LAB implements ValueIndex {
                         return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
                     } else {
                         rangeTx(false, -1, key, key, timestamp, version,
-                            (index1, fromKey, toKey, readIndexes) -> {
+                            (index1, fromKey, toKey, readIndexes, hydrateValues1) -> {
                                 GetRaw getRaw = IndexUtil.get(readIndexes);
                                 return getRaw.get(key,
                                     (existingReadKeyFormatTransformer, existingReadValueFormatTransformer, existingEntry, offset, length) -> {
@@ -408,7 +405,9 @@ public class LAB implements ValueIndex {
                                         }
                                         return false;
                                     });
-                            });
+                            },
+                            false // This prevent values from being hydrated
+                        );
                         return true;
                     }
                 });
@@ -566,16 +565,18 @@ public class LAB implements ValueIndex {
             + '}';
     }
 
-    private boolean rawToReal(int index, byte[] key, GetRaw getRaw, ValueStream valueStream) throws Exception {
-        return getRaw.get(key, (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-            return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream);
-        });
+    private boolean rawToReal(int index, byte[] key, GetRaw getRaw, ValueStream valueStream, boolean hydrateValues) throws Exception {
+        return getRaw.get(key,
+            (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream, hydrateValues);
+            }
+        );
     }
 
-    private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream) throws Exception {
+    private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream, boolean hydrateValues) throws Exception {
         while (true) {
             Next next = nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                return rawhide.streamRawEntry(-1, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream);
+                return rawhide.streamRawEntry(-1, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream, hydrateValues);
             });
             if (next == Next.stopped) {
                 return false;

@@ -192,7 +192,7 @@ public class LABEnvironmentNGTest {
                     (index1, key, timestamp, tombstoned, version1, value1) -> {
                         hits.incrementAndGet();
                         return true;
-                    });
+                    }, true);
             }
             System.out.println("Get (" + hits.get() + ") Elapse:" + (System.currentTimeMillis() - start));
 
@@ -211,7 +211,7 @@ public class LABEnvironmentNGTest {
         index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
             //System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays.toString(payload));
             return true;
-        });
+        }, true);
 
     }
 

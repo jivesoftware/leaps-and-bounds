@@ -38,14 +38,18 @@ public class FixedWidthRawhide implements Rawhide {
         FormatTransformer readValueFormatTransormer,
         byte[] rawEntry,
         int offset,
-        ValueStream stream) throws Exception {
+        ValueStream stream,
+        boolean hydrateValues) throws Exception {
         if (rawEntry == null) {
             return stream.stream(index, null, -1, false, -1, null);
         }
         byte[] key = new byte[keyLength];
         UIO.readBytes(rawEntry, 0, key);
-        byte[] payload = new byte[payloadLength];
-        UIO.readBytes(rawEntry, keyLength, payload);
+        byte[] payload = null;
+        if (hydrateValues) {
+            payload = new byte[payloadLength];
+            UIO.readBytes(rawEntry, keyLength, payload);
+        }
         return stream.stream(index, key, 0, false, 0, payload);
     }
 
@@ -150,4 +154,3 @@ public class FixedWidthRawhide implements Rawhide {
         return (timestamp != -1 && timestampVersion != -1);
     }
 }
-

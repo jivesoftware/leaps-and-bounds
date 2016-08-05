@@ -98,7 +98,7 @@ public class LABNGTest {
                             System.out.println("RANGE FAILED: from:" + ff + " to:" + tt + " already contained " + UIO.bytesLong(key));
                         }
                         return true;
-                    });
+                    }, true);
 
                 if (rangeScan.size() != t - f) {
                     fails.incrementAndGet();
@@ -117,7 +117,7 @@ public class LABNGTest {
                 System.out.println("RANGE FAILED: already contained " + UIO.bytesLong(key));
             }
             return true;
-        });
+        }, true);
 
         if (rowScan.size() != c) {
             fails.incrementAndGet();
@@ -165,7 +165,7 @@ public class LABNGTest {
         index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
             //System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
             return true;
-        });
+        }, true);
 
         long[] expected = new long[]{1, 2, 3, 7, 8, 9};
         testExpected(index, expected);
@@ -207,7 +207,7 @@ public class LABNGTest {
         }, (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
             Assert.assertEquals(UIO.bytesLong(payload), expected[index1]);
             return true;
-        });
+        }, true);
     }
 
     private void testExpected(ValueIndex index, long[] expected) throws Exception {
@@ -223,7 +223,7 @@ public class LABNGTest {
                 (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
                     Assert.assertEquals(UIO.bytesLong(payload), e);
                     return true;
-                });
+                }, true);
         }
     }
 
@@ -238,7 +238,7 @@ public class LABNGTest {
                 Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
             }
             return true;
-        });
+        }, true);
     }
 
     private void testNotExpected(ValueIndex index, long[] notExpected) throws Exception {
@@ -255,7 +255,7 @@ public class LABNGTest {
                         Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
                     }
                     return true;
-                });
+                }, true);
         }
     }
 
@@ -268,7 +268,7 @@ public class LABNGTest {
                 scanned.add(UIO.bytesLong(payload));
             }
             return true;
-        });
+        }, true);
         Assert.assertEquals(scanned.size(), expected.length);
         for (int i = 0; i < expected.length; i++) {
             System.out.println((long) scanned.get(i) + " vs " + expected[i]);
@@ -286,7 +286,7 @@ public class LABNGTest {
                 scanned.add(UIO.bytesLong(payload));
             }
             return true;
-        });
+        }, true);
         Assert.assertEquals(scanned.size(), expected.length);
         for (int i = 0; i < expected.length; i++) {
             System.out.println((long) scanned.get(i) + " vs " + expected[i]);

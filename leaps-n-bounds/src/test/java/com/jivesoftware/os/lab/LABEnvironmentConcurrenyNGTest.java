@@ -130,7 +130,7 @@ public class LABEnvironmentConcurrenyNGTest {
                             (index1, key, timestamp, tombstoned, version1, value1) -> {
                                 hits.incrementAndGet();
                                 return true;
-                            });
+                            }, true);
                     }
                     System.out.println("Reader (" + readerId + ") finished.");
                     return null;

@@ -80,7 +80,7 @@ public class CompactableIndexsNGTest {
             byte[] k = UIO.longBytes(i);
             boolean[] passed = {false};
             System.out.println("Get:" + i);
-            indexs.tx(-1, null, null, (index, fromKey, toKey, readIndexs) -> {
+            indexs.tx(-1, null, null, (index, fromKey, toKey, readIndexs, hydrateValues) -> {
 
                 for (ReadIndex raw : readIndexs) {
                     System.out.println("\tIndex:" + raw);
@@ -93,7 +93,7 @@ public class CompactableIndexsNGTest {
                     });
                 }
                 return true;
-            });
+            }, true);
             if (!passed[0]) {
                 Assert.fail();
             }
@@ -205,7 +205,7 @@ public class CompactableIndexsNGTest {
             indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, FormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
         }
 
-        indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs, hydrateValues) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
@@ -216,7 +216,7 @@ public class CompactableIndexsNGTest {
                 while (rowScan.next(stream) == NextRawEntry.Next.more);
             }
             return true;
-        });
+        }, true);
 
         assertions(indexs, count, step, desired);
 
@@ -243,7 +243,7 @@ public class CompactableIndexsNGTest {
             Assert.fail();
         }
 
-        indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs, hydrateValues) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
@@ -254,7 +254,7 @@ public class CompactableIndexsNGTest {
                 while (rowScan.next(stream) == NextRawEntry.Next.more);
             }
             return true;
-        });
+        }, true);
 
         indexs = new CompactableIndexes(rawhide);
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
@@ -274,7 +274,7 @@ public class CompactableIndexsNGTest {
 
         int[] index = new int[1];
         SimpleRawhide rawhide = new SimpleRawhide();
-        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             AtomicBoolean failed = new AtomicBoolean();
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
@@ -292,9 +292,9 @@ public class CompactableIndexsNGTest {
             Assert.assertEquals(index[0], keys.size());
             System.out.println("rowScan PASSED");
             return true;
-        });
+        }, true);
 
-        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
@@ -320,9 +320,9 @@ public class CompactableIndexsNGTest {
             }
             System.out.println("gets PASSED");
             return true;
-        });
+        }, true);
 
-        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
 
@@ -343,9 +343,9 @@ public class CompactableIndexsNGTest {
             }
             System.out.println("rangeScan PASSED");
             return true;
-        });
+        }, true);
 
-        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
@@ -362,7 +362,7 @@ public class CompactableIndexsNGTest {
             }
             System.out.println("rangeScan2 PASSED");
             return true;
-        });
+        }, true);
     }
 
 }

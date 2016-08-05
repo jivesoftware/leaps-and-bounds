@@ -111,7 +111,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 }
                 int longKey = rand.nextInt(i);
                 byte[] longAsBytes = UIO.longBytes(longKey);
-                indexs.rangeTx(-1, longAsBytes, longAsBytes, -1, -1, (index, fromKey, toKey, acquire) -> {
+                indexs.rangeTx(-1, longAsBytes, longAsBytes, -1, -1, (index, fromKey, toKey, acquire, hydrateValues) -> {
                     GetRaw getRaw = IndexUtil.get(acquire);
 
                     try {
@@ -129,7 +129,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                         Thread.sleep(10);
                     }
                     return true;
-                });
+                }, true);
 
                 long getEnd = System.currentTimeMillis();
                 long elapse = (getEnd - getStart);

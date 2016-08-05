@@ -310,7 +310,7 @@ public class LABValidationNGTest {
                                     hits.incrementAndGet();
                                     found.add(UIO.bytesLong(key));
                                     return true;
-                                });
+                                }, true);
                         }
 
 //                        Set<Long> scanFound = new HashSet<>();

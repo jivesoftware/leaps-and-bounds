@@ -8,17 +8,17 @@ public interface FormatTransformer {
 
     public static final FormatTransformer NO_OP = new FormatTransformer() {
         @Override
-        public byte[] transform(byte[] key) {
-            return key;
+        public byte[] transform(byte[] bytes) {
+            return bytes;
         }
 
         @Override
-        public byte[][] transform(byte[][] keys) {
-            return keys;
+        public byte[][] transform(byte[][] bytes) {
+            return bytes;
         }
     };
 
-    byte[] transform(byte[] key);
+    byte[] transform(byte[] bytes);
 
-    byte[][] transform(byte[][] keys);
+    byte[][] transform(byte[][] bytes);
 }

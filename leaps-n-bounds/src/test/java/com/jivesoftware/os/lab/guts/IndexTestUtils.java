@@ -72,7 +72,7 @@ public class IndexTestUtils {
         int[] index = new int[1];
 
         SimpleRawhide rawhide = new SimpleRawhide();
-        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
                 System.out.println("scanned:" + UIO.bytesLong(keys.get(index[0])) + " " + key(rawEntry));
@@ -83,9 +83,9 @@ public class IndexTestUtils {
             while (rowScan.next(stream) == NextRawEntry.Next.more) ;
             System.out.println("rowScan PASSED");
             return true;
-        });
+        }, true);
 
-        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
@@ -103,9 +103,9 @@ public class IndexTestUtils {
             }
             System.out.println("gets PASSED");
             return true;
-        });
+        }, true);
 
-        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
 
@@ -126,9 +126,9 @@ public class IndexTestUtils {
 
             System.out.println("rangeScan PASSED");
             return true;
-        });
+        }, true);
 
-        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired) -> {
+        indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
@@ -146,6 +146,6 @@ public class IndexTestUtils {
 
             System.out.println("rangeScan2 PASSED");
             return true;
-        });
+        }, true);
     }
 }
