@@ -102,8 +102,9 @@ public class Footer {
             valueFormat = UIO.readLong(readable, "valueFormat");
         }
 
-        if (UIO.readInt(readable, "entryLength") != entryLength) {
-            throw new RuntimeException("Encountered length corruption. ");
+        long el = UIO.readInt(readable, "entryLength");
+        if (el != entryLength) {
+            throw new RuntimeException("Encountered length corruption. " + el + " vs " + entryLength);
         }
         return new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, minKey, maxKey, keyFormat, valueFormat, new TimestampAndVersion(maxTimestamp,
             maxTimestampVersion));
