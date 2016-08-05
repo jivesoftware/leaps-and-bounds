@@ -115,14 +115,15 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public void get(Keys keys, ValueStream stream, boolean hydrateValues) throws Exception {
+    public boolean get(Keys keys, ValueStream stream, boolean hydrateValues) throws Exception {
         int[] count = {0};
-        pointTx(keys, -1, -1, (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
+        boolean b = pointTx(keys, -1, -1, (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
             GetRaw getRaw = IndexUtil.get(readIndexes);
             count[0]++;
             return rawToReal(index, fromKey, getRaw, stream, hydrateValues1);
         }, hydrateValues);
         LOG.inc("LAB>gets", count[0]);
+        return b;
     }
 
     @Override

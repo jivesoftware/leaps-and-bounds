@@ -6,7 +6,7 @@ package com.jivesoftware.os.lab.api;
  */
 public interface ReadValueIndex {
 
-    void get(Keys keys, ValueStream stream, boolean hydrateValues) throws Exception;
+    boolean get(Keys keys, ValueStream stream, boolean hydrateValues) throws Exception;
 
     boolean rangeScan(byte[] from, byte[] to, ValueStream stream, boolean hydrateValues) throws Exception;
 
