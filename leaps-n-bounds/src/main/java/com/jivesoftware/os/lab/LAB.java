@@ -53,6 +53,7 @@ public class LAB implements ValueIndex {
     private final long maxHeapPressureInBytes;
     private final int minDebt;
     private final int maxDebt;
+    private final String indexName;
     private final RangeStripedCompactableIndexes rangeStripedCompactableIndexes;
     private final Semaphore commitSemaphore = new Semaphore(Short.MAX_VALUE, true);
     private final CompactLock compactLock = new CompactLock();
@@ -93,6 +94,7 @@ public class LAB implements ValueIndex {
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
         this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
+        this.indexName = indexName;
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
             root,
             indexName,
@@ -107,6 +109,11 @@ public class LAB implements ValueIndex {
             leapsCache);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
+    }
+
+    @Override
+    public String name() {
+        return indexName;
     }
 
     @Override

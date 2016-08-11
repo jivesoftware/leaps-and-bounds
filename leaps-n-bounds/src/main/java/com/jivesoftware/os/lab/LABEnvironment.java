@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab;
 
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
@@ -11,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -69,6 +71,19 @@ public class LABEnvironment {
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
+    }
+
+    public List<String> list() {
+        List<String> indexes = Lists.newArrayList();
+        File[] files = rootFile.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    indexes.add(file.getName());
+                }
+            }
+        }
+        return indexes;
     }
 
     public ValueIndex open(String primaryName,
