@@ -9,9 +9,14 @@ import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
+import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
 
 /**
  * @author jonathan.colt
@@ -30,9 +35,11 @@ public class LABEnvironmentNGTest {
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 false, labHeapPressure, 4, 8, leapsCache);
+            assertEquals(env.list(), Collections.emptyList());
 
             ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
-            indexTest(index);
+            indexTest(index, "foo");
+            assertEquals(env.list(), Collections.singletonList("foo"));
 
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
@@ -40,7 +47,8 @@ public class LABEnvironmentNGTest {
                 true, labHeapPressure, 4, 8, leapsCache);
 
             index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
-            indexTest(index);
+            assertEquals(env.list(), Collections.singletonList("foo"));
+            indexTest(index, "foo");
 
             env.shutdown();
 
@@ -48,17 +56,21 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, labHeapPressure, 4, 8, leapsCache);
+            assertEquals(env.list(), Collections.singletonList("foo"));
             env.rename("foo", "bar");
+            assertEquals(env.list(), Collections.singletonList("bar"));
             index = env.open("bar", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
 
-            indexTest(index);
+            indexTest(index, "bar");
 
             env.shutdown();
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
                 true, labHeapPressure, 4, 8, leapsCache);
+            assertEquals(env.list(), Collections.singletonList("bar"));
             env.remove("bar");
+            assertEquals(env.list(), Collections.emptyList());
         } catch (Throwable x) {
             System.out.println("________________________________________________________");
             System.out.println(printDirectoryTree(root));
@@ -126,7 +138,7 @@ public class LABEnvironmentNGTest {
 
         ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
         System.out.println("Open env");
-        indexTest(index);
+        indexTest(index, "foo");
         System.out.println("Indexed");
 
         env.shutdown();
@@ -140,14 +152,15 @@ public class LABEnvironmentNGTest {
 
         index = env.open("foo", 4096, 1024 * 1024 * 10, -1, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
         System.out.println("Re-open env");
-        indexTest(index);
+        indexTest(index, "foo");
         System.out.println("Re-indexed");
         env.shutdown();
         System.out.println("Re-shutdown");
 
     }
 
-    private void indexTest(ValueIndex index) throws Exception {
+    private void indexTest(ValueIndex index, String name) throws Exception {
+        assertEquals(index.name(), name);
 
         AtomicLong version = new AtomicLong();
         AtomicLong value = new AtomicLong();
