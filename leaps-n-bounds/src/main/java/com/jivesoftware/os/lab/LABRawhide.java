@@ -93,9 +93,11 @@ public class LABRawhide implements Rawhide {
         if (hydrateValues) {
             int valueLength = UIO.bytesInt(rawEntry, o);
             o += 4;
-            value = new byte[valueLength];
-            System.arraycopy(rawEntry, o, value, 0, valueLength);
-            o += valueLength;
+            if (valueLength >= 0) {
+                value = new byte[valueLength];
+                System.arraycopy(rawEntry, o, value, 0, valueLength);
+                o += valueLength;
+            }
         }
 
         return valueStream.stream(index, readKeyFormatTransormer.transform(k), timestamp, tombstone, version, readValueFormatTransormer.transform(value));

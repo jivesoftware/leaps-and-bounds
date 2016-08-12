@@ -2,11 +2,13 @@ package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import com.jivesoftware.os.mlogger.core.ValueType;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -49,26 +51,33 @@ public class LabHeapPressure {
         if (globalHeap > maxHeapPressureInBytes && running.compareAndSet(false, true)) {
             lab.schedule.submit(() -> {
                 try {
-                    if (globalHeapCostInBytes.get() < maxHeapPressureInBytes) {
+                    long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
+                    if (debtInBytes <= 0) {
                         LOG.inc("lab>commit>global>skip");
                         return null;
                     }
                     LAB[] keys = labs.keySet().toArray(new LAB[0]);
-                    Arrays.sort(keys, (LAB o1, LAB o2) -> {
-                        return -Long.compare(o1.approximateHeapPressureInBytes(), o2.approximateHeapPressureInBytes());
-                    });
+                    long[] pressures = new long[keys.length];
+                    for (int i = 0; i < keys.length; i++) {
+                        pressures[i] = Long.MAX_VALUE - keys[i].approximateHeapPressureInBytes();
+                    }
+                    USort.mirrorSort(pressures, keys);
+
                     int i = 0;
-                    while (i < keys.length && globalHeapCostInBytes.get() > maxHeapPressureInBytes) {
-                        Boolean efsyncOnFlush = labs.remove(keys[i]);
+                    while (i < keys.length && debtInBytes > 0) {
+                        long pressure = Long.MAX_VALUE - pressures[i];
+                        LOG.inc("lab>commit>global>pressure>" + UIO.chunkPower(pressure, 0));
+                        debtInBytes -= pressure;
+                        Boolean efsyncOnFlush = this.labs.remove(keys[i]);
                         if (efsyncOnFlush != null) {
                             try {
                                 LOG.inc("lab>commit>global>" + efsyncOnFlush);
-                                LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
+                                LOG.set(ValueType.VALUE, "lab>commitable", this.labs.size());
                                 LOG.debug("Forcing flush due to heap pressure. lab:{}", lab);
                                 keys[i].commit(efsyncOnFlush, false); // todo config
                             } catch (LABIndexCorruptedException | LABIndexClosedException x) {
                             } catch (Exception x) {
-                                labs.compute(keys[i], (LAB t, Boolean u) -> {
+                                this.labs.compute(keys[i], (LAB t, Boolean u) -> {
                                     return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;
                                 });
                                 throw x;
@@ -76,11 +85,22 @@ public class LabHeapPressure {
                         }
                         i++;
                     }
+                    LOG.inc("lab>commit>global>depth>" + UIO.chunkPower(i, 0));
                     return null;
                 } finally {
                     running.set(false);
                 }
             });
+        }
+    }
+
+    private static class Key {
+        LAB key;
+        long pressure;
+
+        public Key(LAB key, long pressure) {
+            this.key = key;
+            this.pressure = pressure;
         }
     }
 
