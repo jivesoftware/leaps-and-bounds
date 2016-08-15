@@ -8,7 +8,7 @@ public interface Ranges {
 
     interface RangeStream {
 
-        boolean range(byte[] key, byte[] to) throws Exception;
+        boolean range(int index, byte[] key, byte[] to) throws Exception;
     }
 
     boolean ranges(RangeStream rangeStream) throws Exception;

@@ -147,7 +147,7 @@ public class LAB implements ValueIndex {
     public boolean rangeScan(byte[] from, byte[] to, ValueStream stream, boolean hydrateValues) throws Exception {
         return rangeTx(true, -1, from, to, -1, -1,
             (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
-                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
+                return rawToReal(index, IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
             },
             hydrateValues
         );
@@ -155,10 +155,10 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean rangesScan(Ranges ranges, ValueStream stream, boolean hydrateValues) throws Exception {
-        return ranges.ranges((byte[] from, byte[] to) -> {
-            return rangeTx(true, -1, from, to, -1, -1,
-                (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
-                    return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
+        return ranges.ranges((int index, byte[] from, byte[] to) -> {
+            return rangeTx(true, index, from, to, -1, -1,
+                (index1, fromKey, toKey, readIndexes, hydrateValues1) -> {
+                    return rawToReal(index1, IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
                 },
                 hydrateValues
             );
@@ -172,7 +172,7 @@ public class LAB implements ValueIndex {
     public boolean rowScan(ValueStream stream, boolean hydrateValues) throws Exception {
         return rangeTx(true, -1, smallestPossibleKey, null, -1, -1,
             (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
-                return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
+                return rawToReal(index, IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
             },
             hydrateValues
         );
@@ -644,10 +644,10 @@ public class LAB implements ValueIndex {
         );
     }
 
-    private boolean rawToReal(NextRawEntry nextRawEntry, ValueStream valueStream, boolean hydrateValues) throws Exception {
+    private boolean rawToReal(int index, NextRawEntry nextRawEntry, ValueStream valueStream, boolean hydrateValues) throws Exception {
         while (true) {
             Next next = nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                return rawhide.streamRawEntry(-1, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream, hydrateValues);
+                return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream, hydrateValues);
             });
             if (next == Next.stopped) {
                 return false;
