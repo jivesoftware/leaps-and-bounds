@@ -29,13 +29,12 @@ public class LABNGTest {
     public void testRangeScanInsane() throws Exception {
 
         boolean fsync = true;
-        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1), LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
-            walRoot, 1024 * 1024 * 10, root,
+            "wal", 1024 * 1024 * 10, root,
             false, labHeapPressure, 1, 2, leapsCache);
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
@@ -134,13 +133,12 @@ public class LABNGTest {
     public void testEnv() throws Exception {
 
         boolean fsync = true;
-        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-            walRoot, 1024 * 1024 * 10, root,
+            "wal", 1024 * 1024 * 10, root,
             false, labHeapPressure, 1, 2, leapsCache);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,

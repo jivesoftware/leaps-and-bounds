@@ -36,10 +36,10 @@ import org.apache.commons.io.FileUtils;
  */
 public class LABEnvironment {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     static {
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
     private final Cache<String, ValueIndex> openValueIndexsCache = CacheBuilder.<String, ValueIndex>newBuilder().weakValues().build();
 
@@ -53,6 +53,7 @@ public class LABEnvironment {
     private final int maxMergeDebt;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
 
+    private final String walName;
     private final WAL wal;
     private final Map<String, FormatTransformerProvider> formatTransformerProviderRegistry = Maps.newConcurrentMap();
     private final Map<String, Rawhide> rawhideRegistry = Maps.newConcurrentMap();
@@ -80,7 +81,7 @@ public class LABEnvironment {
     public LABEnvironment(ExecutorService scheduler,
         ExecutorService compact,
         final ExecutorService destroy,
-        File walRoot,
+        String walName,
         long maxRowSizeInBytes,
         File labRoot,
         boolean useMemMap,
@@ -103,7 +104,8 @@ public class LABEnvironment {
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
-        this.wal = new WAL(walRoot, maxRowSizeInBytes);
+        this.walName = walName;
+        this.wal = new WAL(new File(labRoot, walName), maxRowSizeInBytes);
 
     }
 
@@ -137,7 +139,7 @@ public class LABEnvironment {
         File[] files = labRoot.listFiles();
         if (files != null) {
             for (File file : files) {
-                if (file.isDirectory()) {
+                if (file.isDirectory() && !file.getName().equals(walName)) {
                     indexes.add(file.getName());
                 }
             }
@@ -149,13 +151,17 @@ public class LABEnvironment {
         String primaryName = new String(valueIndexId, StandardCharsets.UTF_8);
         File configFile = new File(labRoot, primaryName + ".json");
         if (configFile.exists()) {
-            return open(mapper.readValue(configFile, ValueIndexConfig.class));
+            return open(MAPPER.readValue(configFile, ValueIndexConfig.class));
         } else {
             throw new IllegalStateException("There is no config for lab value index:" + primaryName);
         }
     }
 
     public ValueIndex open(ValueIndexConfig config) throws Exception {
+
+        if (config.primaryName.equals(walName)) {
+            throw new IllegalStateException("primaryName:" + config.primaryName + " cannot collide with walName");
+        }
 
         return openValueIndexsCache.get(config.primaryName, () -> {
 
@@ -169,9 +175,9 @@ public class LABEnvironment {
             File configFile = new File(labRoot, config.primaryName + ".json");
             if (configFile.exists()) {
                 // TODO read compare and other cool stuff
-                mapper.writeValue(configFile, config);
+                MAPPER.writeValue(configFile, config);
             } else {
-                mapper.writeValue(configFile, config);
+                MAPPER.writeValue(configFile, config);
             }
 
             return new LAB(formatTransformerProvider,

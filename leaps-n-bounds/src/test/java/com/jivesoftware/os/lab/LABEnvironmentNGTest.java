@@ -25,17 +25,15 @@ public class LABEnvironmentNGTest {
     @Test
     public void testEnv() throws Exception {
 
-        File walRoot = null;
         File root = null;
         try {
-            walRoot = Files.createTempDir();
             root = Files.createTempDir();
             System.out.println("root" + root.getAbsolutePath());
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
             LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-                walRoot, 1024 * 1024 * 10, root,
+                "wal", 1024 * 1024 * 10, root,
                 false, labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.emptyList());
 
@@ -49,7 +47,7 @@ public class LABEnvironmentNGTest {
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-                walRoot, 1024 * 1024 * 10, root,
+                "wal", 1024 * 1024 * 10, root,
                 true, labHeapPressure, 4, 8, leapsCache);
 
             index = env.open(valueIndexConfig);
@@ -61,7 +59,7 @@ public class LABEnvironmentNGTest {
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-                walRoot, 1024 * 1024 * 10, root,
+                "wal", 1024 * 1024 * 10, root,
                 true, labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.singletonList("foo"));
             env.rename("foo", "bar");
@@ -77,7 +75,7 @@ public class LABEnvironmentNGTest {
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-                walRoot, 1024 * 1024 * 10, root,
+                "wal", 1024 * 1024 * 10, root,
                 true, labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.singletonList("bar"));
             env.remove("bar");
@@ -138,14 +136,13 @@ public class LABEnvironmentNGTest {
     @Test
     public void testEnvWithMemMap() throws Exception {
 
-        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
         System.out.println("Created root");
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-            walRoot, 1024 * 1024 * 10, root,
+            "wal", 1024 * 1024 * 10, root,
             true, labHeapPressure, 4, 8, leapsCache);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
@@ -164,7 +161,7 @@ public class LABEnvironmentNGTest {
         labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-            walRoot, 1024 * 1024 * 10, root,
+            "wal", 1024 * 1024 * 10, root,
             true, labHeapPressure, 4, 8, leapsCache);
         System.out.println("Recreate env");
 

@@ -29,9 +29,8 @@ public class LABStress {
     @Test(enabled = false)
     public void stressWrites() throws Exception {
 
-        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
-        ValueIndex index = createIndex(walRoot, root);
+        ValueIndex index = createIndex(root);
 
         int totalCardinality = 100_000_000;
 
@@ -64,9 +63,8 @@ public class LABStress {
 
         System.out.println("-------------------------------");
 
-        walRoot = Files.createTempDir();
         root = Files.createTempDir();
-        index = createIndex(walRoot, root);
+        index = createIndex(root);
 
         // ---
         System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
@@ -127,14 +125,14 @@ public class LABStress {
 
     }
 
-    private ValueIndex createIndex(File walRoot, File root) throws Exception {
+    private ValueIndex createIndex(File root) throws Exception {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
-            walRoot,
+            "wal",
             1024 * 1024 * 10,
             root, // rootFile
             true, // useMemMap
