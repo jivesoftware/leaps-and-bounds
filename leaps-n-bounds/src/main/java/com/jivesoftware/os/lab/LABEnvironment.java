@@ -134,6 +134,10 @@ public class LABEnvironment {
         this.wal.open(this);
     }
 
+    public void close() throws IOException {
+        this.wal.close(this);
+    }
+
     public List<String> list() {
         List<String> indexes = Lists.newArrayList();
         File[] files = labRoot.listFiles();

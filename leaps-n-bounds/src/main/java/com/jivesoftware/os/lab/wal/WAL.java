@@ -74,6 +74,9 @@ public class WAL {
         }
 
     }
+    public void close(LABEnvironment environment) throws IOException {
+        // TODO
+    }
 
     public void append(byte[] valueIndexId, long version, byte[] entry) throws Exception {
 
