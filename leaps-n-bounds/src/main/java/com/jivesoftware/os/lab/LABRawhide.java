@@ -16,8 +16,11 @@ import java.io.IOException;
  */
 public class LABRawhide implements Rawhide {
 
-
     public static final String NAME = "labRawhide";
+    public static final LABRawhide SINGLETON = new LABRawhide();
+
+    private LABRawhide() {
+    }
 
     @Override
     public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
@@ -91,7 +94,7 @@ public class LABRawhide implements Rawhide {
         o++;
         long version = UIO.bytesLong(rawEntry, o);
         o += 8;
-        
+
         byte[] value = null;
         if (hydrateValues) {
             int valueLength = UIO.bytesInt(rawEntry, o);

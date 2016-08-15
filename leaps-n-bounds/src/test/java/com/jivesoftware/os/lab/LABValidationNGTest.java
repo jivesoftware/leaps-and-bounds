@@ -49,10 +49,10 @@ public class LABValidationNGTest {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
 
-        WAL wal = new WAL(walRoot, 1024*1024 *10);
+        WAL wal = new WAL(walRoot, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
-            new LABRawhide(),
+            LABRawhide.SINGLETON,
             new RawEntryFormat(0, 0),
             scheduler,
             compact,
@@ -165,10 +165,10 @@ public class LABValidationNGTest {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
 
-        WAL wal = new WAL(walRoot, 1024*1024 *10);
+        WAL wal = new WAL(walRoot, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
-            new LABRawhide(),
+            LABRawhide.SINGLETON,
             new RawEntryFormat(0, 0),
             scheduler,
             compact,

@@ -156,7 +156,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         for (int b = 0; b < numBatches; b++) {
 
-            RawMemoryIndex index = new RawMemoryIndex(destroy, new AtomicLong(), new LABRawhide());
+            RawMemoryIndex index = new RawMemoryIndex(destroy, new AtomicLong(), LABRawhide.SINGLETON);
             long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
             indexs.append(index, fsync);
 

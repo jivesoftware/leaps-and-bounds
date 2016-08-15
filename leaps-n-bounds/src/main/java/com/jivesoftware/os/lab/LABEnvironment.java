@@ -10,6 +10,7 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
+import com.jivesoftware.os.lab.api.KeyValueRawhide;
 import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
@@ -89,7 +90,8 @@ public class LABEnvironment {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws IOException {
 
         register(NoOpFormatTransformerProvider.NAME, NoOpFormatTransformerProvider.NO_OP);
-        register(LABRawhide.NAME, new LABRawhide());
+        register(KeyValueRawhide.NAME, KeyValueRawhide.SINGLETON);
+        register(LABRawhide.NAME, LABRawhide.SINGLETON);
         register(MemoryRawEntryFormat.NAME, MemoryRawEntryFormat.SINGLETON);
 
         this.scheduler = scheduler;
