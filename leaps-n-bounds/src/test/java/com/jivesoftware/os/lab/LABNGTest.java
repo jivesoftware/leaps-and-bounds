@@ -2,10 +2,11 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
-import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
+import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
+import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -28,17 +29,21 @@ public class LABNGTest {
     public void testRangeScanInsane() throws Exception {
 
         boolean fsync = true;
+        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1), LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
-            root,
+            walRoot, 1024 * 1024 * 10, root,
             false, labHeapPressure, 1, 2, leapsCache);
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
-        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, splitAfterSizeInBytes, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(),
-            new RawEntryFormat(0, 0));
+
+        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, splitAfterSizeInBytes, -1, -1,
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+
+        ValueIndex index = env.open(valueIndexConfig);
 
         AtomicLong count = new AtomicLong();
         AtomicLong fails = new AtomicLong();
@@ -129,14 +134,19 @@ public class LABNGTest {
     public void testEnv() throws Exception {
 
         boolean fsync = true;
+        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
-            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1), root,
+            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
+            walRoot, 1024 * 1024 * 10, root,
             false, labHeapPressure, 1, 2, leapsCache);
 
-        ValueIndex index = env.open("foo", 4096, 1024 * 1024 * 10, 16, -1, -1, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
+        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+
+        ValueIndex index = env.open(valueIndexConfig);
 
         index.append((stream) -> {
             stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));

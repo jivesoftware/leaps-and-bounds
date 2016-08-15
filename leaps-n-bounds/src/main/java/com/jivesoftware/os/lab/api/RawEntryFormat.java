@@ -5,9 +5,7 @@ package com.jivesoftware.os.lab.api;
  * @author jonathan.colt
  */
 public class RawEntryFormat {
-
-    public static final RawEntryFormat MEMORY = new RawEntryFormat(0, 0);
-
+    
     final long keyFormat;
     final long valueFormat;
 

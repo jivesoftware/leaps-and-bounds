@@ -3,9 +3,10 @@ package com.jivesoftware.os.lab;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.FormatTransformerProvider;
-import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
+import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
+import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -28,12 +29,15 @@ public class LABEnvironmentConcurrenyNGTest {
     @Test(enabled = true)
     public void testConcurrencyMethod() throws Exception {
 
+        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
+            walRoot,
+            1024 * 1024 * 10,
             root,
             false,
             labHeapPressure,
@@ -47,14 +51,17 @@ public class LABEnvironmentConcurrenyNGTest {
     @Test(enabled = true)
     public void testConcurrencyWithMemMapMethod() throws Exception {
 
+        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
+            walRoot,
+            1024 * 1024 * 10,
             root,
-            true, 
+            true,
             labHeapPressure,
             4,
             10,
@@ -81,7 +88,10 @@ public class LABEnvironmentConcurrenyNGTest {
         ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
 
         Random rand = new Random(12345);
-        ValueIndex index = env.open("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0, FormatTransformerProvider.NO_OP, new LABRawhide(), new RawEntryFormat(0, 0));
+        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0,
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+        ValueIndex index = env.open(valueIndexConfig);
+
         AtomicLong running = new AtomicLong();
         List<Future> writerFutures = new ArrayList<>();
         for (int i = 0; i < writerCount; i++) {

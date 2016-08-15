@@ -2,12 +2,13 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.lab.wal.WAL;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -41,18 +42,24 @@ public class LABValidationNGTest {
 
         ExecutorService scheduler = LABEnvironment.buildLABSchedulerThreadPool(1);
 
+        File walRoot = com.google.common.io.Files.createTempDir();
         File root = com.google.common.io.Files.createTempDir();
         File finalRoot = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LAB lab = new LAB(FormatTransformerProvider.NO_OP,
+
+        WAL wal = new WAL(walRoot, 1024*1024 *10);
+
+        LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
             new LABRawhide(),
             new RawEntryFormat(0, 0),
             scheduler,
             compact,
             destroy,
             root,
+            wal,
+            "lab".getBytes(),
             "lab",
             true,
             entriesBetweenLeaps,
@@ -152,17 +159,23 @@ public class LABValidationNGTest {
 
         ExecutorService scheduler = LABEnvironment.buildLABSchedulerThreadPool(1);
 
+        File walRoot = com.google.common.io.Files.createTempDir();
         File root = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
-        LAB lab = new LAB(FormatTransformerProvider.NO_OP,
+
+        WAL wal = new WAL(walRoot, 1024*1024 *10);
+
+        LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
             new LABRawhide(),
             new RawEntryFormat(0, 0),
             scheduler,
             compact,
             destroy,
             root,
+            wal,
+            "lab".getBytes(),
             "lab",
             true,
             entriesBetweenLeaps,

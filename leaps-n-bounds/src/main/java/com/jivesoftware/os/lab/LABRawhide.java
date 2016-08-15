@@ -16,6 +16,9 @@ import java.io.IOException;
  */
 public class LABRawhide implements Rawhide {
 
+
+    public static final String NAME = "labRawhide";
+
     @Override
     public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
         FormatTransformer currentReadValueFormatTransormer,

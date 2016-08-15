@@ -29,19 +29,6 @@ public interface IFiler extends IReadable, IWriteable {
 
     /**
      *
-     */
-    String cRead = "r";
-    /**
-     *
-     */
-    String cWrite = "rw";
-    /**
-     *
-     */
-    String cReadWrite = "rw";
-
-    /**
-     *
      * @param position
      * @return
      * @throws IOException

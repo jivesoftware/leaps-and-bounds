@@ -3,10 +3,11 @@ package com.jivesoftware.os.lab;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FixedWidthRawhide;
-import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
-import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
+import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
+import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
@@ -28,8 +29,9 @@ public class LABStress {
     @Test(enabled = false)
     public void stressWrites() throws Exception {
 
+        File walRoot = Files.createTempDir();
         File root = Files.createTempDir();
-        ValueIndex index = createIndex(root);
+        ValueIndex index = createIndex(walRoot, root);
 
         int totalCardinality = 100_000_000;
 
@@ -62,8 +64,9 @@ public class LABStress {
 
         System.out.println("-------------------------------");
 
+        walRoot = Files.createTempDir();
         root = Files.createTempDir();
-        index = createIndex(root);
+        index = createIndex(walRoot, root);
 
         // ---
         System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
@@ -124,29 +127,34 @@ public class LABStress {
 
     }
 
-    private ValueIndex createIndex(File root) throws Exception {
+    private ValueIndex createIndex(File walRoot, File root) throws Exception {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
+            walRoot,
+            1024 * 1024 * 10,
             root, // rootFile
             true, // useMemMap
             labHeapPressure,
             4, // minMergeDebt
             8, // maxMergeDebt
             leapsCache);
+
+        env.register("8x8fixedWidthRawhide", new FixedWidthRawhide(8, 8));
+
         System.out.println("Created env");
-        ValueIndex index = env.open("foo",
+        ValueIndex index = env.open(new ValueIndexConfig("foo",
             1024 * 10, // entriesBetweenLeaps
             1024 * 1024 * 512, // maxHeapPressureInBytes
             -1, // splitWhenKeysTotalExceedsNBytes
             -1, // splitWhenValuesTotalExceedsNBytes
             1024 * 1024 * 10, // splitWhenValuesAndKeysTotalExceedsNBytes
-            FormatTransformerProvider.NO_OP,
-            new FixedWidthRawhide(8, 8), //new LABRawhide(),
-            new RawEntryFormat(0, 0));
+            NoOpFormatTransformerProvider.NAME,
+            "8x8fixedWidthRawhide", //new LABRawhide(),
+            MemoryRawEntryFormat.NAME));
         return index;
     }
 

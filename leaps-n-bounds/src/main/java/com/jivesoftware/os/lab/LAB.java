@@ -6,6 +6,7 @@ import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.Ranges;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
@@ -22,6 +23,7 @@ import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.wal.WAL;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
@@ -47,8 +49,12 @@ public class LAB implements ValueIndex {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     final ExecutorService schedule;
-    private final ExecutorService destroy;
     private final ExecutorService compact;
+    private final ExecutorService destroy;
+    private final WAL wal;
+    private final byte[] walId;
+    private final AtomicLong walFlushVersion = new AtomicLong(0);
+
     private final LabHeapPressure labHeapFlusher;
     private final long maxHeapPressureInBytes;
     private final int minDebt;
@@ -74,6 +80,8 @@ public class LAB implements ValueIndex {
         ExecutorService compact,
         ExecutorService destroy,
         File root,
+        WAL wal,
+        byte[] walId,
         String indexName,
         boolean useMemMap,
         int entriesBetweenLeaps,
@@ -90,6 +98,8 @@ public class LAB implements ValueIndex {
         this.schedule = schedule;
         this.compact = compact;
         this.destroy = destroy;
+        this.wal = wal;
+        this.walId = walId;
         this.labHeapFlusher = labHeapFlusher;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
@@ -141,6 +151,19 @@ public class LAB implements ValueIndex {
             },
             hydrateValues
         );
+    }
+
+    @Override
+    public boolean rangesScan(Ranges ranges, ValueStream stream, boolean hydrateValues) throws Exception {
+        return ranges.ranges((byte[] from, byte[] to) -> {
+            return rangeTx(true, -1, from, to, -1, -1,
+                (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
+                    return rawToReal(IndexUtil.rangeScan(readIndexes, fromKey, toKey, rawhide), stream, hydrateValues1);
+                },
+                hydrateValues
+            );
+        });
+
     }
 
     private final static byte[] smallestPossibleKey = new byte[0];
@@ -376,50 +399,90 @@ public class LAB implements ValueIndex {
     }
 
     @Override
+    public boolean journaledAppend(Values values, boolean fsyncAfterAppend) throws Exception {
+        return internalAppend(true, fsyncAfterAppend, values, fsyncAfterAppend);
+    }
+
+    @Override
     public boolean append(Values values, boolean fsyncOnFlush) throws Exception {
+        return internalAppend(false, false, values, fsyncOnFlush);
+    }
+
+    private boolean internalAppend(boolean appendToWal,
+        boolean fsyncAfterAppend,
+        Values values,
+        boolean fsyncOnFlush) throws Exception, InterruptedException {
+        if (values == null) {
+            return false;
+        }
+
         boolean appended;
         commitSemaphore.acquire();
         try {
             if (closeRequested.get()) {
                 throw new LABIndexClosedException();
             }
-            appended = memoryIndex.append((stream) -> {
-                RawEntryFormat format = rawEntryFormat.get();
-                return values != null && values.consume((index, key, timestamp, tombstoned, version, value) -> {
-                    byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
 
-                    RawMemoryIndex copy = flushingMemoryIndex;
-                    TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
-                    if ((copy == null || isNewerThan(timestamp, version, copy))
-                        && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
-                        return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
-                    } else {
-                        rangeTx(false, -1, key, key, timestamp, version,
-                            (index1, fromKey, toKey, readIndexes, hydrateValues1) -> {
-                                GetRaw getRaw = IndexUtil.get(readIndexes);
-                                return getRaw.get(key,
-                                    (existingReadKeyFormatTransformer, existingReadValueFormatTransformer, existingEntry, offset, length) -> {
-                                        if (existingEntry == null) {
-                                            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
-                                        } else {
-                                            long existingTimestamp = rawhide.timestamp(existingReadKeyFormatTransformer, existingReadValueFormatTransformer,
-                                                existingEntry, offset, length);
-                                            long existingVersion = rawhide.version(existingReadKeyFormatTransformer, existingReadValueFormatTransformer,
-                                                existingEntry, offset, length);
+            long flushVersion;
+            if (appendToWal) {
+                flushVersion = walFlushVersion.incrementAndGet();
+            } else {
+                flushVersion = -1;
+            }
 
-                                            if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
-                                                return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+            appended = memoryIndex.append(
+                (stream) -> {
+                    RawEntryFormat format = rawEntryFormat.get();
+                    return values.consume(
+                        (index, key, timestamp, tombstoned, version, value) -> {
+
+                            byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
+                            if (appendToWal) {
+                                wal.append(walId, flushVersion, rawEntry);
+                            }
+
+                            RawMemoryIndex copy = flushingMemoryIndex;
+                            TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
+                            if ((copy == null || isNewerThan(timestamp, version, copy))
+                            && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
+                                return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+                            } else {
+                                rangeTx(false, -1, key, key, timestamp, version,
+                                    (index1, fromKey, toKey, readIndexes, hydrateValues1) -> {
+                                        GetRaw getRaw = IndexUtil.get(readIndexes);
+                                        return getRaw.get(key,
+                                            (existingReadKeyFormatTransformer, existingReadValueFormatTransformer, existingEntry, offset, length) -> {
+                                                if (existingEntry == null) {
+                                                    return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+                                                } else {
+                                                    long existingTimestamp = rawhide.timestamp(existingReadKeyFormatTransformer,
+                                                        existingReadValueFormatTransformer,
+                                                        existingEntry, offset, length);
+
+                                                    long existingVersion = rawhide.version(existingReadKeyFormatTransformer,
+                                                        existingReadValueFormatTransformer,
+                                                        existingEntry, offset, length);
+
+                                                    if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
+                                                        return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+                                                    }
+                                                }
+                                                return false;
                                             }
-                                        }
-                                        return false;
-                                    });
-                            },
-                            false // This prevent values from being hydrated
-                        );
-                        return true;
-                    }
-                });
-            });
+                                        );
+                                    },
+                                    false // This prevent values from being hydrated
+                                );
+                                return true;
+                            }
+                        }
+                    );
+                }
+            );
+
+            if (appended && appendToWal) {
+                wal.flush(walId, flushVersion, fsyncOnFlush);
+            }
 
         } finally {
             commitSemaphore.release();
