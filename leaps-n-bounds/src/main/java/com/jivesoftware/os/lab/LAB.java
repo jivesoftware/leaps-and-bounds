@@ -204,7 +204,7 @@ public class LAB implements ValueIndex {
         ReadIndex memoryIndexReader = null;
         ReadIndex flushingMemoryIndexReader = null;
         try {
-            while (true) {
+            while (!closeRequested.get()) {
                 RawMemoryIndex memoryIndexStackCopy;
                 RawMemoryIndex flushingMemoryIndexStackCopy;
 
@@ -244,9 +244,11 @@ public class LAB implements ValueIndex {
                 } else {
                     break;
                 }
-
             }
 
+            if (closeRequested.get()) {
+                throw new LABIndexClosedException();
+            }
             ReadIndex reader = memoryIndexReader;
             ReadIndex flushingReader = flushingMemoryIndexReader;
             return rangeStripedCompactableIndexes.pointTx(keys,
