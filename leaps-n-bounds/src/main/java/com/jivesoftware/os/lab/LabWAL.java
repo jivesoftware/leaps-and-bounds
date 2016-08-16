@@ -8,24 +8,29 @@ import com.jivesoftware.os.jive.utils.collections.bah.BAHEqualer;
 import com.jivesoftware.os.jive.utils.collections.bah.BAHMapState;
 import com.jivesoftware.os.jive.utils.collections.bah.BAHash;
 import com.jivesoftware.os.jive.utils.collections.bah.BAHasher;
+import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
+import com.jivesoftware.os.lab.api.LABFailedToInitializeWALException;
+import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
-import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.IndexFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -40,20 +45,24 @@ public class LabWAL {
     private static final byte ENTRY = 0;
     private static final byte BATCH_ISOLATION = 1;
     private static final byte FSYNC_ISOLATION = 2;
+    private static final int[] MAGIC = new int[3];
 
-    private static final int[] MAGIC = {
-        351126232,
-        759984878,
-        266850631
-    };
+    static {
+        MAGIC[ENTRY] = 351126232;
+        MAGIC[BATCH_ISOLATION] = 759984878;
+        MAGIC[FSYNC_ISOLATION] = 266850631;
+    }
+
+    private final List<ActiveWAL> oldWALs = Lists.newCopyOnWriteArrayList();
+    private final AtomicReference<ActiveWAL> activeWAL = new AtomicReference<>();
+    private final AtomicLong walIdProvider = new AtomicLong();
+    private final Semaphore semaphore = new Semaphore(Short.MAX_VALUE, true);
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private final File walRoot;
     private final long maxWALSizeInBytes;
     private final long maxEntriesPerWAL;
     private final long maxEntrySizeInBytes;
-    private final List<ActiveWAL> oldWALs = Lists.newArrayList();
-    private final AtomicReference<ActiveWAL> activeWAL = new AtomicReference<>();
-    private final AtomicLong walIdProvider = new AtomicLong();
 
     public LabWAL(File walRoot,
         long maxWALSizeInBytes,
@@ -74,113 +83,101 @@ public class LabWAL {
             return;
         }
 
-        Arrays.sort(walFiles, (wal1, wal2) -> Long.compare(Long.parseLong(wal1.getName()), Long.parseLong(wal2.getName())));
-
         long maxWALId = 0;
-        for (int i = 0; i < walFiles.length; i++) {
-            File walFile = walFiles[i];
+        List<File> listWALFiles = Lists.newArrayList();
+        for (File walFile : walFiles) {
             try {
                 maxWALId = Math.max(maxWALId, Long.parseLong(walFile.getName()));
+                listWALFiles.add(walFile);
             } catch (NumberFormatException nfe) {
                 LOG.error("Encoudered an unexpected file name:" + walFile + " in " + walRoot);
-                walFiles[i] = null;
             }
         }
         walIdProvider.set(maxWALId);
 
+        Collections.sort(listWALFiles, (wal1, wal2) -> Long.compare(Long.parseLong(wal1.getName()), Long.parseLong(wal2.getName())));
+
         List<IndexFile> deleteableIndexFiles = Lists.newArrayList();
         Map<String, ListMultimap<Long, byte[]>> allEntries = Maps.newHashMap();
-        Map<String, ListMultimap<Long, byte[]>> appendableEntries = Maps.newHashMap();
+
         BAHash<ValueIndex> valueIndexes = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
-        for (File walFile : walFiles) {
-            if (walFile == null) {
-                continue;
-            }
+        for (File walFile : listWALFiles) {
 
             IndexFile indexFile = null;
             try {
-                indexFile = new IndexFile(walFile, "rw", false);
-                IReadable reader = indexFile.reader(null, indexFile.length(), true);
+                indexFile = new IndexFile(walFile, "r");
+                deleteableIndexFiles.add(indexFile);
+
+                IReadable reader = indexFile.reader(null, indexFile.length());
                 reader.seek(0);
+                try {
+                    while (true) {
+                        int rowType = reader.read();
+                        if (rowType == -1) {
+                            break; //EOF
+                        }
+                        if (rowType > 3) {
+                            throw new CorruptionDetectedException("expected a row type greater than -1 and less than 128 but encountered " + rowType);
+                        }
+                        int magic = reader.readInt();
+                        if (magic != MAGIC[rowType]) {
+                            throw new CorruptionDetectedException("expected a magic " + MAGIC[rowType] + " but encountered " + magic);
+                        }
+                        int valueIndexIdLength = reader.readInt();
+                        if (valueIndexIdLength >= maxEntrySizeInBytes) {
+                            throw new CorruptionDetectedException("valueIndexId length corruption" + valueIndexIdLength + ">=" + maxEntrySizeInBytes);
+                        }
 
-                int rowType = reader.read();
-                if (rowType < 0 || rowType > 127) {
-                    throw new IllegalStateException("expected a row type greater than -1 and less than 128 but encountered " + rowType);
-                }
-                int magic = reader.readInt();
-                if (magic != MAGIC[rowType]) {
-                    throw new IllegalStateException("expected a magic " + MAGIC[rowType] + " but encountered " + magic);
-                }
-                int valueIndexIdLength = reader.readInt();
-                if (valueIndexIdLength >= maxEntrySizeInBytes) {
-                    throw new IllegalStateException("valueIndexId length corruption" + valueIndexIdLength + ">=" + maxEntrySizeInBytes);
-                }
+                        byte[] valueIndexId = new byte[valueIndexIdLength];
+                        reader.read(valueIndexId);
 
-                byte[] valueIndexId = new byte[valueIndexIdLength];
-                reader.read(valueIndexId);
+                        String valueIndexKey = new String(valueIndexId, StandardCharsets.UTF_8);
+                        long appendVersion = reader.readLong();
 
-                String valueIndexKey = new String(valueIndexId, StandardCharsets.UTF_8);
-                long version = reader.readLong();
+                        if (rowType == ENTRY) {
+                            int entryLength = reader.readInt();
+                            if (entryLength >= maxEntrySizeInBytes) {
+                                throw new CorruptionDetectedException("entryLength length corruption" + entryLength + ">=" + maxEntrySizeInBytes);
+                            }
 
-                if (rowType == ENTRY) {
-                    if (!appendableEntries.isEmpty()) {
-                        for (Map.Entry<String, ListMultimap<Long, byte[]>> entry : appendableEntries.entrySet()) {
-                            String valueIndexIdAsString = entry.getKey();
-                            ValueIndexConfig valueIndexConfig = environment.valueIndexConfig(valueIndexIdAsString.getBytes(StandardCharsets.UTF_8));
-                            FormatTransformerProvider formatTransformerProvider = environment.formatTransformerProvider(valueIndexConfig.formatTransformerProviderName);
-                            Rawhide rawhide = environment.rawhide(valueIndexConfig.rawhideName);
-                            RawEntryFormat rawEntryFormat = environment.rawEntryFormat(valueIndexConfig.rawEntryFormatName);
+                            byte[] entry = new byte[entryLength];
+                            reader.read(entry);
 
+                            ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.computeIfAbsent(valueIndexKey, (k) -> ArrayListMultimap.create());
+                            valueIndexVersionedEntries.put(appendVersion, entry);
 
-                            ListMultimap<Long, byte[]> versionedAppends = entry.getValue();
-                            ValueIndex appendToValueIndex = openValueIndex(environment, valueIndexIdAsString.getBytes(StandardCharsets.UTF_8), valueIndexes);
-                            for (Long appendVersion : versionedAppends.keySet()) {
-                                appendToValueIndex.append((ValueStream stream) -> {
-                                    for (byte[] e : versionedAppends.get(appendVersion)) {
-                                        
-                                        //LABRawhide.SINGLETON.streamRawEntry(-1, FormatTransformer.NO_OP, FormatTransformer.NO_OP, e, magic, stream, true);
+                        } else if (rowType == BATCH_ISOLATION) {
+                            ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.get(valueIndexKey);
+                            if (valueIndexVersionedEntries != null) {
+                                ValueIndexConfig valueIndexConfig = environment.valueIndexConfig(valueIndexKey.getBytes(StandardCharsets.UTF_8));
+                                FormatTransformerProvider formatTransformerProvider = environment.formatTransformerProvider(
+                                    valueIndexConfig.formatTransformerProviderName);
+                                Rawhide rawhide = environment.rawhide(valueIndexConfig.rawhideName);
+                                RawEntryFormat rawEntryFormat = environment.rawEntryFormat(valueIndexConfig.rawEntryFormatName);
+                                ValueIndex appendToValueIndex = openValueIndex(environment, valueIndexId, valueIndexes);
+
+                                FormatTransformer readKey = formatTransformerProvider.read(rawEntryFormat.getKeyFormat());
+                                FormatTransformer readValue = formatTransformerProvider.read(rawEntryFormat.getValueFormat());
+
+                                appendToValueIndex.append((stream) -> {
+                                    for (byte[] entry : valueIndexVersionedEntries.get(appendVersion)) {
+                                        if (!rawhide.streamRawEntry(-1, readKey, readValue, entry, 0, stream, true)) {
+                                            return false;
+                                        }
                                     }
                                     return true;
                                 }, true);
+
+                                valueIndexVersionedEntries.removeAll(appendVersion);
                             }
-                            appendToValueIndex.commit(true, true);
-                        }
-                        appendableEntries.clear();
-                    }
-
-                    int entryLength = reader.readInt();
-                    if (entryLength >= maxEntrySizeInBytes) {
-                        throw new IllegalStateException("entryLength length corruption" + entryLength + ">=" + maxEntrySizeInBytes);
-                    }
-
-                    byte[] entry = new byte[entryLength];
-                    reader.read(entry);
-
-                    ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.computeIfAbsent(valueIndexKey, (k) -> ArrayListMultimap.create());
-                    valueIndexVersionedEntries.put(version, entry);
-
-                } else if (rowType == BATCH_ISOLATION) {
-                    ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.get(valueIndexKey);
-                    if (valueIndexVersionedEntries != null) {
-                        ListMultimap<Long, byte[]> valueIndexAppendableEntries = appendableEntries.computeIfAbsent(valueIndexKey, (k) -> ArrayListMultimap.create());
-                        for (byte[] entry : valueIndexVersionedEntries.get(version)) {
-                            valueIndexAppendableEntries.put(version, entry);
                         }
                     }
-
-                } else if (rowType == FSYNC_ISOLATION) {
-                    long fsyncVersion = reader.readLong();
-                    ListMultimap<Long, byte[]> valueIndexVersionedEntries = appendableEntries.get(valueIndexKey);
-                    if (valueIndexVersionedEntries != null) {
-                        valueIndexVersionedEntries.remove(version, magic);
-                    }
+                } catch (CorruptionDetectedException | EOFException x) {
+                    LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", reader.getFilePointer(), reader.length(), walFile, x.getClass());
+                } catch (Exception x) {
+                    LOG.error("Encountered an issue in " + walFile + " please help.", x);
+                    throw new LABFailedToInitializeWALException("Encountered an issue in " + walFile + " please help.", x);
                 }
-
-                int length = reader.readInt();
-                if (length >= maxEntrySizeInBytes) {
-                    throw new IllegalStateException("expected row length less than " + maxEntrySizeInBytes + " but encountered " + length);
-                }
-                deleteableIndexFiles.add(indexFile);
             } finally {
                 if (indexFile != null) {
                     indexFile.close();
@@ -189,19 +186,30 @@ public class LabWAL {
 
         }
 
-        if (!appendableEntries.isEmpty()) {
-
+        try {
+            valueIndexes.stream((byte[] key, ValueIndex value) -> {
+                value.close(true, true);
+                return true;
+            });
+        } catch (Exception x) {
+            throw new LABFailedToInitializeWALException("Encountered an issue while commiting and closing. Please help.", x);
         }
 
-        if (!allEntries.isEmpty()) {
-            // Incomplete writes baby
-        }
-
-        if (!deleteableIndexFiles.isEmpty()) {
-            for (IndexFile deletableIndexFile : deleteableIndexFiles) {
+        for (IndexFile deletableIndexFile : deleteableIndexFiles) {
+            try {
                 deletableIndexFile.delete();
+            } catch (Exception x) {
+                throw new LABFailedToInitializeWALException("Encountered an issue while deleting WAL:" + deletableIndexFile.getFileName() + ". Please help.", x);
             }
         }
+    }
+
+    static class CorruptionDetectedException extends Exception {
+
+        CorruptionDetectedException(String cause) {
+            super(cause);
+        }
+
     }
 
     private ValueIndex openValueIndex(LABEnvironment environment, byte[] valueIndexId, BAHash<ValueIndex> valueIndexes) throws Exception {
@@ -214,52 +222,102 @@ public class LabWAL {
         return valueIndex;
     }
 
-    public void close(LABEnvironment environment) throws IOException {
-        while (true) {
-            ActiveWAL wal = activeWAL.get();
-            if (wal != null) {
-                synchronized (activeWAL) {
-                    //wal.close(environment);
-                    //wal.remove();
+    public void close(LABEnvironment environment) throws IOException, InterruptedException {
+        semaphore.acquire(Short.MAX_VALUE);
+        try {
+            if (closed.compareAndSet(false, true)) {
+                ActiveWAL wal = activeWAL.get();
+                if (wal != null) {
+                    wal.close();
                     activeWAL.set(null);
                 }
+                for (ActiveWAL oldWAL : oldWALs) {
+                    oldWAL.close();
+                }
+                oldWALs.clear();
             }
-            for (ActiveWAL oldWAL : oldWALs) {
-                //oldWAL.close(environment);
-                //oldWAL.remove();
-            }
+        } finally {
+            semaphore.release(Short.MAX_VALUE);
         }
     }
 
     public void append(byte[] valueIndexId, long appendVersion, byte[] entry) throws Exception {
-        activeWAL().append(valueIndexId, appendVersion, entry);
+        semaphore.acquire();
+        try {
+            if (closed.get()) {
+                throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+            }
+            activeWAL().append(valueIndexId, appendVersion, entry);
+        } finally {
+            semaphore.release();
+        }
     }
 
     public void flush(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
-        ActiveWAL wal = activeWAL();
-
-        long fsyncedVersion = wal.flushed(valueIndexId, appendVersion, fsync);
-
-        if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
-            synchronized (activeWAL) {
-                wal = allocateNewWAL();
-                ActiveWAL oldWAL = activeWAL.getAndSet(wal);
-                oldWALs.add(oldWAL);
+        boolean needToAllocateNewWAL = false;
+        semaphore.acquire();
+        try {
+            if (closed.get()) {
+                throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
             }
+            ActiveWAL wal = activeWAL();
+            wal.flushed(valueIndexId, appendVersion, fsync);
+            if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
+                needToAllocateNewWAL = true;
+
+            }
+        } finally {
+            semaphore.release();
         }
 
-        if (!oldWALs.isEmpty()) {
-            List<ActiveWAL> removeable = Lists.newArrayList();
-            for (ActiveWAL oldWAL : oldWALs) {
-                if (oldWAL.removeable(valueIndexId, fsyncedVersion)) {
-                    removeable.add(wal);
+        if (needToAllocateNewWAL) {
+            semaphore.acquire(Short.MAX_VALUE);
+            try {
+                if (closed.get()) {
+                    throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+                }
+                ActiveWAL wal = activeWAL();
+                if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
+                    wal = allocateNewWAL();
+                    ActiveWAL oldWAL = activeWAL.getAndSet(wal);
+                    oldWALs.add(oldWAL);
+                }
+            } finally {
+                semaphore.release(Short.MAX_VALUE);
+            }
+        }
+    }
+
+    public void commit(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
+        List<ActiveWAL> removeable = null;
+        semaphore.acquire();
+        try {
+            if (closed.get()) {
+                throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+            }
+            ActiveWAL wal = activeWAL();
+            wal.commit(valueIndexId, appendVersion, fsync);
+            if (!oldWALs.isEmpty()) {
+                removeable = Lists.newArrayList();
+                for (ActiveWAL oldWAL : oldWALs) {
+                    if (oldWAL.commit(valueIndexId, appendVersion, fsync)) {
+                        removeable.add(wal);
+                    }
                 }
             }
+        } finally {
+            semaphore.release();
+        }
 
-            if (!removeable.isEmpty()) {
-                synchronized (activeWAL) {
-                    oldWALs.removeAll(removeable);
+        if (removeable != null && !removeable.isEmpty()) {
+            semaphore.acquire(Short.MAX_VALUE);
+            try {
+                if (closed.get()) {
+                    throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
                 }
+                oldWALs.removeAll(removeable);
+            } finally {
+                semaphore.release(Short.MAX_VALUE);
             }
         }
     }
@@ -282,7 +340,7 @@ public class LabWAL {
         ActiveWAL wal;
         File file = new File(walRoot, String.valueOf(walIdProvider.incrementAndGet()));
         file.getParentFile().mkdirs();
-        IndexFile walFile = new IndexFile(file, "rw", false);
+        IndexFile walFile = new IndexFile(file, "rw");
         wal = new ActiveWAL(walFile);
         return wal;
     }
@@ -291,84 +349,57 @@ public class LabWAL {
 
         private final IndexFile wal;
         private final IAppendOnly appendOnly;
-        private final BAHash<AppendAndFsyncVersion> flushAndFsyncVersions;
+        private final BAHash<Long> appendVersions;
         private final AtomicLong entryCount = new AtomicLong();
         private final AtomicLong sizeInBytes = new AtomicLong();
-        private final AtomicLong fsyncVersion = new AtomicLong();
         private final Object oneWriteAtTimeLock = new Object();
 
         public ActiveWAL(IndexFile wal) throws Exception {
             this.wal = wal;
-            this.flushAndFsyncVersions = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
+            this.appendVersions = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
             this.appendOnly = wal.appender();
         }
 
-        private void append(byte type, byte[] valueIndexId, long version) throws IOException {
+        private void append(byte type, byte[] valueIndexId, long appendVersion) throws IOException {
             appendOnly.appendByte(type);
             appendOnly.appendInt(MAGIC[type]);
             UIO.writeByteArray(appendOnly, valueIndexId, "valueIndexId");
-            appendOnly.appendLong(version);
+            appendOnly.appendLong(appendVersion);
         }
 
         public void append(byte[] valueIndexId, long appendVersion, byte[] entry) throws Exception {
-            long fsyncVersion;
+            entryCount.incrementAndGet();
+            sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8 + entry.length);
             synchronized (oneWriteAtTimeLock) {
-                fsyncVersion = this.fsyncVersion.get();
                 append(ENTRY, valueIndexId, appendVersion);
                 UIO.writeByteArray(appendOnly, entry, "entry");
-                flushAndFsyncVersions.put(entry, new AppendAndFsyncVersion(appendVersion, fsyncVersion));
             }
         }
 
-        public long flushed(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
+        public void flushed(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
 
             append(BATCH_ISOLATION, valueIndexId, appendVersion);
+            sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8);
 
-            long fsyncedVersion;
             synchronized (oneWriteAtTimeLock) {
-                AppendAndFsyncVersion appendAndFsyncVersion = flushAndFsyncVersions.get(valueIndexId, 0, valueIndexId.length);
-                fsyncedVersion = fsyncVersion.get();
-                if (appendAndFsyncVersion != null && appendAndFsyncVersion.fsyncVersion >= fsyncedVersion) {
-                    if (fsync) {
-                        append(FSYNC_ISOLATION, valueIndexId, appendVersion);
-                        appendOnly.appendLong(fsyncedVersion);
-                        wal.flush(fsync);
-                        fsyncVersion.incrementAndGet();
-                    }
-                    flushAndFsyncVersions.remove(valueIndexId, 0, valueIndexId.length);
-                }
+                appendVersions.put(valueIndexId, appendVersion);
+                wal.flush(fsync);
             }
-            return fsyncedVersion;
         }
 
-        public boolean removeable(byte[] valueIndexId, long fsyncedVersion) {
+        public boolean commit(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
             synchronized (oneWriteAtTimeLock) {
-                if (flushAndFsyncVersions.size() == 0) {
-                    return true;
+                Long lastAppendVersion = appendVersions.get(valueIndexId, 0, valueIndexId.length);
+                if (lastAppendVersion != null && lastAppendVersion < appendVersion) {
+                    appendVersions.remove(valueIndexId, 0, valueIndexId.length);
                 }
-                if (valueIndexId != null) {
-                    AppendAndFsyncVersion appendAndFsyncVersion = flushAndFsyncVersions.get(valueIndexId, 0, valueIndexId.length);
-                    if (appendAndFsyncVersion != null && appendAndFsyncVersion.fsyncVersion >= fsyncedVersion) {
-                        flushAndFsyncVersions.remove(valueIndexId, 0, valueIndexId.length);
-                    }
-                }
+                return appendVersions.size() == 0;
             }
-            return false;
         }
 
         public void close() throws IOException {
             wal.close();
         }
 
-        static class AppendAndFsyncVersion {
-
-            final long appendVersion;
-            final long fsyncVersion;
-
-            public AppendAndFsyncVersion(long appendVersion, long fsyncVersion) {
-                this.appendVersion = appendVersion;
-                this.fsyncVersion = fsyncVersion;
-            }
-        }
     }
 }

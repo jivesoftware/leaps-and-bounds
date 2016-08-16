@@ -29,30 +29,24 @@ public class FileBackedMemMappedByteBufferFactory implements ByteBufferFactory {
     }
 
     @Override
-    public ByteBuffer allocate(int index, long length) {
-        try {
-            //System.out.println(String.format("Allocate key=%s length=%s for directories=%s", key, length, Arrays.toString(directories)));
-            ensureDirectory(file.getParentFile());
-            long segmentOffset = segmentSize * index;
-            long requiredLength = segmentOffset + length;
-            try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
-                if (requiredLength > raf.length()) {
-                    raf.seek(requiredLength - 1);
-                    raf.write(0);
-                }
-                raf.seek(segmentOffset);
-                try (FileChannel channel = raf.getChannel()) {
-                    return channel.map(FileChannel.MapMode.READ_WRITE, segmentOffset, Math.min(segmentSize, channel.size() - segmentOffset));
-                }
+    public ByteBuffer allocate(int index, long length) throws IOException {
+        ensureDirectory(file.getParentFile());
+        long segmentOffset = segmentSize * index;
+        long requiredLength = segmentOffset + length;
+        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            if (requiredLength > raf.length()) {
+                raf.seek(requiredLength - 1);
+                raf.write(0);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            raf.seek(segmentOffset);
+            try (FileChannel channel = raf.getChannel()) {
+                return channel.map(FileChannel.MapMode.READ_WRITE, segmentOffset, Math.min(segmentSize, channel.size() - segmentOffset));
+            }
         }
     }
 
     @Override
-    public ByteBuffer reallocate(int index, ByteBuffer oldBuffer, long newSize) {
-        //System.out.println(String.format("Reallocate key=%s newSize=%s for directories=%s", key, newSize, Arrays.toString(directories)));
+    public ByteBuffer reallocate(int index, ByteBuffer oldBuffer, long newSize) throws IOException {
         return allocate(index, newSize);
     }
 
@@ -67,11 +61,11 @@ public class FileBackedMemMappedByteBufferFactory implements ByteBufferFactory {
         return Math.min(segmentSize, file.length() - segmentOffset);
     }
 
-    private void ensureDirectory(File directory) {
+    private void ensureDirectory(File directory)  throws IOException {
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
                 if (!directory.exists()) {
-                    throw new RuntimeException("Failed to create directory: " + directory);
+                    throw new IOException("Failed to create directory: " + directory);
                 }
             }
         }

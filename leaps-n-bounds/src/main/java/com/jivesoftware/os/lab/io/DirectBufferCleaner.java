@@ -39,15 +39,16 @@ public class DirectBufferCleaner {
     }
 
     static public void clean(ByteBuffer bb) {
-        if (available && directBufferClass.isAssignableFrom(bb.getClass())) {
+        if (available && cleanMethod != null && directBufferClass.isAssignableFrom(bb.getClass())) {
             try {
                 Object cleaner = directBufferCleanerMethod.invoke(bb);
-                cleanMethod.invoke(cleaner);
+                if (cleaner != null) {
+                    cleanMethod.invoke(cleaner);
+                }
             } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
                 System.out.println("Failed to clean buffer");
                 e.printStackTrace();
             }
         }
     }
-
 }

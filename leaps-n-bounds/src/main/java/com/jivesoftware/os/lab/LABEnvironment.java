@@ -3,8 +3,6 @@ package com.jivesoftware.os.lab;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -40,13 +38,11 @@ public class LABEnvironment {
     static {
         MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
-    private final Cache<String, ValueIndex> openValueIndexsCache = CacheBuilder.<String, ValueIndex>newBuilder().weakValues().build();
 
     private final File labRoot;
     private final ExecutorService scheduler;
     private final ExecutorService compact;
     private final ExecutorService destroy;
-    private final boolean useMemMap;
     private final LabHeapPressure labHeapPressure;
     private final int minMergeDebt;
     private final int maxMergeDebt;
@@ -85,7 +81,6 @@ public class LABEnvironment {
         long maxEntriesPerWAL,
         long maxEntrySizeInBytes,
         File labRoot,
-        boolean useMemMap,
         LabHeapPressure labHeapPressure,
         int minMergeDebt,
         int maxMergeDebt,
@@ -100,7 +95,6 @@ public class LABEnvironment {
         this.compact = compact;
         this.destroy = destroy;
         this.labRoot = labRoot;
-        this.useMemMap = useMemMap;
         this.labHeapPressure = labHeapPressure;
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
@@ -180,46 +174,42 @@ public class LABEnvironment {
             throw new IllegalStateException("primaryName:" + config.primaryName + " cannot collide with walName");
         }
 
-        return openValueIndexsCache.get(config.primaryName, () -> {
+        FormatTransformerProvider formatTransformerProvider = formatTransformerProviderRegistry.get(config.formatTransformerProviderName);
+        Preconditions.checkNotNull(formatTransformerProvider, "No FormatTransformerProvider registered for " + config.formatTransformerProviderName);
+        Rawhide rawhide = rawhideRegistry.get(config.rawhideName);
+        Preconditions.checkNotNull(formatTransformerProvider, "No Rawhide registered for " + config.rawhideName);
+        RawEntryFormat rawEntryFormat = rawEntryFormatRegistry.get(config.rawEntryFormatName);
+        Preconditions.checkNotNull(formatTransformerProvider, "No RawEntryFormat registered for " + config.rawEntryFormatName);
 
-            FormatTransformerProvider formatTransformerProvider = formatTransformerProviderRegistry.get(config.formatTransformerProviderName);
-            Preconditions.checkNotNull(formatTransformerProvider, "No FormatTransformerProvider registered for " + config.formatTransformerProviderName);
-            Rawhide rawhide = rawhideRegistry.get(config.rawhideName);
-            Preconditions.checkNotNull(formatTransformerProvider, "No Rawhide registered for " + config.rawhideName);
-            RawEntryFormat rawEntryFormat = rawEntryFormatRegistry.get(config.rawEntryFormatName);
-            Preconditions.checkNotNull(formatTransformerProvider, "No RawEntryFormat registered for " + config.rawEntryFormatName);
+        File configFile = new File(labRoot, config.primaryName + ".json");
 
-            File configFile = new File(labRoot, config.primaryName + ".json");
+        if (configFile.exists()) {
+            // TODO read compare and other cool stuff
+            MAPPER.writeValue(configFile, config);
+        } else {
+            configFile.getParentFile().mkdirs();
+            MAPPER.writeValue(configFile, config);
+        }
 
-            if (configFile.exists()) {
-                // TODO read compare and other cool stuff
-                MAPPER.writeValue(configFile, config);
-            } else {
-                configFile.getParentFile().mkdirs();
-                MAPPER.writeValue(configFile, config);
-            }
-
-            return new LAB(formatTransformerProvider,
-                rawhide,
-                rawEntryFormat,
-                scheduler,
-                compact,
-                destroy,
-                labRoot,
-                wal,
-                config.primaryName.getBytes(StandardCharsets.UTF_8),
-                config.primaryName,
-                useMemMap,
-                config.entriesBetweenLeaps,
-                labHeapPressure,
-                config.maxHeapPressureInBytes,
-                minMergeDebt,
-                maxMergeDebt,
-                config.splitWhenKeysTotalExceedsNBytes,
-                config.splitWhenValuesTotalExceedsNBytes,
-                config.splitWhenValuesAndKeysTotalExceedsNBytes,
-                leapsCache);
-        });
+        return new LAB(formatTransformerProvider,
+            rawhide,
+            rawEntryFormat,
+            scheduler,
+            compact,
+            destroy,
+            labRoot,
+            wal,
+            config.primaryName.getBytes(StandardCharsets.UTF_8),
+            config.primaryName,
+            config.entriesBetweenLeaps,
+            labHeapPressure,
+            config.maxHeapPressureInBytes,
+            minMergeDebt,
+            maxMergeDebt,
+            config.splitWhenKeysTotalExceedsNBytes,
+            config.splitWhenValuesTotalExceedsNBytes,
+            config.splitWhenValuesAndKeysTotalExceedsNBytes,
+            leapsCache);
 
     }
 

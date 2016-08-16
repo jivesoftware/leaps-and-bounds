@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.io.AutoGrowingByteBufferBackedFiler;
 import com.jivesoftware.os.lab.io.FileBackedMemMappedByteBufferFactory;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
@@ -35,7 +36,6 @@ public class IndexFile implements ICloseable {
     private final String mode;
     private RandomAccessFile randomAccessFile;
     private FileChannel channel;
-    private final boolean useMemMap;
     private final AtomicLong size;
 
     private final AutoGrowingByteBufferBackedFiler memMapFiler;
@@ -45,10 +45,9 @@ public class IndexFile implements ICloseable {
     private final MemMapLock memMapLock = new MemMapLock();
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public IndexFile(File file, String mode, boolean useMemMap) throws IOException {
+    public IndexFile(File file, String mode) throws IOException {
         this.file = file;
         this.mode = mode;
-        this.useMemMap = useMemMap;
         this.randomAccessFile = new RandomAccessFile(file, mode);
         this.channel = randomAccessFile.getChannel();
         this.size = new AtomicLong(randomAccessFile.length());
@@ -67,33 +66,21 @@ public class IndexFile implements ICloseable {
         return closed.get();
     }
 
-    public IReadable reader(IReadable current, long requiredLength, boolean fallBackToChannelReader) throws IOException {
+    public IReadable reader(IReadable current, long requiredLength) throws Exception {
         if (closed.get()) {
-            throw new IOException("Cannot get a reader from an index that is already closed.");
+            throw new LABIndexClosedException("Cannot get a reader from an index that is already closed.");
         }
-        if (!useMemMap) {
-            if (current != null) {
-                return current;
-            } else {
-                return new IndexFilerChannelReader(this, channel);
-            }
-        }
-
+       
         if (current != null && current.length() >= requiredLength) {
             return current;
         }
 
         long memMapSize = memMapFilerLength.get();
         if (requiredLength > memMapSize) {
-            if (fallBackToChannelReader) {
-                // mmap is too small, fall back to channel reader
-                return new IndexFilerChannelReader(this, channel);
-            } else {
-                synchronized (memMapLock) {
-                    long length = size.get();
-                    memMapFiler.seek(length);
-                    memMapFilerLength.set(length);
-                }
+            synchronized (memMapLock) {
+                long length = size.get();
+                memMapFiler.seek(length);
+                memMapFilerLength.set(length);
             }
         }
         return memMapFiler.duplicateAll();
@@ -105,9 +92,9 @@ public class IndexFile implements ICloseable {
         }
     }
 
-    public IAppendOnly appender() throws IOException {
+    public IAppendOnly appender() throws Exception {
         if (closed.get()) {
-            throw new IOException("Cannot get an appender from an index that is already closed.");
+            throw new LABIndexClosedException("Cannot get an appender from an index that is already closed.");
         }
         DataOutputStream writer = new DataOutputStream(new FileOutputStream(file, true));
         return new IAppendOnly() {
@@ -165,19 +152,14 @@ public class IndexFile implements ICloseable {
     }
 
     private AutoGrowingByteBufferBackedFiler createMemMap() throws IOException {
-        if (useMemMap) {
-            FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(file, BUFFER_SEGMENT_SIZE);
-            return new AutoGrowingByteBufferBackedFiler(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
-        } else {
-            return null;
-        }
+        FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(file, BUFFER_SEGMENT_SIZE);
+        return new AutoGrowingByteBufferBackedFiler(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
     }
 
     @Override
     public String toString() {
         return "IndexFile{"
             + "fileName=" + file
-            + ", useMemMap=" + useMemMap
             + ", size=" + size
             + '}';
     }

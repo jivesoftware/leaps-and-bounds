@@ -137,7 +137,6 @@ public class LABStress {
             1000,
             1024 * 1024 * 10,
             root, // rootFile
-            true, // useMemMap
             labHeapPressure,
             4, // minMergeDebt
             8, // maxMergeDebt

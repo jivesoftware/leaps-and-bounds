@@ -42,15 +42,20 @@ public class IndexNGTest {
 
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
-        LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
+        LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
             64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
         IndexTestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
-            leapsCache), count, step, desired);
+        LeapsAndBoundsIndex leapsAndBoundsIndex = new LeapsAndBoundsIndex(destroy,
+            indexRangeId,
+            new IndexFile(indexFiler, "r"),
+            NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
+            leapsCache);
+
+        assertions(leapsAndBoundsIndex, count, step, desired);
     }
 
     @Test(enabled = false)
@@ -84,14 +89,14 @@ public class IndexNGTest {
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
-        LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw", false),
+        LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
             64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
         disIndex.append(memoryIndex);
         disIndex.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r", false), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
+        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
             leapsCache), count, step, desired);
 
     }

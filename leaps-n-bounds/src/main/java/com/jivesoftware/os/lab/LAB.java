@@ -82,7 +82,6 @@ public class LAB implements ValueIndex {
         LabWAL wal,
         byte[] walId,
         String indexName,
-        boolean useMemMap,
         int entriesBetweenLeaps,
         LabHeapPressure labHeapFlusher,
         long maxHeapPressureInBytes,
@@ -107,7 +106,6 @@ public class LAB implements ValueIndex {
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
             root,
             indexName,
-            useMemMap,
             entriesBetweenLeaps,
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
@@ -413,6 +411,7 @@ public class LAB implements ValueIndex {
         boolean fsyncAfterAppend,
         Values values,
         boolean fsyncOnFlush) throws Exception, InterruptedException {
+
         if (values == null) {
             return false;
         }
@@ -481,7 +480,7 @@ public class LAB implements ValueIndex {
                 }
             );
 
-            if (appended && appendToWal) {
+            if (appendToWal) {
                 wal.flush(walId, appendVersion, fsyncOnFlush);
             }
 
@@ -528,6 +527,7 @@ public class LAB implements ValueIndex {
             rangeStripedCompactableIndexes.append(stackCopy, fsync);
             flushingMemoryIndex = null;
             stackCopy.destroy();
+            wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
         } finally {
             commitSemaphore.release(Short.MAX_VALUE);
         }

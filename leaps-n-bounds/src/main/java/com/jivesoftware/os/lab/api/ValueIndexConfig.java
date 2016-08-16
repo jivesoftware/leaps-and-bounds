@@ -1,5 +1,8 @@
 package com.jivesoftware.os.lab.api;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  *
  * @author jonathan.colt
@@ -16,16 +19,17 @@ public class ValueIndexConfig {
     public final String rawhideName;
     public final String rawEntryFormatName;
 
-    public ValueIndexConfig(String primaryName,
-        int entriesBetweenLeaps,
-        long maxHeapPressureInBytes,
-        long splitWhenKeysTotalExceedsNBytes,
-        long splitWhenValuesTotalExceedsNBytes,
-        long splitWhenValuesAndKeysTotalExceedsNBytes,
-        String formatTransformerProviderName,
-        String rawhideName,
-        String rawEntryFormatName) {
-        
+    @JsonCreator
+    public ValueIndexConfig(@JsonProperty("primaryName") String primaryName,
+        @JsonProperty("entriesBetweenLeaps") int entriesBetweenLeaps,
+        @JsonProperty("maxHeapPressureInBytes") long maxHeapPressureInBytes,
+        @JsonProperty("splitWhenKeysTotalExceedsNBytes") long splitWhenKeysTotalExceedsNBytes,
+        @JsonProperty("splitWhenValuesTotalExceedsNBytes") long splitWhenValuesTotalExceedsNBytes,
+        @JsonProperty("splitWhenValuesAndKeysTotalExceedsNBytes") long splitWhenValuesAndKeysTotalExceedsNBytes,
+        @JsonProperty("formatTransformerProviderName") String formatTransformerProviderName,
+        @JsonProperty("rawhideName") String rawhideName,
+        @JsonProperty("rawEntryFormatName") String rawEntryFormatName) {
+
         this.primaryName = primaryName;
         this.entriesBetweenLeaps = entriesBetweenLeaps;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;

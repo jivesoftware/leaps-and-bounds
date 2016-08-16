@@ -10,10 +10,14 @@ import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
+import org.testng.Assert;
 import org.testng.annotations.Test;
+import org.testng.collections.Lists;
 
 import static org.testng.Assert.assertEquals;
 
@@ -27,6 +31,9 @@ public class LABEnvironmentNGTest {
 
         File root = null;
         try {
+            IdProvider idProvider = new RandomIdProvider(12345, 100_000_000);
+            //IdProvider idProvider = new MonotomicIdProvider(0);
+
             root = Files.createTempDir();
             System.out.println("root" + root.getAbsolutePath());
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
@@ -35,14 +42,18 @@ public class LABEnvironmentNGTest {
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10, root,
-                false, labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.emptyList());
 
             ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
                 NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
 
             ValueIndex index = env.open(valueIndexConfig);
-            indexTest(index, "foo");
+            System.out.println("Lets index so stuff....");
+            index(index, "foo", idProvider, false, true);
+            System.out.println("Lets test its all there....");
+
+            test(index, "foo", idProvider);
             assertEquals(env.list(), Collections.singletonList("foo"));
 
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
@@ -50,11 +61,16 @@ public class LABEnvironmentNGTest {
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10, root,
-                true, labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache);
 
             index = env.open(valueIndexConfig);
             assertEquals(env.list(), Collections.singletonList("foo"));
-            indexTest(index, "foo");
+            System.out.println("\nLets re-test its all there....");
+            test(index, "foo", idProvider);
+            System.out.println("Lets re-index so stuff....");
+            index(index, "foo", idProvider, false, true);
+            System.out.println("Lets re-re-test its all there....");
+            test(index, "foo", idProvider);
 
             env.shutdown();
 
@@ -63,7 +79,7 @@ public class LABEnvironmentNGTest {
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10, root,
-                true, labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.singletonList("foo"));
             env.rename("foo", "bar");
 
@@ -72,7 +88,12 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.singletonList("bar"));
             index = env.open(valueIndexConfig);
 
-            indexTest(index, "bar");
+            System.out.println("Lets test its all there after move....");
+            test(index, "bar", idProvider);
+            System.out.println("Lets re-re-re-index so stuff after move....");
+            index(index, "bar", idProvider, false, true);
+            System.out.println("Lets re-test its all there after move....");
+            test(index, "bar", idProvider);
 
             env.shutdown();
             labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
@@ -80,7 +101,7 @@ public class LABEnvironmentNGTest {
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10, root,
-                true, labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.singletonList("bar"));
             env.remove("bar");
             assertEquals(env.list(), Collections.emptyList());
@@ -139,6 +160,8 @@ public class LABEnvironmentNGTest {
 
     @Test
     public void testEnvWithMemMap() throws Exception {
+        IdProvider idProvider = new RandomIdProvider(12345, 100_000_000);
+        //IdProvider idProvider = new MonotomicIdProvider(0);
 
         File root = Files.createTempDir();
         System.out.println("Created root");
@@ -148,7 +171,7 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
             1000, 1024 * 1024 * 10, root,
-            true, labHeapPressure, 4, 8, leapsCache);
+            labHeapPressure, 4, 8, leapsCache);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
@@ -157,7 +180,8 @@ public class LABEnvironmentNGTest {
 
         ValueIndex index = env.open(valueIndexConfig);
         System.out.println("Open env");
-        indexTest(index, "foo");
+        index(index, "foo", idProvider, false, true);
+        test(index, "foo", idProvider);
         System.out.println("Indexed");
 
         env.shutdown();
@@ -168,85 +192,255 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
             1000, 1024 * 1024 * 10, root,
-            true, labHeapPressure, 4, 8, leapsCache);
+            labHeapPressure, 4, 8, leapsCache);
         System.out.println("Recreate env");
 
         index = env.open(valueIndexConfig);
         System.out.println("Re-open env");
-        indexTest(index, "foo");
+        test(index, "foo", idProvider);
+        index(index, "foo", idProvider, true, false);
+        test(index, "foo", idProvider);
         System.out.println("Re-indexed");
         env.shutdown();
         System.out.println("Re-shutdown");
 
     }
 
-    private void indexTest(ValueIndex index, String name) throws Exception {
+    @Test
+    public void testEnvWithWALAndMemMap() throws Exception {
+        IdProvider idProvider = new RandomIdProvider(12345, 100_000_000);
+        //IdProvider idProvider = new MonotomicIdProvider(0);
+
+        File root = Files.createTempDir();
+        System.out.println("Created root");
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
+            "wal", 1024 * 1024 * 10,
+            1000,
+            1024 * 1024 * 10, root,
+            labHeapPressure, 4, 8, leapsCache);
+
+        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+
+        System.out.println("Created env");
+
+        ValueIndex index = env.open(valueIndexConfig);
+        System.out.println("Open env");
+        index(index, "foo", idProvider, true, false);
+        test(index, "foo", idProvider);
+        System.out.println("Indexed");
+        env.close();
+        env.shutdown();
+        System.out.println("Shutdown");
+
+        labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
+        env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
+            "wal", 1024 * 1024 * 10,
+            1000,
+            1024 * 1024 * 10, root,
+            labHeapPressure, 4, 8, leapsCache);
+        System.out.println("Recreate env");
+        env.open();
+        System.out.println("Re-open index");
+        index = env.open(valueIndexConfig);
+        test(index, "foo", idProvider);
+        index(index, "foo", idProvider, true, true);
+        test(index, "foo", idProvider);
+        System.out.println("Re-indexed");
+        env.shutdown();
+        System.out.println("Re-shutdown");
+
+        labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
+        env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
+            "wal", 1024 * 1024 * 10,
+            1000,
+            1024 * 1024 * 10, root,
+            labHeapPressure, 4, 8, leapsCache);
+        System.out.println("Re-Recreate env");
+        env.open();
+        System.out.println("Re-Re-open index");
+        index = env.open(valueIndexConfig);
+        test(index, "foo", idProvider);
+        env.shutdown();
+        System.out.println("Re-Re-shutdown");
+
+    }
+
+    private void index(ValueIndex index, String name, IdProvider idProvider, boolean useWAL, boolean commit) throws Exception {
+        idProvider.reset();
         assertEquals(index.name(), name);
 
         AtomicLong version = new AtomicLong();
         AtomicLong value = new AtomicLong();
         AtomicLong count = new AtomicLong();
 
-        int totalCardinality = 100_000_000;
         int commitCount = 34;
         int batchCount = 3_000;
-        int getCount = 0;
 
-        long mainStart = System.currentTimeMillis();
-        Random rand = new Random(12345);
         for (int c = 0; c < commitCount; c++) {
             long start = System.currentTimeMillis();
-            index.append((ValueStream stream) -> {
-                for (int i = 0; i < batchCount; i++) {
-                    count.incrementAndGet();
-                    stream.stream(-1,
-                        UIO.longBytes(rand.nextInt(totalCardinality)),
-                        System.currentTimeMillis(),
-                        rand.nextBoolean(),
-                        version.incrementAndGet(),
-                        UIO.longBytes(value.incrementAndGet()));
-                }
-                return true;
-            }, true);
+            if (useWAL) {
+                index.journaledAppend((ValueStream stream) -> {
+                    for (int i = 0; i < batchCount; i++) {
+                        count.incrementAndGet();
+                        int nextI = idProvider.nextId();
+                        //System.out.print(nextI + ", ");
+                        stream.stream(-1,
+                            UIO.longBytes(nextI),
+                            System.currentTimeMillis(),
+                            false,
+                            version.incrementAndGet(),
+                            UIO.longBytes(value.incrementAndGet()));
+                    }
+                    return true;
+                }, true);
+            } else {
+                index.append((ValueStream stream) -> {
+                    for (int i = 0; i < batchCount; i++) {
+                        count.incrementAndGet();
+                        int nextI = idProvider.nextId();
+                        //System.out.print(nextI + ", ");
+                        stream.stream(-1,
+                            UIO.longBytes(nextI),
+                            System.currentTimeMillis(),
+                            false,
+                            version.incrementAndGet(),
+                            UIO.longBytes(value.incrementAndGet()));
+                    }
+                    return true;
+                }, true);
+            }
 
             System.out.println("Append Elapse:" + (System.currentTimeMillis() - start));
-            start = System.currentTimeMillis();
-            index.commit(true, true);
-            System.out.println("Commit Elapse:" + (System.currentTimeMillis() - start));
-            start = System.currentTimeMillis();
+            if (commit) {
+                start = System.currentTimeMillis();
+                index.commit(true, true);
+                System.out.println("Commit Elapse:" + (System.currentTimeMillis() - start));
+                start = System.currentTimeMillis();
+            }
 
-            AtomicLong hits = new AtomicLong();
-            for (int i = 0; i < getCount; i++) {
+        }
+
+    }
+
+    private void test(ValueIndex index, String name, IdProvider idProvider) throws Exception {
+        if (index instanceof LAB) {
+            System.out.println("\n\n");
+            ((LAB) index).auditRanges((key) -> "" + UIO.bytesLong(key));
+            System.out.println("\n\n");
+        }
+
+        idProvider.reset();
+        assertEquals(index.name(), name);
+
+        int commitCount = 34;
+        int batchCount = 3_000;
+
+        System.out.println("Testing Hits... " + name);
+        List<String> failures = Lists.newArrayList();
+        for (int c = 0; c < commitCount; c++) {
+            for (int i = 0; i < batchCount; i++) {
+                long askedFor = idProvider.nextId();
+
                 index.get(
                     (keyStream) -> {
-                        byte[] key = UIO.longBytes(rand.nextInt(1_000_000));
+                        byte[] key = UIO.longBytes(askedFor);
                         keyStream.key(0, key, 0, key.length);
                         return true;
                     },
                     (index1, key, timestamp, tombstoned, version1, value1) -> {
-                        hits.incrementAndGet();
+                        if (value1 == null) {
+                            failures.add(
+                                " FAILED to find " + askedFor + " " + index1 + " " + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays
+                                .toString(value1));
+                        }
                         return true;
                     }, true);
             }
-            System.out.println("Get (" + hits.get() + ") Elapse:" + (System.currentTimeMillis() - start));
-
-            double rate = (double) count.get() * 1000 / ((System.currentTimeMillis() - mainStart));
-
-            System.out.println("Count:" + count.get() + " " + rate);
-            System.out.println("-----------------------------------");
-
+            System.out.print(".");
         }
 
-        System.out.println("Total Time:" + (System.currentTimeMillis() - mainStart));
+        System.out.println("\nTesting Misses... " + name);
+        for (int c = 0; c < commitCount; c++) {
+            for (int i = 0; i < batchCount; i++) {
+                long askedFor = -idProvider.nextId();
+                index.get(
+                    (keyStream) -> {
+                        byte[] key = UIO.longBytes(askedFor);
+                        keyStream.key(0, key, 0, key.length);
+                        return true;
+                    },
+                    (index1, key, timestamp, tombstoned, version1, value1) -> {
+                        if (value1 != null) {
+                            failures.add(
+                                " FAILED to miss " + askedFor + " " + index1 + " " + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays
+                                .toString(value1));
+                        }
+                        return true;
+                    }, true);
+            }
+            System.out.print(".");
+        }
 
-        System.out.println("Index Count:" + index.count());
-        System.out.println("Is empty:" + index.isEmpty());
+        if (!failures.isEmpty()) {
 
-        index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
-            //System.out.println(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays.toString(payload));
-            return true;
-        }, true);
+            Assert.fail(failures.toString());
+        }
+    }
+
+    static interface IdProvider {
+
+        int nextId();
+
+        void reset();
+    }
+
+    static class RandomIdProvider implements IdProvider {
+
+        private Random random;
+        private final int seed;
+        private final int bounds;
+
+        public RandomIdProvider(int seed, int bounds) {
+            this.seed = seed;
+            this.random = new Random(seed);
+            this.bounds = bounds;
+        }
+
+        @Override
+        public int nextId() {
+            return random.nextInt(bounds);
+        }
+
+        public void reset() {
+            random = new Random(seed);
+        }
 
     }
 
+    static class MonotomicIdProvider implements IdProvider {
+
+        private final long initialValue;
+        private final AtomicLong atomicLong;
+
+        public MonotomicIdProvider(long initialValue) {
+            this.initialValue = initialValue;
+            this.atomicLong = new AtomicLong(initialValue);
+        }
+
+        @Override
+        public int nextId() {
+            return (int) atomicLong.getAndIncrement();
+        }
+
+        public void reset() {
+            atomicLong.set(initialValue);
+        }
+
+    }
 }

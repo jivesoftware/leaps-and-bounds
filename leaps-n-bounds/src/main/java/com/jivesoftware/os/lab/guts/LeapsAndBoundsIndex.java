@@ -54,7 +54,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
         if (length == 0) {
             throw new LABIndexCorruptedException("Trying to construct an index with an empy file.");
         }
-        IReadable reader = index.reader(null, length, true);
+        IReadable reader = index.reader(null, length);
         this.footer = readFooter(reader);
         this.rawhide = rawhide;
         this.readKeyFormatTransformer = formatTransformerProvider.read(footer.keyFormat);
@@ -63,7 +63,6 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     }
 
     private Footer readFooter(IReadable readable) throws IOException, LABIndexCorruptedException {
-        byte[] lengthBuffer = new byte[8];
         long indexLength = readable.length();
         long seekTo = indexLength - 4;
         if (seekTo < 0 || seekTo > indexLength) {
@@ -71,7 +70,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
                 "1. Footer Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index.length());
         }
         readable.seek(indexLength - 4);
-        int footerLength = UIO.readInt(readable, "length");
+        int footerLength = readable.readInt();
 
         seekTo = indexLength - (1 + footerLength);
         if (seekTo < 0 || seekTo > indexLength) {
@@ -109,20 +108,20 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
         try {
             if (leaps == null) {
-                IReadable readableIndex = index.reader(null, index.length(), false);
+                IReadable readableIndex = index.reader(null, index.length());
                 long indexLength = readableIndex.length();
                 byte[] lengthBuffer = new byte[8];
 
                 long seekTo = indexLength - 4;
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("1. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
+                    throw new LABIndexCorruptedException("1. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
                         .length());
                 }
                 readableIndex.seek(seekTo);
                 int footerLength = UIO.readInt(readableIndex, "length");
                 seekTo = indexLength - (footerLength + 1 + 4);
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("2. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
+                    throw new LABIndexCorruptedException("2. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
                         .length());
                 }
                 readableIndex.seek(seekTo);
@@ -130,14 +129,14 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
 
                 seekTo = indexLength - (1 + leapLength + 1 + footerLength);
                 if (seekTo < 0 || seekTo > indexLength) {
-                    throw new RuntimeException("3. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
+                    throw new LABIndexCorruptedException("3. Leaps Corruption! trying to seek to: " + seekTo + " within file:" + index.getFileName() + " length:" + index
                         .length());
                 }
                 readableIndex.seek(indexLength - (1 + leapLength + 1 + footerLength));
 
                 int type = readableIndex.read();
                 if (type != LEAP) {
-                    throw new RuntimeException("4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + index.getFileName() + " length:" + index
+                    throw new LABIndexCorruptedException("4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + index.getFileName() + " length:" + index
                         .length());
                 }
                 leaps = Leaps.read(readKeyFormatTransformer, readableIndex);
@@ -152,7 +151,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
                 leapsCache,
                 footer,
                 () -> {
-                    return index.reader(null, index.length(), false);
+                    return index.reader(null, index.length());
                 }
             );
 

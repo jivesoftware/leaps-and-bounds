@@ -41,8 +41,8 @@ public class KeyRange implements Comparable<KeyRange> {
         return "KeyRange{" + "start=" + Arrays.toString(start) + ", end=" + Arrays.toString(end) + '}';
     }
 
-    public KeyRange join(KeyRange id) {
-        return new KeyRange(rawhide, min(start, id.start), max(end, id.end));
+    public KeyRange join(byte[] idStart, byte[] idEnd) {
+        return new KeyRange(rawhide, min(start, idStart), max(end, idEnd));
     }
 
     private byte[] min(byte[] a, byte[] b) {

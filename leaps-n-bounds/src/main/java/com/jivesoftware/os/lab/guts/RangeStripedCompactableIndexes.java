@@ -50,7 +50,6 @@ public class RangeStripedCompactableIndexes {
     private final ExecutorService destroy;
     private final File root;
     private final String indexName;
-    private final boolean useMemMap;
     private final int entriesBetweenLeaps;
     private final Object copyIndexOnWrite = new Object();
     private volatile ConcurrentSkipListMap<byte[], FileBackMergableIndexs> indexes;
@@ -66,7 +65,6 @@ public class RangeStripedCompactableIndexes {
     public RangeStripedCompactableIndexes(ExecutorService destroy,
         File root,
         String indexName,
-        boolean useMemMap,
         int entriesBetweenLeaps,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
@@ -79,7 +77,6 @@ public class RangeStripedCompactableIndexes {
         this.destroy = destroy;
         this.root = root;
         this.indexName = indexName;
-        this.useMemMap = useMemMap;
         this.entriesBetweenLeaps = entriesBetweenLeaps;
         this.splitWhenKeysTotalExceedsNBytes = splitWhenKeysTotalExceedsNBytes;
         this.splitWhenValuesTotalExceedsNBytes = splitWhenValuesTotalExceedsNBytes;
@@ -156,7 +153,6 @@ public class RangeStripedCompactableIndexes {
             + ", largestIndexId=" + largestIndexId
             + ", root=" + root
             + ", indexName=" + indexName
-            + ", useMemMap=" + useMemMap
             + ", entriesBetweenLeaps=" + entriesBetweenLeaps
             + ", splitWhenKeysTotalExceedsNBytes=" + splitWhenKeysTotalExceedsNBytes
             + ", splitWhenValuesTotalExceedsNBytes=" + splitWhenValuesTotalExceedsNBytes
@@ -221,16 +217,16 @@ public class RangeStripedCompactableIndexes {
                         file.delete();
                         continue;
                     }
-                    IndexFile indexFile = new IndexFile(file, "rw", useMemMap);
+                    IndexFile indexFile = new IndexFile(file, "rw");
                     LeapsAndBoundsIndex lab = new LeapsAndBoundsIndex(destroy, range, indexFile, formatTransformerProvider, rawhide, leapsCache);
                     if (lab.minKey() != null && lab.maxKey() != null) {
                         if (keyRange == null) {
                             keyRange = new KeyRange(rawhide, lab.minKey(), lab.maxKey());
                         } else {
-                            keyRange.join(new KeyRange(rawhide, lab.minKey(), lab.maxKey()));
+                            keyRange = keyRange.join(lab.minKey(), lab.maxKey());
                         }
                         if (!mergeableIndexes.append(lab)) {
-                            throw new RuntimeException("Bueller");
+                            throw new IllegalStateException("Bueller");
                         }
                     } else {
                         indexFile.close();
@@ -310,7 +306,7 @@ public class RangeStripedCompactableIndexes {
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
             File commitingIndexFile = indexRangeId.toFile(commitingRoot);
             FileUtils.deleteQuietly(commitingIndexFile);
-            IndexFile indexFile = new IndexFile(commitingIndexFile, "rw", useMemMap);
+            IndexFile indexFile = new IndexFile(commitingIndexFile, "rw");
             LABAppendableIndex appendableIndex = null;
             try {
                 RawEntryFormat format = rawhideFormat.get();
@@ -356,7 +352,7 @@ public class RangeStripedCompactableIndexes {
         private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId, boolean fsync) throws Exception {
             FileUtils.forceMkdir(commitedIndexFile.getParentFile());
             Files.move(commitingIndexFile.toPath(), commitedIndexFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
-            IndexFile indexFile = new IndexFile(commitedIndexFile, "r", useMemMap);
+            IndexFile indexFile = new IndexFile(commitedIndexFile, "r");
             LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, formatTransformerProvider, rawhide, leapsCache);
             reopenedIndex.flush(fsync);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
@@ -420,7 +416,7 @@ public class RangeStripedCompactableIndexes {
                         FileUtils.forceMkdir(splitIntoDir);
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
-                        IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
+                        IndexFile indexFile = new IndexFile(splittingIndexFile, "rw");
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
@@ -437,7 +433,7 @@ public class RangeStripedCompactableIndexes {
                         FileUtils.forceMkdir(splitIntoDir);
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
-                        IndexFile indexFile = new IndexFile(splittingIndexFile, "rw", useMemMap);
+                        IndexFile indexFile = new IndexFile(splittingIndexFile, "rw");
                         LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                             indexFile,
                             maxLeaps,
@@ -529,7 +525,7 @@ public class RangeStripedCompactableIndexes {
                 int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
                 File mergingIndexFile = id.toFile(mergingRoot);
                 FileUtils.deleteQuietly(mergingIndexFile);
-                IndexFile indexFile = new IndexFile(mergingIndexFile, "rw", useMemMap);
+                IndexFile indexFile = new IndexFile(mergingIndexFile, "rw");
                 LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
                     indexFile,
                     maxLeaps,

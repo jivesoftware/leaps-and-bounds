@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.io;
 import com.jivesoftware.os.lab.io.api.ByteBufferFactory;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -134,11 +135,11 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
         fpFilerIndex = f;
     }
 
-    private ByteBuffer allocate(int index, long maxBufferSegmentSize) {
+    private ByteBuffer allocate(int index, long maxBufferSegmentSize) throws IOException {
         return byteBufferFactory.allocate(index, maxBufferSegmentSize);
     }
 
-    private ByteBuffer reallocate(int index, ByteBuffer oldBuffer, long newSize) {
+    private ByteBuffer reallocate(int index, ByteBuffer oldBuffer, long newSize) throws IOException {
         return byteBufferFactory.reallocate(index, oldBuffer, newSize);
     }
 
@@ -182,13 +183,21 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
         return read;
     }
 
+    private int readAtleastOne() throws IOException {
+        int r = read();
+        if (r == -1) {
+            throw new EOFException("Failed to fully read 1 byte");
+        }
+        return r;
+    }
+
     @Override
     public short readShort() throws IOException {
         if (filers[fpFilerIndex].hasRemaining(2)) {
             return filers[fpFilerIndex].readShort();
         } else {
-            int b0 = read();
-            int b1 = read();
+            int b0 = readAtleastOne();
+            int b1 = readAtleastOne();
 
             short v = 0;
             v |= (b0 & 0xFF);
@@ -203,10 +212,10 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
         if (filers[fpFilerIndex].hasRemaining(4)) {
             return filers[fpFilerIndex].readInt();
         } else {
-            int b0 = read();
-            int b1 = read();
-            int b2 = read();
-            int b3 = read();
+            int b0 = readAtleastOne();
+            int b1 = readAtleastOne();
+            int b2 = readAtleastOne();
+            int b3 = readAtleastOne();
 
             int v = 0;
             v |= (b0 & 0xFF);
@@ -225,14 +234,14 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
         if (filers[fpFilerIndex].hasRemaining(8)) {
             return filers[fpFilerIndex].readLong();
         } else {
-            int b0 = read();
-            int b1 = read();
-            int b2 = read();
-            int b3 = read();
-            int b4 = read();
-            int b5 = read();
-            int b6 = read();
-            int b7 = read();
+            int b0 = readAtleastOne();
+            int b1 = readAtleastOne();
+            int b2 = readAtleastOne();
+            int b3 = readAtleastOne();
+            int b4 = readAtleastOne();
+            int b5 = readAtleastOne();
+            int b6 = readAtleastOne();
+            int b7 = readAtleastOne();
 
             long v = 0;
             v |= (b0 & 0xFF);
@@ -297,16 +306,12 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
     public ByteBuffer slice(int length) throws IOException {
         long remaining = filers[fpFilerIndex].length() - filers[fpFilerIndex].getFilePointer();
         if (remaining < length) {
-            throw new IOException("Cannot slice bytes:" + length + " remaining:" + remaining);
+            throw new EOFException("Cannot slice bytes:" + length + " remaining:" + remaining);
         } else {
             return filers[fpFilerIndex].slice(length);
         }
     }
 
-//    @Override
-//    public void write(ByteBuffer... byteBuffers) throws IOException {
-//        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-//    }
     @Override
     public void close() throws IOException {
         if (filers.length > 0) {
