@@ -23,7 +23,6 @@ import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.wal.WAL;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
@@ -51,9 +50,9 @@ public class LAB implements ValueIndex {
     final ExecutorService schedule;
     private final ExecutorService compact;
     private final ExecutorService destroy;
-    private final WAL wal;
+    private final LabWAL wal;
     private final byte[] walId;
-    private final AtomicLong walFlushVersion = new AtomicLong(0);
+    private final AtomicLong walAppendVersion = new AtomicLong(0);
 
     private final LabHeapPressure labHeapFlusher;
     private final long maxHeapPressureInBytes;
@@ -80,7 +79,7 @@ public class LAB implements ValueIndex {
         ExecutorService compact,
         ExecutorService destroy,
         File root,
-        WAL wal,
+        LabWAL wal,
         byte[] walId,
         String indexName,
         boolean useMemMap,
@@ -423,11 +422,11 @@ public class LAB implements ValueIndex {
                 throw new LABIndexClosedException();
             }
 
-            long flushVersion;
+            long appendVersion;
             if (appendToWal) {
-                flushVersion = walFlushVersion.incrementAndGet();
+                appendVersion = walAppendVersion.incrementAndGet();
             } else {
-                flushVersion = -1;
+                appendVersion = -1;
             }
 
             appended = memoryIndex.append(
@@ -438,7 +437,7 @@ public class LAB implements ValueIndex {
 
                             byte[] rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value);
                             if (appendToWal) {
-                                wal.append(walId, flushVersion, rawEntry);
+                                wal.append(walId, appendVersion, rawEntry);
                             }
 
                             RawMemoryIndex copy = flushingMemoryIndex;
@@ -481,7 +480,7 @@ public class LAB implements ValueIndex {
             );
 
             if (appended && appendToWal) {
-                wal.flush(walId, flushVersion, fsyncOnFlush);
+                wal.flush(walId, appendVersion, fsyncOnFlush);
             }
 
         } finally {

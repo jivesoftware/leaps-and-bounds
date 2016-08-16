@@ -134,6 +134,8 @@ public class LABStress {
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
             "wal",
             1024 * 1024 * 10,
+            1000,
+            1024 * 1024 * 10,
             root, // rootFile
             true, // useMemMap
             labHeapPressure,

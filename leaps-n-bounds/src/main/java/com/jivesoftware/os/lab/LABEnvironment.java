@@ -18,7 +18,6 @@ import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.guts.Leaps;
-import com.jivesoftware.os.lab.wal.WAL;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -54,7 +53,7 @@ public class LABEnvironment {
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
 
     private final String walName;
-    private final WAL wal;
+    private final LabWAL wal;
     private final Map<String, FormatTransformerProvider> formatTransformerProviderRegistry = Maps.newConcurrentMap();
     private final Map<String, Rawhide> rawhideRegistry = Maps.newConcurrentMap();
     private final Map<String, RawEntryFormat> rawEntryFormatRegistry = Maps.newConcurrentMap();
@@ -82,7 +81,9 @@ public class LABEnvironment {
         ExecutorService compact,
         final ExecutorService destroy,
         String walName,
-        long maxRowSizeInBytes,
+        long maxWALSizeInBytes,
+        long maxEntriesPerWAL,
+        long maxEntrySizeInBytes,
         File labRoot,
         boolean useMemMap,
         LabHeapPressure labHeapPressure,
@@ -105,7 +106,7 @@ public class LABEnvironment {
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
         this.walName = walName;
-        this.wal = new WAL(new File(labRoot, walName), maxRowSizeInBytes);
+        this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes);
 
     }
 
@@ -116,11 +117,19 @@ public class LABEnvironment {
         }
     }
 
+    FormatTransformerProvider formatTransformerProvider(String name) {
+        return formatTransformerProviderRegistry.get(name);
+    }
+
     public void register(String name, Rawhide rawhide) {
         Rawhide had = rawhideRegistry.putIfAbsent(name, rawhide);
         if (had != null) {
             throw new IllegalArgumentException("Rawhide:" + had + " is already register under the name:" + name);
         }
+    }
+
+    Rawhide rawhide(String name) {
+        return rawhideRegistry.get(name);
     }
 
     public void register(String name, RawEntryFormat rawEntryFormat) {
@@ -130,11 +139,15 @@ public class LABEnvironment {
         }
     }
 
-    public void open() throws IOException {
+    RawEntryFormat rawEntryFormat(String name) {
+        return rawEntryFormatRegistry.get(name);
+    }
+
+    public void open() throws Exception {
         this.wal.open(this);
     }
 
-    public void close() throws IOException {
+    public void close() throws Exception {
         this.wal.close(this);
     }
 
@@ -151,11 +164,11 @@ public class LABEnvironment {
         return indexes;
     }
 
-    ValueIndex open(byte[] valueIndexId) throws Exception {
+    ValueIndexConfig valueIndexConfig(byte[] valueIndexId) throws Exception {
         String primaryName = new String(valueIndexId, StandardCharsets.UTF_8);
         File configFile = new File(labRoot, primaryName + ".json");
         if (configFile.exists()) {
-            return open(MAPPER.readValue(configFile, ValueIndexConfig.class));
+            return MAPPER.readValue(configFile, ValueIndexConfig.class);
         } else {
             throw new IllegalStateException("There is no config for lab value index:" + primaryName);
         }
@@ -177,10 +190,12 @@ public class LABEnvironment {
             Preconditions.checkNotNull(formatTransformerProvider, "No RawEntryFormat registered for " + config.rawEntryFormatName);
 
             File configFile = new File(labRoot, config.primaryName + ".json");
+
             if (configFile.exists()) {
                 // TODO read compare and other cool stuff
                 MAPPER.writeValue(configFile, config);
             } else {
+                configFile.getParentFile().mkdirs();
                 MAPPER.writeValue(configFile, config);
             }
 

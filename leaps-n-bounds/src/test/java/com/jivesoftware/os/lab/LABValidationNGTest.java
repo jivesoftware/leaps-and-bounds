@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
-import com.jivesoftware.os.lab.wal.WAL;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -49,7 +48,7 @@ public class LABValidationNGTest {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
 
-        WAL wal = new WAL(walRoot, 1024 * 1024 * 10);
+        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.SINGLETON,
@@ -165,7 +164,7 @@ public class LABValidationNGTest {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(1024 * 1024 * 10, new AtomicLong());
 
-        WAL wal = new WAL(walRoot, 1024 * 1024 * 10);
+        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.SINGLETON,
