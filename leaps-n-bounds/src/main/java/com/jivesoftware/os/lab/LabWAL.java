@@ -17,6 +17,7 @@ import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.guts.IndexFile;
+import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -58,6 +59,7 @@ public class LabWAL {
     private final AtomicLong walIdProvider = new AtomicLong();
     private final Semaphore semaphore = new Semaphore(Short.MAX_VALUE, true);
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AppendableHeap appendableHeap = new AppendableHeap(8192);
 
     private final File walRoot;
     private final long maxWALSizeInBytes;
@@ -73,7 +75,6 @@ public class LabWAL {
         this.maxWALSizeInBytes = maxWALSizeInBytes;
         this.maxEntriesPerWAL = maxEntriesPerWAL;
         this.maxEntrySizeInBytes = maxEntrySizeInBytes;
-
     }
 
     public void open(LABEnvironment environment) throws Exception {
@@ -177,7 +178,7 @@ public class LabWAL {
                     LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", reader.getFilePointer(), reader.length(), walFile, x.getClass());
                 } catch (Exception x) {
                     LOG.error("Encountered an issue that requires intervention at fp:{} length:{} for file:{}",
-                        new Object[] { reader.getFilePointer(), reader.length(), walFile }, x);
+                        new Object[]{reader.getFilePointer(), reader.length(), walFile}, x);
                     throw new LABFailedToInitializeWALException("Encountered an issue in " + walFile + " please help.", x);
                 }
             } finally {
@@ -250,7 +251,7 @@ public class LabWAL {
             if (closed.get()) {
                 throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
             }
-            activeWAL().append(valueIndexId, appendVersion, entry);
+            activeWAL().append(appendableHeap, valueIndexId, appendVersion, entry);
         } finally {
             semaphore.release();
         }
@@ -264,10 +265,9 @@ public class LabWAL {
                 throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
             }
             ActiveWAL wal = activeWAL();
-            wal.flushed(valueIndexId, appendVersion, fsync);
+            wal.flushed(appendableHeap, valueIndexId, appendVersion, fsync);
             if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
                 needToAllocateNewWAL = true;
-
             }
         } finally {
             semaphore.release();
@@ -283,6 +283,7 @@ public class LabWAL {
                 if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
                     wal = allocateNewWAL();
                     ActiveWAL oldWAL = activeWAL.getAndSet(wal);
+                    oldWAL.close();
                     oldWALs.add(oldWAL);
                 }
             } finally {
@@ -363,29 +364,33 @@ public class LabWAL {
             this.appendOnly = wal.appender();
         }
 
-        private void append(byte type, byte[] valueIndexId, long appendVersion) throws IOException {
-            appendOnly.appendByte(type);
-            appendOnly.appendInt(MAGIC[type]);
-            UIO.writeByteArray(appendOnly, valueIndexId, "valueIndexId");
-            appendOnly.appendLong(appendVersion);
-        }
-
-        public void append(byte[] valueIndexId, long appendVersion, byte[] entry) throws Exception {
+        public void append(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, byte[] entry) throws Exception {
             entryCount.incrementAndGet();
             sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8 + entry.length);
             synchronized (oneWriteAtTimeLock) {
-                append(ENTRY, valueIndexId, appendVersion);
-                UIO.writeByteArray(appendOnly, entry, "entry");
+                append(appendableHeap, ENTRY, valueIndexId, appendVersion);
+                UIO.writeByteArray(appendableHeap, entry, "entry");
             }
         }
 
-        public void flushed(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
+        public void flushed(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
             sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8);
             synchronized (oneWriteAtTimeLock) {
-                append(BATCH_ISOLATION, valueIndexId, appendVersion);
+                append(appendableHeap, BATCH_ISOLATION, valueIndexId, appendVersion);
+
+                appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
+                appendOnly.flush(fsync);
+
+                appendableHeap.clear();
                 appendVersions.put(valueIndexId, appendVersion);
-                wal.flush(fsync);
             }
+        }
+
+        private void append(AppendableHeap appendableHeap, byte type, byte[] valueIndexId, long appendVersion) throws IOException {
+            appendableHeap.appendByte(type);
+            appendableHeap.appendInt(MAGIC[type]);
+            UIO.writeByteArray(appendableHeap, valueIndexId, "valueIndexId");
+            appendableHeap.appendLong(appendVersion);
         }
 
         public boolean commit(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {

@@ -26,12 +26,14 @@ import java.io.IOException;
  */
 public class AppendableHeap implements IAppendOnly {
 
+    private final int initialSize;
     private byte[] bytes = new byte[0];
     private int fp = 0;
     private int maxLength = 0;
 
-    public AppendableHeap(int size) {
-        bytes = new byte[size];
+    public AppendableHeap(int initialSize) {
+        this.initialSize = initialSize;
+        bytes = new byte[initialSize];
         maxLength = 0;
     }
 
@@ -51,6 +53,12 @@ public class AppendableHeap implements IAppendOnly {
     }
 
     public void reset() {
+        fp = 0;
+        maxLength = 0;
+    }
+
+    public void clear() {
+        bytes = new byte[initialSize];
         fp = 0;
         maxLength = 0;
     }

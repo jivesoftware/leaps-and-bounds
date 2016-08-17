@@ -75,16 +75,16 @@ public class LABAppendableIndex implements RawAppendableIndex {
             appendOnly = index.appender();
         }
 
-        AppendableHeap entryBuffer = new AppendableHeap(1024);
+        AppendableHeap appendBuffer = new AppendableHeap(1024);
         rawEntries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
 
             //entryBuffer.reset();
             long fp = appendOnly.getFilePointer();
-            startOfEntryIndex[updatesSinceLeap] = fp + entryBuffer.length();
-            UIO.writeByte(entryBuffer, ENTRY, "type");
+            startOfEntryIndex[updatesSinceLeap] = fp + appendBuffer.length();
+            UIO.writeByte(appendBuffer, ENTRY, "type");
 
             rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length,
-                writeKeyFormatTransormer, writeValueFormatTransormer, entryBuffer);
+                writeKeyFormatTransormer, writeValueFormatTransormer, appendBuffer);
 
             byte[] key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
             int keyLength = key.length;
@@ -108,20 +108,20 @@ public class LABAppendableIndex implements RawAppendableIndex {
             count++;
 
             if (updatesSinceLeap >= updatesBetweenLeaps) { // TODO consider bytes between leaps
-                appendOnly.append(entryBuffer.leakBytes(), 0, (int) entryBuffer.length());
                 long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
                 System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
-                latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, key, copyOfStartOfEntryIndex);
+                latestLeapFrog = writeLeaps(appendOnly, appendBuffer, latestLeapFrog, leapCount, key, copyOfStartOfEntryIndex);
                 updatesSinceLeap = 0;
                 leapCount++;
 
-                entryBuffer.reset();
+                appendOnly.append(appendBuffer.leakBytes(), 0, (int) appendBuffer.length());
+                appendBuffer.reset();
             }
             return true;
         });
 
-        if (entryBuffer.length() > 0) {
-            appendOnly.append(entryBuffer.leakBytes(), 0, (int) entryBuffer.length());
+        if (appendBuffer.length() > 0) {
+            appendOnly.append(appendBuffer.leakBytes(), 0, (int) appendBuffer.length());
         }
         return true;
     }
@@ -129,21 +129,24 @@ public class LABAppendableIndex implements RawAppendableIndex {
     @Override
     public void closeAppendable(boolean fsync) throws Exception {
         try {
-            if (appendOnly == null) {
-                appendOnly = index.appender();
-            }
 
             if (firstKey == null || lastKey == null) {
                 throw new IllegalStateException("Tried to close appendable index without a key range: " + this);
             }
+
+            if (appendOnly == null) {
+                appendOnly = index.appender();
+            }
+
+            AppendableHeap appendableHeap = new AppendableHeap(8192);
             if (updatesSinceLeap > 0) {
                 long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
                 System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
-                latestLeapFrog = writeLeaps(appendOnly, latestLeapFrog, leapCount, lastKey, copyOfStartOfEntryIndex);
+                latestLeapFrog = writeLeaps(appendOnly, appendableHeap, latestLeapFrog, leapCount, lastKey, copyOfStartOfEntryIndex);
                 leapCount++;
             }
 
-            UIO.writeByte(appendOnly, FOOTER, "type");
+            UIO.writeByte(appendableHeap, FOOTER, "type");
             Footer footer = new Footer(leapCount,
                 count,
                 keysSizeInBytes,
@@ -154,7 +157,9 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 rawhideFormat.getValueFormat(),
                 new TimestampAndVersion(maxTimestamp,
                     maxTimestampVersion));
-            footer.write(appendOnly);
+            footer.write(appendableHeap);
+
+            appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
             appendOnly.flush(fsync);
         } finally {
             close();
@@ -186,15 +191,16 @@ public class LABAppendableIndex implements RawAppendableIndex {
     }
 
     private LeapFrog writeLeaps(IAppendOnly writeIndex,
+        IAppendOnly appendableHeap,
         LeapFrog latest,
         int index,
         byte[] key,
         long[] startOfEntryIndex) throws Exception {
 
         Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
-        UIO.writeByte(writeIndex, LEAP, "type");
-        long startOfLeapFp = writeIndex.getFilePointer();
-        nextLeaps.write(writeKeyFormatTransormer, writeIndex);
+        UIO.writeByte(appendableHeap, LEAP, "type");
+        long startOfLeapFp = appendableHeap.getFilePointer() + writeIndex.getFilePointer();
+        nextLeaps.write(writeKeyFormatTransormer, appendableHeap);
         return new LeapFrog(startOfLeapFp, nextLeaps);
     }
 
