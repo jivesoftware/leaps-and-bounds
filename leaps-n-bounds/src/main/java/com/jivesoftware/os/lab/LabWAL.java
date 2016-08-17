@@ -380,11 +380,9 @@ public class LabWAL {
         }
 
         public void flushed(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
-
-            append(BATCH_ISOLATION, valueIndexId, appendVersion);
             sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8);
-
             synchronized (oneWriteAtTimeLock) {
+                append(BATCH_ISOLATION, valueIndexId, appendVersion);
                 appendVersions.put(valueIndexId, appendVersion);
                 wal.flush(fsync);
             }
