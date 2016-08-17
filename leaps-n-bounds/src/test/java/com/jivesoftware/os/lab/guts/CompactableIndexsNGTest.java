@@ -75,7 +75,6 @@ public class CompactableIndexsNGTest {
             indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
         }
 
-      
         for (int i = 1; i <= id.get(); i++) {
             long g = i;
             byte[] k = UIO.longBytes(i);
@@ -214,7 +213,8 @@ public class CompactableIndexsNGTest {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
-                while (rowScan.next(stream) == NextRawEntry.Next.more);
+                while (rowScan.next(stream) == NextRawEntry.Next.more) {
+                }
             }
             return true;
         }, true);
@@ -223,7 +223,7 @@ public class CompactableIndexsNGTest {
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
 
-        Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minimumRun,fsync,
+        Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minimumRun, fsync,
             (minimumRun1, fsync1, callback) -> callback.call(minimumRun1,
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
@@ -252,7 +252,8 @@ public class CompactableIndexsNGTest {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
-                while (rowScan.next(stream) == NextRawEntry.Next.more);
+                while (rowScan.next(stream) == NextRawEntry.Next.more) {
+                }
             }
             return true;
         }, true);
@@ -287,7 +288,8 @@ public class CompactableIndexsNGTest {
                 index[0]++;
                 return true;
             };
-            while (rowScan.next(stream) == NextRawEntry.Next.more);
+            while (rowScan.next(stream) == NextRawEntry.Next.more) {
+            }
             Assert.assertFalse(failed.get());
 
             Assert.assertEquals(index[0], keys.size());
@@ -338,7 +340,8 @@ public class CompactableIndexsNGTest {
 
                 System.out.println("Asked index:" + _i + " key:" + UIO.bytesLong(keys.get(_i)) + " to:" + UIO.bytesLong(keys.get(_i + 3)));
                 NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, keys.get(_i), keys.get(_i + 3), rawhide);
-                while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                }
                 Assert.assertEquals(3, streamed[0]);
 
             }
@@ -357,7 +360,8 @@ public class CompactableIndexsNGTest {
                     return true;
                 };
                 NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3), rawhide);
-                while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                }
                 Assert.assertEquals(2, streamed[0]);
 
             }

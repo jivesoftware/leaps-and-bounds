@@ -28,7 +28,7 @@ public class KeyRange implements Comparable<KeyRange> {
 
     @Override
     public int compareTo(KeyRange o) {
-        
+
         int c = rawhide.compare(start, o.start);
         if (c == 0) {
             c = rawhide.compare(o.end, end); // reversed

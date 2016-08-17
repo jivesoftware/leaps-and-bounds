@@ -257,7 +257,13 @@ public class LABStress {
 
             c++;
             System.out.println(
-                name + ":" + c + ", " + writesPerSecond + ", " + writeRate + ", " + writeElapse + ", " + (misses.get() + hits.get()) + ", " + readRate + ", " + readElapse
+                name + ":" + c
+                + ", " + writesPerSecond
+                + ", " + writeRate
+                + ", " + writeElapse
+                + ", " + (misses.get() + hits.get())
+                + ", " + readRate
+                + ", " + readElapse
                 + ", " + hits.get() + ", " + misses.get()
                 + ", " + RangeStripedCompactableIndexes.mergeCount.get() + ", " + RangeStripedCompactableIndexes.splitCount.get()
                 + ", " + (LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get()));

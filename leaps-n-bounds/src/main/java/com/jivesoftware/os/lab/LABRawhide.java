@@ -166,8 +166,13 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
-    public int compareKey(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, byte[] rawEntry, int offset, byte[] compareKey,
-        int compareOffset, int compareLength) {
+    public int compareKey(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        byte[] rawEntry,
+        int offset,
+        byte[] compareKey,
+        int compareOffset,
+        int compareLength) {
 
         int keylength = UIO.bytesInt(rawEntry, offset);
 

@@ -12,7 +12,7 @@ import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
-import junit.framework.Assert;
+import org.testng.Assert;
 
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.rawEntry;
@@ -80,7 +80,8 @@ public class IndexTestUtils {
                 index[0]++;
                 return true;
             };
-            while (rowScan.next(stream) == NextRawEntry.Next.more) ;
+            while (rowScan.next(stream) == NextRawEntry.Next.more) {
+            }
             System.out.println("rowScan PASSED");
             return true;
         }, true);
@@ -99,7 +100,8 @@ public class IndexTestUtils {
                     return true;
                 };
 
-                while (getRaw.get(UIO.longBytes(k), stream)) ;
+                while (getRaw.get(UIO.longBytes(k), stream)) {
+                }
             }
             System.out.println("gets PASSED");
             return true;
@@ -120,7 +122,8 @@ public class IndexTestUtils {
 
                 System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
                 NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, keys.get(_i), keys.get(_i + 3), rawhide);
-                while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
+                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                }
                 Assert.assertEquals(3, streamed[0]);
             }
 
@@ -139,7 +142,8 @@ public class IndexTestUtils {
                     return true;
                 };
                 NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3), rawhide);
-                while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
+                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                }
                 Assert.assertEquals(2, streamed[0]);
 
             }

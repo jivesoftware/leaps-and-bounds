@@ -356,8 +356,9 @@ public class LABEnvironmentNGTest {
                     (index1, key, timestamp, tombstoned, version1, value1) -> {
                         if (value1 == null) {
                             failures.add(
-                                " FAILED to find " + askedFor + " " + index1 + " " + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays
-                                .toString(value1));
+                                " FAILED to find " + askedFor + " " + index1 + " "
+                                + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays.toString(value1)
+                            );
                         }
                         return true;
                     }, true);
@@ -378,8 +379,9 @@ public class LABEnvironmentNGTest {
                     (index1, key, timestamp, tombstoned, version1, value1) -> {
                         if (value1 != null) {
                             failures.add(
-                                " FAILED to miss " + askedFor + " " + index1 + " " + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays
-                                .toString(value1));
+                                " FAILED to miss " + askedFor + " " + index1 + " "
+                                + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + Arrays.toString(value1)
+                            );
                         }
                         return true;
                     }, true);

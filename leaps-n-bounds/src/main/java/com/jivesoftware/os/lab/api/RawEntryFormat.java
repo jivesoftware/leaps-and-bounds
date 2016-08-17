@@ -5,7 +5,7 @@ package com.jivesoftware.os.lab.api;
  * @author jonathan.colt
  */
 public class RawEntryFormat {
-    
+
     final long keyFormat;
     final long valueFormat;
 

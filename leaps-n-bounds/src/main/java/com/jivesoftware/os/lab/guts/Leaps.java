@@ -23,6 +23,7 @@ public class Leaps {
     //final long[] startOfEntryIndex;
 
     public interface StartOfEntry {
+
         LongBuffer get(IReadable readable) throws IOException;
     }
 
@@ -37,8 +38,8 @@ public class Leaps {
 
     void write(FormatTransformer keyFormatTransformer, IAppendOnly writeable) throws Exception {
         byte[] writeLastKey = keyFormatTransformer.transform(lastKey);
-        byte[][] writeKeys =  keyFormatTransformer.transform(keys);
-        
+        byte[][] writeKeys = keyFormatTransformer.transform(keys);
+
         LongBuffer startOfEntryBuffer = startOfEntry.get(null);
         int entryLength = 4 + 4 + 4 + writeLastKey.length + 4 + (startOfEntryBuffer.limit() * 8) + 4;
         for (int i = 0; i < fps.length; i++) {

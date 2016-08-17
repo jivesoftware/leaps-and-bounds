@@ -143,7 +143,8 @@ public class LabWAL {
                             byte[] entry = new byte[entryLength];
                             reader.read(entry);
 
-                            ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.computeIfAbsent(valueIndexKey, (k) -> ArrayListMultimap.create());
+                            ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.computeIfAbsent(valueIndexKey,
+                                (k) -> ArrayListMultimap.create());
                             valueIndexVersionedEntries.put(appendVersion, entry);
 
                         } else if (rowType == BATCH_ISOLATION) {
@@ -199,7 +200,8 @@ public class LabWAL {
             try {
                 deletableIndexFile.delete();
             } catch (Exception x) {
-                throw new LABFailedToInitializeWALException("Encountered an issue while deleting WAL:" + deletableIndexFile.getFileName() + ". Please help.", x);
+                throw new LABFailedToInitializeWALException(
+                    "Encountered an issue while deleting WAL:" + deletableIndexFile.getFileName() + ". Please help.", x);
             }
         }
     }

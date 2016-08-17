@@ -324,7 +324,8 @@ public class RangeStripedCompactableIndexes {
                     ReadIndex reader = index.acquireReader();
                     try {
                         NextRawEntry rangeScan = reader.rangeScan(minKey, maxKey);
-                        while (rangeScan.next(stream) == NextRawEntry.Next.more) ;
+                        while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                        }
                         return true;
                     } finally {
                         reader.release();

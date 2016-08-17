@@ -13,7 +13,7 @@ public class Gets implements GetRaw, RawEntryStream {
     private final ActiveScan activeScan;
     private RawEntryStream activeStream;
     private boolean found = false;
-    
+
     public Gets(ActiveScan activeScan) {
         this.activeScan = activeScan;
     }

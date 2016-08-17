@@ -27,7 +27,7 @@ public class TieredCompaction {
     /*
 
     http://www.ngdata.com/visualizing-hbase-flushes-and-compactions/
-    
+
     The algorithm is basically as follows:
 
     Run over the set of all store files, from oldest to youngest

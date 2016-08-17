@@ -46,7 +46,8 @@ public class InterleaveStreamNGTest {
             Assert.assertEquals(SimpleRawhide.key(rawEntry), expect.key);
             Assert.assertEquals(SimpleRawhide.value(rawEntry), expect.value);
             return true;
-        }) == NextRawEntry.Next.more);
+        }) == NextRawEntry.Next.more) {
+        }
         Assert.assertTrue(expected.isEmpty());
     }
 
@@ -124,7 +125,8 @@ public class InterleaveStreamNGTest {
                 while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
                     System.out.println(SimpleRawhide.toString(rawEntry));
                     return true;
-                }) == NextRawEntry.Next.more);
+                }) == NextRawEntry.Next.more) {
+                }
                 System.out.println("\n");
 
                 nextRawEntrys[i] = readerIndexs[wi].rowScan();

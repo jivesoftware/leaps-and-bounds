@@ -70,7 +70,7 @@ public class IndexFile implements ICloseable {
         if (closed.get()) {
             throw new LABIndexClosedException("Cannot get a reader from an index that is already closed.");
         }
-       
+
         if (current != null && current.length() >= requiredLength) {
             return current;
         }

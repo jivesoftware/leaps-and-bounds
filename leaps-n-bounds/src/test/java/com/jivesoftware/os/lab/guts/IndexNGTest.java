@@ -115,7 +115,8 @@ public class IndexNGTest {
                 index[0]++;
                 return true;
             };
-            while (rowScan.next(stream) == NextRawEntry.Next.more);
+            while (rowScan.next(stream) == NextRawEntry.Next.more) {
+            }
         } finally {
             reader.release();
             reader = null;
@@ -168,7 +169,8 @@ public class IndexNGTest {
             reader = walIndex.acquireReader();
             try {
                 NextRawEntry rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
-                while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                }
                 Assert.assertEquals(3, streamed[0]);
             } finally {
                 reader.release();
@@ -188,7 +190,8 @@ public class IndexNGTest {
             reader = walIndex.acquireReader();
             try {
                 NextRawEntry rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3));
-                while (rangeScan.next(stream) == NextRawEntry.Next.more);
+                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                }
                 Assert.assertEquals(2, streamed[0]);
             } finally {
                 reader.release();

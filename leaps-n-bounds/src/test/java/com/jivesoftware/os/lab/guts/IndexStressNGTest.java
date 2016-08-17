@@ -144,7 +144,8 @@ public class IndexStressNGTest {
                         Thread.sleep(10);
                     }
                     return true;
-                }, true));
+                }, true)) {
+                }
 
                 long getEnd = System.currentTimeMillis();
                 long elapse = (getEnd - getStart);
