@@ -69,6 +69,7 @@ public class LabHeapPressure {
             if (running.compareAndSet(false, true)) {
                 schedule.submit(() -> {
                     try {
+                        LOG.incAtomic("lab>heap>flushing");
                         long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
                         if (debtInBytes <= 0) {
                             LOG.inc("lab>commit>global>skip");
@@ -107,27 +108,22 @@ public class LabHeapPressure {
                         return null;
                     } finally {
                         running.set(false);
+                        LOG.decAtomic("lab>heap>flushing");
                     }
                 });
             }
 
             while (globalHeap > blockOnHeapPressureInBytes) {
-                synchronized (globalHeapCostInBytes) {
-                    globalHeapCostInBytes.wait();
+                try {
+                    LOG.incAtomic("lab>heap>blocking");
+                    synchronized (globalHeapCostInBytes) {
+                        globalHeapCostInBytes.wait();
+                    }
+                    globalHeap = globalHeapCostInBytes.get();
+                } finally {
+                    LOG.decAtomic("lab>heap>blocking");
                 }
-                globalHeap = globalHeapCostInBytes.get();
             }
-        }
-    }
-
-    private static class Key {
-
-        LAB key;
-        long pressure;
-
-        public Key(LAB key, long pressure) {
-            this.key = key;
-            this.pressure = pressure;
         }
     }
 
