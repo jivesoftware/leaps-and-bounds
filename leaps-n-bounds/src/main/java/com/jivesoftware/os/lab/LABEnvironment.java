@@ -54,6 +54,11 @@ public class LABEnvironment {
     private final Map<String, Rawhide> rawhideRegistry = Maps.newConcurrentMap();
     private final Map<String, RawEntryFormat> rawEntryFormatRegistry = Maps.newConcurrentMap();
 
+    public static ExecutorService buildLABHeapSchedulerThreadPool(int count) {
+        return Executors.newFixedThreadPool(count,
+            new ThreadFactoryBuilder().setNameFormat("lab-heap-%d").build());
+    }
+
     public static ExecutorService buildLABSchedulerThreadPool(int count) {
         return Executors.newFixedThreadPool(count,
             new ThreadFactoryBuilder().setNameFormat("lab-scheduler-%d").build());

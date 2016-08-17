@@ -4,6 +4,7 @@ import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LABRawhide;
+import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
@@ -154,7 +155,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         for (int b = 0; b < numBatches; b++) {
 
-            RawMemoryIndex index = new RawMemoryIndex(destroy, new AtomicLong(), LABRawhide.SINGLETON);
+            RawMemoryIndex index = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), -1, -1, new AtomicLong()),
+                LABRawhide.SINGLETON);
             long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
             indexs.append(index, fsync);
 

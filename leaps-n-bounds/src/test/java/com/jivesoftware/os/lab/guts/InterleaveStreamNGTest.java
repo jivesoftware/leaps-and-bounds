@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
@@ -116,7 +118,8 @@ public class InterleaveStreamNGTest {
 
                 int i = (indexes - 1) - wi;
 
-                memoryIndexes[i] = new RawMemoryIndex(destroy, new AtomicLong(), rawhide);
+                memoryIndexes[i] = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), -1, -1, new AtomicLong()),
+                    rawhide);
                 IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
                 System.out.println("Index " + i);
 

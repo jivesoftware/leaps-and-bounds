@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
@@ -67,7 +68,8 @@ public class IndexNGTest {
         int step = 10;
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new AtomicLong(), new SimpleRawhide());
+        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), -1, -1, new AtomicLong()),
+            new SimpleRawhide());
 
         IndexTestUtils.append(new Random(), walIndex, 0, step, count, desired);
         assertions(walIndex, count, step, desired);
@@ -82,7 +84,8 @@ public class IndexNGTest {
         int count = 10;
         int step = 10;
 
-        RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy, new AtomicLong(), new SimpleRawhide());
+        RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy,
+            new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), -1, -1, new AtomicLong()), new SimpleRawhide());
 
         IndexTestUtils.append(new Random(), memoryIndex, 0, step, count, desired);
         assertions(memoryIndex, count, step, desired);

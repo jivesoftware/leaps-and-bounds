@@ -47,7 +47,7 @@ public class LAB implements ValueIndex {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
-    final ExecutorService schedule;
+    private final ExecutorService schedule;
     private final ExecutorService compact;
     private final ExecutorService destroy;
     private final LabWAL wal;
@@ -100,7 +100,7 @@ public class LAB implements ValueIndex {
         this.walId = walId;
         this.labHeapFlusher = labHeapFlusher;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
-        this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
+        this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide);
         this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
         this.indexName = indexName;
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
@@ -523,7 +523,7 @@ public class LAB implements ValueIndex {
                 return false;
             }
             flushingMemoryIndex = stackCopy;
-            memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher.globalHeapCostInBytes(), rawhide);
+            memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide);
             rangeStripedCompactableIndexes.append(stackCopy, fsync);
             flushingMemoryIndex = null;
             stackCopy.destroy();

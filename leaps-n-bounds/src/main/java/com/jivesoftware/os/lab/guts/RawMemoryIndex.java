@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
@@ -30,9 +31,9 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
     private final ExecutorService destroy;
-    private final AtomicLong globalHeapCostInBytes;
-    private volatile long keysCostInBytes = 0;
-    private volatile long valuesCostInBytes = 0;
+    private final LabHeapPressure labHeapPressure;
+    private final AtomicLong keysCostInBytes = new AtomicLong();
+    private final AtomicLong valuesCostInBytes = new AtomicLong();
 
     private final Rawhide rawhide;
 
@@ -41,9 +42,9 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final ReadIndex reader;
     private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
 
-    public RawMemoryIndex(ExecutorService destroy, AtomicLong globalHeapCostInBytes, Rawhide rawhide) {
+    public RawMemoryIndex(ExecutorService destroy, LabHeapPressure labHeapPressure, Rawhide rawhide) {
         this.destroy = destroy;
-        this.globalHeapCostInBytes = globalHeapCostInBytes;
+        this.labHeapPressure = labHeapPressure;
         this.rawhide = rawhide;
         this.index = new ConcurrentSkipListMap<>(rawhide);
         this.reader = new ReadIndex() {
@@ -169,9 +170,9 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 int valueLength = ((rawEntry == null) ? 0 : rawEntry.length);
                 if (value == null) {
                     approximateCount.incrementAndGet();
-                    keysCostInBytes += keyLength;
-                    valuesCostInBytes += valueLength;
-                    globalHeapCostInBytes.addAndGet(keyLength + valueLength);
+                    keysCostInBytes.addAndGet(keyLength);
+                    valuesCostInBytes.addAndGet(valueLength);
+                    labHeapPressure.change(keyLength + valueLength);
                     merged = rawEntry;
                 } else {
                     merged = rawhide.merge(FormatTransformer.NO_OP, FormatTransformer.NO_OP, value,
@@ -180,8 +181,8 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
                     int mergeValueLength = ((merged == null) ? 0 : merged.length);
                     int valueLengthDelta = mergeValueLength - valueLength;
-                    valuesCostInBytes += valueLengthDelta;
-                    globalHeapCostInBytes.addAndGet(valueLengthDelta);
+                    valuesCostInBytes.addAndGet(valueLengthDelta);
+                    labHeapPressure.change(valueLengthDelta);
                 }
                 long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged, 0, merged.length);
                 long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged, 0, merged.length);
@@ -222,7 +223,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             try {
                 disposed.set(true);
                 index.clear();
-                globalHeapCostInBytes.addAndGet(-sizeInBytes());
+                labHeapPressure.change(-sizeInBytes());
             } finally {
                 hideABone.release(numBones);
             }
@@ -250,17 +251,17 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public long sizeInBytes() {
-        return keysCostInBytes + valuesCostInBytes;
+        return keysCostInBytes.get() + valuesCostInBytes.get();
     }
 
     @Override
     public long keysSizeInBytes() throws IOException {
-        return keysCostInBytes;
+        return keysCostInBytes.get();
     }
 
     @Override
     public long valuesSizeInBytes() throws IOException {
-        return valuesCostInBytes;
+        return valuesCostInBytes.get();
     }
 
     @Override
