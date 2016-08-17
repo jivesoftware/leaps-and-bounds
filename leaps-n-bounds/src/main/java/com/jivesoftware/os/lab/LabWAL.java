@@ -176,7 +176,8 @@ public class LabWAL {
                 } catch (CorruptionDetectedException | EOFException x) {
                     LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", reader.getFilePointer(), reader.length(), walFile, x.getClass());
                 } catch (Exception x) {
-                    LOG.error("Encountered an issue in " + walFile + " please help.", x);
+                    LOG.error("Encountered an issue that requires intervention at fp:{} length:{} for file:{}",
+                        new Object[] { reader.getFilePointer(), reader.length(), walFile }, x);
                     throw new LABFailedToInitializeWALException("Encountered an issue in " + walFile + " please help.", x);
                 }
             } finally {
