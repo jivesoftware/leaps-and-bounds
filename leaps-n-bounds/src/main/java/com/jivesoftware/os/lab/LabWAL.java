@@ -305,7 +305,7 @@ public class LabWAL {
                 removeable = Lists.newArrayList();
                 for (ActiveWAL oldWAL : oldWALs) {
                     if (oldWAL.commit(valueIndexId, appendVersion, fsync)) {
-                        removeable.add(wal);
+                        removeable.add(oldWAL);
                     }
                 }
             }
@@ -318,6 +318,9 @@ public class LabWAL {
             try {
                 if (closed.get()) {
                     throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+                }
+                for (ActiveWAL remove : removeable) {
+                    remove.delete();
                 }
                 oldWALs.removeAll(removeable);
             } finally {
@@ -405,6 +408,11 @@ public class LabWAL {
 
         public void close() throws IOException {
             wal.close();
+        }
+
+        public void delete() throws IOException {
+            wal.close();
+            wal.delete();
         }
 
     }
