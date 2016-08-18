@@ -441,7 +441,9 @@ public class LAB implements ValueIndex {
                                 wal.append(walId, appendVersion, rawEntry);
                             }
 
-                            RawMemoryIndex copy = flushingMemoryIndex;
+                            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+
+                            /*RawMemoryIndex copy = flushingMemoryIndex;
                             TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
                             if ((copy == null || isNewerThan(timestamp, version, copy))
                             && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
@@ -474,7 +476,7 @@ public class LAB implements ValueIndex {
                                     false // This prevent values from being hydrated
                                 );
                                 return true;
-                            }
+                            }*/
                         }
                     );
                 }

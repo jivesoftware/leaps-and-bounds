@@ -682,6 +682,7 @@ public class RangeStripedCompactableIndexes {
             if (map.isEmpty()) {
                 return tx.tx(index, from, to, new ReadIndex[0], hydrateValues);
             } else {
+                boolean streamed = false;
                 @SuppressWarnings("unchecked")
                 Entry<byte[], FileBackMergableIndexs>[] entries = map.entrySet().toArray(new Entry[0]);
                 for (int i = 0; i < entries.length; i++) {
@@ -695,6 +696,7 @@ public class RangeStripedCompactableIndexes {
                             timestampAndVersion.maxTimestampVersion,
                             newerThanTimestamp,
                             newerThanTimestampVersion)) {
+                            streamed = true;
                             if (!mergableIndex.tx(index, start, end, tx, hydrateValues)) {
                                 return false;
                             }
@@ -703,6 +705,9 @@ public class RangeStripedCompactableIndexes {
                         from = (i == 0) ? from : entry.getKey(); // Sorry! Dont rewind from when from is haha
                         continue THE_INSANITY;
                     }
+                }
+                if (!streamed) {
+                    return tx.tx(index, from, to, new ReadIndex[0], hydrateValues);
                 }
             }
             return true;
