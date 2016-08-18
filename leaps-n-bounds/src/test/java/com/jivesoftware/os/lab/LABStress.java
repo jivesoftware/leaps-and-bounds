@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
  */
 public class LABStress {
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void stressWrites() throws Exception {
 
         File root = Files.createTempDir();

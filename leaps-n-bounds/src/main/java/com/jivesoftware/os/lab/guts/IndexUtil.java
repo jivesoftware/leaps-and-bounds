@@ -219,17 +219,30 @@ public class IndexUtil {
         return leftLength - rightLength;
     }
 
+
     public static int compare(ByteBuffer left, ByteBuffer right) {
         int leftLength = left.capacity();
         int rightLength = right.capacity();
 
         int minLength = Math.min(leftLength, rightLength);
-        for (int i = 0; i < minLength; i++) {
-            int result = (left.get(i) & 0xFF) - (right.get(i) & 0xFF);
-            if (result != 0) {
-                return result;
+        int minWords = minLength / 8;
+
+        int i;
+        for (i = 0; i < minWords * 8; i += 8) {
+            long result = left.getLong(i);
+            long rw = right.getLong(i);
+            if (result != rw) {
+                return UnsignedLongs.compare(result, rw);
             }
         }
+
+        for (i = minWords * 8; i < minLength; ++i) {
+            int var11 = UnsignedBytes.compare(left.get(i), right.get(i));
+            if (var11 != 0) {
+                return var11;
+            }
+        }
+
         return leftLength - rightLength;
     }
 }
