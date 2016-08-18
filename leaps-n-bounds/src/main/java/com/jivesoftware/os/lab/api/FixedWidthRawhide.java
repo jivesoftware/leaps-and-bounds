@@ -5,7 +5,6 @@ import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.nio.ByteBuffer;
-import java.util.Comparator;
 
 /**
  *
@@ -114,21 +113,6 @@ public class FixedWidthRawhide implements Rawhide {
         IReadable readable,
         ByteBuffer compareKey) throws Exception {
         return IndexUtil.compare(readable, keyLength, compareKey);
-    }
-
-    @Override
-    public Comparator<ByteBuffer> getByteBufferKeyComparator() {
-        return IndexUtil::compare;
-    }
-
-    @Override
-    public Comparator<byte[]> getKeyComparator() {
-        return (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
-    }
-
-    @Override
-    public int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
-        return IndexUtil.compare(aKey, bKey);
     }
 
     @Override

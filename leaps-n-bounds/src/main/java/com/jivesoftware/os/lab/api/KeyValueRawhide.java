@@ -6,7 +6,6 @@ import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.nio.ByteBuffer;
-import java.util.Comparator;
 
 /**
  *
@@ -124,21 +123,6 @@ public class KeyValueRawhide implements Rawhide {
         readable.seek(readable.getFilePointer() + 4); // skip the entry length
         int keyLength = readable.readInt();
         return IndexUtil.compare(readable, keyLength, compareKey);
-    }
-
-    @Override
-    public int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
-        return IndexUtil.compare(aKey, bKey);
-    }
-
-    @Override
-    public Comparator<ByteBuffer> getByteBufferKeyComparator() {
-        return IndexUtil::compare;
-    }
-
-    @Override
-    public Comparator<byte[]> getKeyComparator() {
-        return (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
     }
 
     @Override

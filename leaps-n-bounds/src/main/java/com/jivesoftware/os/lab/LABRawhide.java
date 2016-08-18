@@ -9,7 +9,6 @@ import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Comparator;
 
 /**
  *
@@ -179,11 +178,6 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
-    public int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
-        return IndexUtil.compare(aKey, bKey);
-    }
-
-    @Override
     public int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         IReadable readable,
@@ -218,20 +212,6 @@ public class LABRawhide implements Rawhide {
     @Override
     public String toString() {
         return "LABRawhide{" + '}';
-    }
-
-    private static final Comparator<ByteBuffer> byteBufferKeyComparator = IndexUtil::compare;
-
-    @Override
-    public Comparator<ByteBuffer> getByteBufferKeyComparator() {
-        return byteBufferKeyComparator;
-    }
-
-    private static final Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
-
-    @Override
-    public Comparator<byte[]> getKeyComparator() {
-        return keyComparator;
     }
 
 }

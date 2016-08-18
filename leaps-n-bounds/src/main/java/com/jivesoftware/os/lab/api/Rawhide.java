@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.api;
 
+import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import java.nio.ByteBuffer;
@@ -10,10 +11,6 @@ import java.util.Comparator;
  * @author jonathan.colt
  */
 public interface Rawhide {
-
-    Comparator<byte[]> getKeyComparator();
-
-    Comparator<ByteBuffer> getByteBufferKeyComparator();
 
     byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
         FormatTransformer currentReadValueFormatTransormer,
@@ -76,8 +73,6 @@ public interface Rawhide {
         FormatTransformer bReadValueFormatTransormer,
         ByteBuffer bRawEntry);
 
-    int compareKeys(ByteBuffer aKey, ByteBuffer bKey);
-
     long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         ByteBuffer rawEntry);
@@ -85,6 +80,22 @@ public interface Rawhide {
     long version(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         ByteBuffer rawEntry);
+
+    default int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
+        return IndexUtil.compare(aKey, bKey);
+    }
+
+    static final Comparator<ByteBuffer> byteBufferKeyComparator = IndexUtil::compare;
+
+    default Comparator<ByteBuffer> getByteBufferKeyComparator() {
+        return byteBufferKeyComparator;
+    }
+
+    static final Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
+
+    default Comparator<byte[]> getKeyComparator() {
+        return keyComparator;
+    }
 
     default boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
         return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) >= 0;
