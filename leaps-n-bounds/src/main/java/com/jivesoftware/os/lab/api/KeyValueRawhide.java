@@ -53,8 +53,10 @@ public class KeyValueRawhide implements Rawhide {
             rawEntry.position(4 + keyLength);
             rawEntry.limit(4 + keyLength + 4);
             int payloadLength = rawEntry.getInt();
-            rawEntry.limit(4 + keyLength + 4 + payloadLength);
-            payload = rawEntry.slice();
+            if (payloadLength >= 0) {
+                rawEntry.limit(4 + keyLength + 4 + payloadLength);
+                payload = rawEntry.slice();
+            }
         }
         return stream.stream(index, key, 0, false, 0, payload);
     }
