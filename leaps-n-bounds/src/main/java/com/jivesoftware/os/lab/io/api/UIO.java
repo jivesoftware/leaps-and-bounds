@@ -24,6 +24,7 @@ import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Iterator;
 
@@ -43,6 +44,14 @@ public class UIO {
      */
     public static void write(IAppendOnly _filer, byte[] bytes, String fieldName) throws IOException {
         _filer.append(bytes, 0, bytes.length);
+    }
+
+    public static void write(IAppendOnly _filer, ByteBuffer bytes, String fieldName) throws IOException {
+        bytes.clear();
+        byte[] array = new byte[bytes.capacity()];
+        bytes.get(array);
+
+        _filer.append(array, 0, array.length);
     }
 
     /**
@@ -99,6 +108,13 @@ public class UIO {
     }
 
     public static void writeByteArray(IAppendOnly _filer, byte[] array, String fieldName) throws IOException {
+        writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName);
+    }
+
+    public static void writeByteArray(IAppendOnly _filer, ByteBuffer bytes, String fieldName) throws IOException {
+        bytes.clear();
+        byte[] array = new byte[bytes.capacity()];
+        bytes.get(array);
         writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName);
     }
 

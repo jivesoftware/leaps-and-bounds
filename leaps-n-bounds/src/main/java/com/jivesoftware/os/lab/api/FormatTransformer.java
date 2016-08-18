@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab.api;
 
+import java.nio.ByteBuffer;
+
 /**
  *
  * @author jonathan.colt
@@ -8,17 +10,17 @@ public interface FormatTransformer {
 
     public static final FormatTransformer NO_OP = new FormatTransformer() {
         @Override
-        public byte[] transform(byte[] bytes) {
+        public ByteBuffer transform(ByteBuffer bytes) {
             return bytes;
         }
 
         @Override
-        public byte[][] transform(byte[][] bytes) {
+        public ByteBuffer[] transform(ByteBuffer[] bytes) {
             return bytes;
         }
     };
 
-    byte[] transform(byte[] bytes);
+    ByteBuffer transform(ByteBuffer bytes);
 
-    byte[][] transform(byte[][] bytes);
+    ByteBuffer[] transform(ByteBuffer[] bytes);
 }

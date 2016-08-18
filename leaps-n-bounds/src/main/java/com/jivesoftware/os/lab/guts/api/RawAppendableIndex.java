@@ -10,7 +10,7 @@ public interface RawAppendableIndex {
 
     IndexRangeId id();
 
-    boolean append(RawEntries entries) throws Exception;
+    boolean append(AppendEntries entries) throws Exception;
 
     void closeAppendable(boolean fsync) throws Exception;
 }

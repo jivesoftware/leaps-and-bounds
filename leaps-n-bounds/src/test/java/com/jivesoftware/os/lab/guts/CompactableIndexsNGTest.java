@@ -84,9 +84,9 @@ public class CompactableIndexsNGTest {
 
                 for (ReadIndex raw : readIndexs) {
                     System.out.println("\tIndex:" + raw);
-                    raw.get().get(k, (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                        System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry, 4));
-                        if (UIO.bytesLong(rawEntry, 4) == g) {
+                    raw.get().get(k, (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                        System.out.println("\t\tGot:" + UIO.bytesLong(IndexUtil.toByteArray(rawEntry), 4));
+                        if (UIO.bytesLong(IndexUtil.toByteArray(rawEntry), 4) == g) {
                             passed[0] = true;
                         }
                         return true;
@@ -106,7 +106,7 @@ public class CompactableIndexsNGTest {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         Rawhide rawhide = new SimpleRawhide();
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide);
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
         int count = 3;
         int step = 100;
@@ -176,7 +176,7 @@ public class CompactableIndexsNGTest {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         Rawhide rawhide = new SimpleRawhide();
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide);
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
         int count = 3;
         int step = 100;
@@ -209,7 +209,7 @@ public class CompactableIndexsNGTest {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
@@ -248,7 +248,7 @@ public class CompactableIndexsNGTest {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
                 NextRawEntry rowScan = readIndex.rowScan();
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
@@ -279,7 +279,7 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             AtomicBoolean failed = new AtomicBoolean();
-            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 System.out.println("Expected:key:" + UIO.bytesLong(keys.get(index[0])) + " Found:" + SimpleRawhide.toString(rawEntry));
                 //Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
                 if (UIO.bytesLong(keys.get(index[0])) != SimpleRawhide.key(rawEntry)) {
@@ -302,8 +302,8 @@ public class CompactableIndexsNGTest {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
                 byte[] key = UIO.longBytes(k);
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                    System.out.println("->" + SimpleRawhide.key(rawEntry) + " " + SimpleRawhide.value(rawEntry) + " " + offset + " " + length);
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                    System.out.println("->" + SimpleRawhide.key(rawEntry) + " " + SimpleRawhide.value(IndexUtil.toByteArray(rawEntry)));
                     if (rawEntry != null) {
                         System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
                         byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry));
@@ -312,7 +312,7 @@ public class CompactableIndexsNGTest {
                         if (d == null) {
                             Assert.fail();
                         } else {
-                            Assert.assertEquals(SimpleRawhide.value(rawEntry), SimpleRawhide.value(d));
+                            Assert.assertEquals(SimpleRawhide.value(IndexUtil.toByteArray(rawEntry)), SimpleRawhide.value(d));
                         }
                     } else {
                         Assert.assertFalse(desired.containsKey(key), "Desired doesn't contain:" + UIO.bytesLong(key));
@@ -330,8 +330,8 @@ public class CompactableIndexsNGTest {
                 int _i = i;
 
                 int[] streamed = new int[1];
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                    if (SimpleRawhide.value(rawEntry) > -1) {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                    if (SimpleRawhide.value(IndexUtil.toByteArray(rawEntry)) > -1) {
                         System.out.println("Streamed:" + SimpleRawhide.toString(rawEntry));
                         streamed[0]++;
                     }
@@ -353,8 +353,8 @@ public class CompactableIndexsNGTest {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                    if (SimpleRawhide.value(rawEntry) > -1) {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                    if (SimpleRawhide.value(IndexUtil.toByteArray(rawEntry)) > -1) {
                         streamed[0]++;
                     }
                     return true;

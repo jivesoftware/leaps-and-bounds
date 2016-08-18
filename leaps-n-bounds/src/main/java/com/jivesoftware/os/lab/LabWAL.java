@@ -16,7 +16,9 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.IndexFile;
+import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
@@ -26,6 +28,7 @@ import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
@@ -75,6 +78,14 @@ public class LabWAL {
         this.maxWALSizeInBytes = maxWALSizeInBytes;
         this.maxEntriesPerWAL = maxEntriesPerWAL;
         this.maxEntrySizeInBytes = maxEntrySizeInBytes;
+    }
+
+    public int oldWALCount() {
+        return oldWALs.size();
+    }
+
+    public long activeWALId() {
+        return walIdProvider.get();
     }
 
     public void open(LABEnvironment environment) throws Exception {
@@ -162,8 +173,13 @@ public class LabWAL {
                                 FormatTransformer readValue = formatTransformerProvider.read(rawEntryFormat.getValueFormat());
 
                                 appendToValueIndex.append((stream) -> {
+                                    ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
+                                        return stream.stream(index, IndexUtil.toByteArray(key), timestamp, tombstoned, version, IndexUtil.toByteArray(payload));
+                                    };
+
                                     for (byte[] entry : valueIndexVersionedEntries.get(appendVersion)) {
-                                        if (!rawhide.streamRawEntry(-1, readKey, readValue, entry, 0, stream, true)) {
+
+                                        if (!rawhide.streamRawEntry(-1, readKey, readValue, ByteBuffer.wrap(entry), valueStream, true)) {
                                             return false;
                                         }
                                     }

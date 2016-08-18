@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.google.common.primitives.UnsignedBytes;
+import com.jivesoftware.os.lab.LABUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueStream;
@@ -9,13 +9,15 @@ import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Comparator;
 
 /**
  * @author jonathan.colt
  */
 public class SimpleRawhide implements Rawhide {
 
-    public static String toString(byte[] rawEntry) {
+    public static String toString(ByteBuffer rawEntry) {
         return "key:" + key(rawEntry) + " value:" + value(rawEntry);
     }
 
@@ -32,16 +34,19 @@ public class SimpleRawhide implements Rawhide {
         return value(currentRawEntry) > value(addingRawEntry) ? currentRawEntry : addingRawEntry;
     }
 
-    public static long key(byte[] rawEntry) {
-        return UIO.bytesLong(rawEntry, 4);
+    public static long key(ByteBuffer rawEntry) {
+        if (rawEntry == null) {
+            return 0;
+        }
+        rawEntry.clear();
+        rawEntry.position(4);
+        return rawEntry.getLong();
     }
 
     @Override
     public long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length) {
+        ByteBuffer rawEntry) {
 
         return value(rawEntry);
     }
@@ -49,15 +54,22 @@ public class SimpleRawhide implements Rawhide {
     @Override
     public long version(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length) {
+        ByteBuffer rawEntry) {
 
         return -1;
     }
 
     public static long value(byte[] rawEntry) {
         return UIO.bytesLong(rawEntry, 4 + 8);
+    }
+
+    public static long value(ByteBuffer rawEntry) {
+        if (rawEntry == null) {
+            return 0;
+        }
+        rawEntry.clear();
+        rawEntry.position(4 + 8);
+        return rawEntry.getLong();
     }
 
     public static byte[] rawEntry(long key, long value) {
@@ -72,36 +84,34 @@ public class SimpleRawhide implements Rawhide {
     public boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        ValueStream stream,
+        ByteBuffer rawEntry,
+        ValueStream valueStream,
         boolean hydrateValues) throws Exception {
 
         if (rawEntry == null) {
-            return stream.stream(index, null, -1, false, -1, null);
+            return valueStream.stream(index, null, -1, false, -1, null);
         }
-        int o = offset;
-        int keyLength = UIO.bytesInt(rawEntry, o);
-        o += 4;
-        byte[] k = new byte[keyLength];
-        System.arraycopy(rawEntry, o, k, 0, keyLength);
-        o += keyLength;
-        long timestamp = UIO.bytesLong(rawEntry, o);
-        o += 8;
-        boolean tombstone = rawEntry[o] != 0;
-        o++;
-        long version = UIO.bytesLong(rawEntry, o);
-        o += 8;
+        rawEntry.clear();
+        int keyLength = rawEntry.getInt();
+        rawEntry.limit(4 + keyLength);
+        ByteBuffer key = rawEntry.slice();
 
-        byte[] value = null;
+        rawEntry.limit(4 + keyLength + 8 + 1 + 8);
+        rawEntry.position(4 + keyLength);
+        long timestamp = rawEntry.getLong();
+        boolean tombstone = rawEntry.get() != 0;
+        long version = rawEntry.getLong();
+
+        ByteBuffer payload = null;
         if (hydrateValues) {
-            int valueLength = UIO.bytesInt(rawEntry, o);
-            o += 4;
-            value = new byte[valueLength];
-            System.arraycopy(rawEntry, o, value, 0, valueLength);
-            o += valueLength;
+            rawEntry.limit(4 + keyLength + 8 + 1 + 8 + 4);
+            rawEntry.position(4 + keyLength + 8 + 1 + 8);
+            int payloadLength = rawEntry.getInt();
+            rawEntry.limit(4 + keyLength + 8 + 1 + 8 + 4 + payloadLength);
+            payload = rawEntry.slice();
         }
-        return stream.stream(index, readKeyFormatTransormer.transform(k), timestamp, tombstone, version, readValueFormatTransormer.transform(value));
+
+        return valueStream.stream(index, readKeyFormatTransormer.transform(key), timestamp, tombstone, version, readValueFormatTransormer.transform(payload));
     }
 
     @Override
@@ -145,63 +155,78 @@ public class SimpleRawhide implements Rawhide {
         byte[] rawEntry,
         int offset,
         int length) {
+        return LABUtils.readByteArray(rawEntry, offset);
+    }
 
-        int keyLength = UIO.bytesInt(rawEntry, offset);
-        byte[] key = new byte[keyLength];
-        System.arraycopy(rawEntry, 4, key, 0, keyLength);
-        return key;
+    @Override
+    public ByteBuffer key(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        ByteBuffer rawEntry
+    ) {
+        rawEntry.clear();
+        int keyLength = rawEntry.getInt();
+        rawEntry.limit(4 + keyLength);
+        return rawEntry.slice();
     }
 
     @Override
     public int compareKey(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        byte[] compareKey,
-        int compareOffset,
-        int compareLength) {
+        ByteBuffer rawEntry,
+        ByteBuffer compareKey
+    ) {
+        return IndexUtil.compare(key(readKeyFormatTransormer, readValueFormatTransormer, rawEntry), compareKey);
+    }
 
-        int keylength = UIO.bytesInt(rawEntry, offset);
-        return IndexUtil.compare(rawEntry, offset + 4, keylength, compareKey, compareOffset, compareLength);
+    @Override
+    public int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
+        return IndexUtil.compare(aKey, bKey);
     }
 
     @Override
     public int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         IReadable readable,
-        byte[] compareKey,
-        int compareOffset,
-        int compareLength) throws Exception {
-
+        ByteBuffer compareKey) throws Exception {
         readable.seek(readable.getFilePointer() + 4); // skip the entry length
-        int keyLength = readable.readInt(); // keyLength
-        return IndexUtil.compare(readable, keyLength, compareKey, compareOffset, compareLength);
-    }
-
-    @Override
-    public int compare(byte[] o1, byte[] o2) {
-        return UnsignedBytes.lexicographicalComparator().compare(o1, o2);
+        int keyLength = readable.readInt();
+        return IndexUtil.compare(readable, keyLength, compareKey);
     }
 
     @Override
     public int compareKey(FormatTransformer aReadKeyFormatTransormer,
         FormatTransformer aReadValueFormatTransormer,
-        byte[] aRawEntry,
+        ByteBuffer aRawEntry,
         FormatTransformer bReadKeyFormatTransormer,
         FormatTransformer bReadValueFormatTransormer,
-        byte[] bRawEntry) {
+        ByteBuffer bRawEntry) {
 
         if (aRawEntry == null && bRawEntry == null) {
             return 0;
         } else if (aRawEntry == null) {
-            return -bRawEntry.length;
+            return -bRawEntry.capacity();
         } else if (bRawEntry == null) {
-            return aRawEntry.length;
+            return aRawEntry.capacity();
         } else {
-            return compare(
-                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, 0, aRawEntry.length),
-                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry, 0, bRawEntry.length)
+            return IndexUtil.compare(
+                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry),
+                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry)
             );
         }
     }
+
+    private static final Comparator<ByteBuffer> byteBufferKeyComparator = IndexUtil::compare;
+
+    @Override
+    public Comparator<ByteBuffer> getByteBufferKeyComparator() {
+        return byteBufferKeyComparator;
+    }
+
+    private static final Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
+
+    @Override
+    public Comparator<byte[]> getKeyComparator() {
+        return keyComparator;
+    }
+
 }

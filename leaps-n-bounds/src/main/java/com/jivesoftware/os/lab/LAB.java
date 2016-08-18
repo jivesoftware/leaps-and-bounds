@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.api.AppendValues;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
@@ -11,7 +12,6 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.api.Values;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
@@ -398,18 +398,18 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public boolean journaledAppend(Values values, boolean fsyncAfterAppend) throws Exception {
+    public boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend) throws Exception {
         return internalAppend(true, fsyncAfterAppend, values, fsyncAfterAppend);
     }
 
     @Override
-    public boolean append(Values values, boolean fsyncOnFlush) throws Exception {
+    public boolean append(AppendValues values, boolean fsyncOnFlush) throws Exception {
         return internalAppend(false, false, values, fsyncOnFlush);
     }
 
     private boolean internalAppend(boolean appendToWal,
         boolean fsyncAfterAppend,
-        Values values,
+        AppendValues values,
         boolean fsyncOnFlush) throws Exception, InterruptedException {
 
         if (values == null) {
@@ -432,7 +432,6 @@ public class LAB implements ValueIndex {
 
             appended = memoryIndex.append(
                 (stream) -> {
-                    RawEntryFormat format = rawEntryFormat.get();
                     return values.consume(
                         (index, key, timestamp, tombstoned, version, value) -> {
 
@@ -453,17 +452,16 @@ public class LAB implements ValueIndex {
                                     (index1, fromKey, toKey, readIndexes, hydrateValues1) -> {
                                         GetRaw getRaw = IndexUtil.get(readIndexes);
                                         return getRaw.get(key,
-                                            (existingReadKeyFormatTransformer, existingReadValueFormatTransformer, existingEntry, offset, length) -> {
+                                            (existingReadKeyFormatTransformer, existingReadValueFormatTransformer, existingEntry) -> {
                                                 if (existingEntry == null) {
                                                     return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
                                                 } else {
                                                     long existingTimestamp = rawhide.timestamp(existingReadKeyFormatTransformer,
-                                                        existingReadValueFormatTransformer,
-                                                        existingEntry, offset, length);
+                                                        existingReadValueFormatTransformer, existingEntry);
 
                                                     long existingVersion = rawhide.version(existingReadKeyFormatTransformer,
                                                         existingReadValueFormatTransformer,
-                                                        existingEntry, offset, length);
+                                                        existingEntry);
 
                                                     if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
                                                         return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
@@ -641,16 +639,16 @@ public class LAB implements ValueIndex {
 
     private boolean rawToReal(int index, byte[] key, GetRaw getRaw, ValueStream valueStream, boolean hydrateValues) throws Exception {
         return getRaw.get(key,
-            (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream, hydrateValues);
+            (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, valueStream, hydrateValues);
             }
         );
     }
 
     private boolean rawToReal(int index, NextRawEntry nextRawEntry, ValueStream valueStream, boolean hydrateValues) throws Exception {
         while (true) {
-            Next next = nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
-                return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, valueStream, hydrateValues);
+            Next next = nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, valueStream, hydrateValues);
             });
             if (next == Next.stopped) {
                 return false;

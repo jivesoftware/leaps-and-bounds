@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts.api;
 
 import com.jivesoftware.os.lab.api.FormatTransformer;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -8,13 +9,5 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
  */
 public interface RawEntryStream {
 
-    boolean stream(FormatTransformer readKeyFormatTransformer,
-        FormatTransformer readValueFormatTransformer,
-        byte[] rawEntry,
-        int offset,
-        int length) throws Exception;
-
-//    boolean stream(FormatTransformer readKeyFormatTransformer,
-//        FormatTransformer readValueFormatTransformer,
-//        IReadable readable) throws Exception;
+    boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, ByteBuffer rawEntry) throws Exception;
 }

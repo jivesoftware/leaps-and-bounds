@@ -9,8 +9,10 @@ import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
+import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.Arrays;
+import java.util.Comparator;
 
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.ENTRY;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.FOOTER;
@@ -68,11 +70,14 @@ public class ActiveScan implements ScanFromFp {
         while ((type = readable.read()) >= 0) {
             if (type == ENTRY) {
                 int entryLength = rawhide.rawEntryLength(readable);
-                if (entryBuffer == null || entryBuffer.length < entryLength) {
-                    entryBuffer = new byte[entryLength];
+                if (readable.canSlice(entryLength)) {
+                    ByteBuffer entry = readable.slice(entryLength);
+                    activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, entry);
+                } else {
+                    byte[] rawEntry = new byte[entryLength];
+                    readable.read(rawEntry);
+                    activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, ByteBuffer.wrap(rawEntry));
                 }
-                readable.read(entryBuffer, 0, entryLength);
-                activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer, 0, entryLength);
                 return false;
             } else if (type == FOOTER) {
                 activeResult = false;
@@ -101,16 +106,20 @@ public class ActiveScan implements ScanFromFp {
     public long getInclusiveStartOfRow(byte[] key, boolean exact) throws Exception {
         Leaps l = leaps;
         long rowIndex = -1;
-        if (rawhide.compare(l.lastKey, key) < 0) {
+        ByteBuffer bbKey = ByteBuffer.wrap(key);
+
+
+        if (rawhide.compareKeys(l.lastKey, bbKey) < 0) {
             return rowIndex;
         }
+        Comparator<ByteBuffer> byteBufferKeyComparator = rawhide.getByteBufferKeyComparator();
         int cacheMisses = 0;
         int cacheHits = 0;
         while (l != null) {
             Leaps next;
-            int index = Arrays.binarySearch(l.keys, key, rawhide);
+            int index = Arrays.binarySearch(l.keys, bbKey, byteBufferKeyComparator);
             if (index == -(l.fps.length + 1)) {
-                rowIndex = binarySearchClosestFP(rawhide, readKeyFormatTransormer, readValueFormatTransormer, readable, l, key, exact);
+                rowIndex = binarySearchClosestFP(rawhide, readKeyFormatTransormer, readValueFormatTransormer, readable, l, bbKey, exact);
                 break;
             } else {
                 if (index < 0) {
@@ -148,7 +157,7 @@ public class ActiveScan implements ScanFromFp {
         FormatTransformer readValueFormatTransormer,
         IReadable readable,
         Leaps leaps,
-        byte[] key,
+        ByteBuffer key,
         boolean exact) throws Exception {
 
         LongBuffer startOfEntryBuffer = leaps.startOfEntry.get(readable);
@@ -161,7 +170,7 @@ public class ActiveScan implements ScanFromFp {
 
             readable.seek(fp + 1); // skip 1 type byte
 
-            int cmp = rawhide.compareKeyFromEntry(readKeyFormatTransormer, readValueFormatTransormer, readable, key, 0, key.length);
+            int cmp = rawhide.compareKeyFromEntry(readKeyFormatTransormer, readValueFormatTransormer, readable, key);
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {
@@ -173,7 +182,11 @@ public class ActiveScan implements ScanFromFp {
         if (exact) {
             return -1;
         } else {
+            try {
             return startOfEntryBuffer.get(low);
+            } catch(Exception x) {
+                throw x;
+            }
         }
     }
 

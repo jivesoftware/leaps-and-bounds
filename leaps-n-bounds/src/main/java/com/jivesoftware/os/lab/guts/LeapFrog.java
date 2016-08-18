@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
 /**
@@ -15,23 +16,23 @@ class LeapFrog {
         this.leaps = leaps;
     }
 
-    static public Leaps computeNextLeaps(int index, byte[] lastKey, LeapFrog latest, int maxLeaps, long[] startOfEntryIndex) {
+    static public Leaps computeNextLeaps(int index, ByteBuffer lastKey, LeapFrog latest, int maxLeaps, long[] startOfEntryIndex) {
         long[] fpIndex;
-        byte[][] keys;
+        ByteBuffer[] keys;
         if (latest == null) {
             fpIndex = new long[0];
-            keys = new byte[0][];
+            keys = new ByteBuffer[0];
         } else if (latest.leaps.fps.length < maxLeaps) {
             int numLeaps = latest.leaps.fps.length + 1;
             fpIndex = new long[numLeaps];
-            keys = new byte[numLeaps][];
+            keys = new ByteBuffer[numLeaps];
             System.arraycopy(latest.leaps.fps, 0, fpIndex, 0, latest.leaps.fps.length);
             System.arraycopy(latest.leaps.keys, 0, keys, 0, latest.leaps.keys.length);
             fpIndex[numLeaps - 1] = latest.fp;
             keys[numLeaps - 1] = latest.leaps.lastKey;
         } else {
             fpIndex = new long[0];
-            keys = new byte[maxLeaps][];
+            keys = new ByteBuffer[maxLeaps];
 
             long[] idealFpIndex = new long[maxLeaps];
             // b^n = fp

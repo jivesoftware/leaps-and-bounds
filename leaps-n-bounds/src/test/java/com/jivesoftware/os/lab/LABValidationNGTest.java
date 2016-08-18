@@ -5,7 +5,6 @@ import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
-import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -106,7 +105,7 @@ public class LABValidationNGTest {
                                 System.out.println("****** Lab moved... ****** ");
                             }
                         }
-                        lab.append((ValueStream stream) -> {
+                        lab.append((stream) -> {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
                                 stream.stream(-1,
@@ -216,7 +215,7 @@ public class LABValidationNGTest {
             writerFutures.add(writers.submit(() -> {
                 try {
                     for (int c = 0; c < commitCount; c++) {
-                        lab.append((ValueStream stream) -> {
+                        lab.append((stream) -> {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
                                 stream.stream(-1,
@@ -320,7 +319,7 @@ public class LABValidationNGTest {
                                 },
                                 (index, key, timestamp, tombstoned, version1, value1) -> {
                                     hits.incrementAndGet();
-                                    found.add(UIO.bytesLong(key));
+                                    found.add(key == null ? 0 : key.getLong(0));
                                     return true;
                                 }, true);
                         }

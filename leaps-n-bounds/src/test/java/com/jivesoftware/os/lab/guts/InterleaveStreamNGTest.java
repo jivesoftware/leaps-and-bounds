@@ -7,6 +7,7 @@ import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.UIO;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,7 @@ public class InterleaveStreamNGTest {
     }
 
     private void assertExpected(InterleaveStream ips, List<Expected> expected) throws Exception {
-        while (ips.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+        while (ips.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
             Expected expect = expected.remove(0);
             System.out.println("key:" + SimpleRawhide.key(rawEntry) + " vs" + expect.key + " value:" + SimpleRawhide.value(rawEntry) + " vs " + expect.value);
             Assert.assertEquals(SimpleRawhide.key(rawEntry), expect.key);
@@ -108,7 +109,7 @@ public class InterleaveStreamNGTest {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         SimpleRawhide rawhide = new SimpleRawhide();
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide);
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
         RawMemoryIndex[] memoryIndexes = new RawMemoryIndex[indexes];
         NextRawEntry[] nextRawEntrys = new NextRawEntry[indexes];
@@ -125,7 +126,7 @@ public class InterleaveStreamNGTest {
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
                 NextRawEntry nextRawEntry = readerIndexs[wi].rowScan();
-                while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(SimpleRawhide.toString(rawEntry));
                     return true;
                 }) == NextRawEntry.Next.more) {
@@ -176,7 +177,7 @@ public class InterleaveStreamNGTest {
         return (stream) -> {
             if (index[0] < keys.length) {
                 byte[] rawEntry = SimpleRawhide.rawEntry(keys[index[0]], values[index[0]]);
-                if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length)) {
+                if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(rawEntry))) {
                     return Next.stopped;
                 }
             }

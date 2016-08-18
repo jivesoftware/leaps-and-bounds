@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -37,10 +38,8 @@ public class Gets implements GetRaw, RawEntryStream {
     @Override
     public boolean stream(FormatTransformer readKeyFormatTransformer,
         FormatTransformer readValueFormatTransformer,
-        byte[] rawEntry,
-        int offset,
-        int length) throws Exception {
-        boolean result = activeStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
+        ByteBuffer rawEntry) throws Exception {
+        boolean result = activeStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
         found = true;
         return result;
     }

@@ -7,7 +7,6 @@ import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
-import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -101,7 +100,7 @@ public class LABEnvironmentConcurrenyNGTest {
             writerFutures.add(writers.submit(() -> {
                 try {
                     for (int c = 0; c < commitCount; c++) {
-                        index.append((ValueStream stream) -> {
+                        index.append((stream) -> {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
                                 stream.stream(-1,

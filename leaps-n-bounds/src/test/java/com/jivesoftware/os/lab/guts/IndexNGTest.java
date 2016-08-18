@@ -36,7 +36,7 @@ public class IndexNGTest {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         File indexFiler = File.createTempFile("l-index", ".tmp");
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry);
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry.getKeyComparator());
 
         int count = 100;
         int step = 10;
@@ -62,7 +62,7 @@ public class IndexNGTest {
     @Test(enabled = false)
     public void testMemory() throws Exception {
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry);
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry.getKeyComparator());
 
         int count = 10;
         int step = 10;
@@ -79,7 +79,7 @@ public class IndexNGTest {
     public void testMemoryToDisk() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry);
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry.getKeyComparator());
 
         int count = 10;
         int step = 10;
@@ -112,7 +112,7 @@ public class IndexNGTest {
         ReadIndex reader = walIndex.acquireReader();
         try {
             NextRawEntry rowScan = reader.rowScan();
-            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 System.out.println("rowScan:" + SimpleRawhide.key(rawEntry));
                 Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawhide.key(rawEntry));
                 index[0]++;
@@ -131,7 +131,7 @@ public class IndexNGTest {
             try {
                 GetRaw getRaw = reader.get();
                 byte[] key = UIO.longBytes(k);
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
 
                     System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
                     if (rawEntry != null) {
@@ -160,7 +160,7 @@ public class IndexNGTest {
             int _i = i;
 
             int[] streamed = new int[1];
-            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
                 if (entry != null) {
                     System.out.println("Streamed:" + SimpleRawhide.toString(entry));
                     streamed[0]++;
@@ -184,7 +184,7 @@ public class IndexNGTest {
         for (int i = 0; i < keys.size() - 3; i++) {
             int _i = i;
             int[] streamed = new int[1];
-            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
                 if (entry != null) {
                     streamed[0]++;
                 }

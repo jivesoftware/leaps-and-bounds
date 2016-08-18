@@ -99,7 +99,7 @@ public class IndexStressNGTest {
 
             int[] hits = {0};
             int[] misses = {0};
-            RawEntryStream hitsAndMisses = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+            RawEntryStream hitsAndMisses = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 if (rawEntry != null) {
                     hits[0]++;
                 } else {

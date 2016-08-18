@@ -109,6 +109,10 @@ public class LABEnvironment {
 
     }
 
+    LabWAL getLabWAL() {
+        return wal;
+    }
+
     public void register(String name, FormatTransformerProvider formatTransformerProvider) {
         FormatTransformerProvider had = formatTransformerProviderRegistry.putIfAbsent(name, formatTransformerProvider);
         if (had != null) {

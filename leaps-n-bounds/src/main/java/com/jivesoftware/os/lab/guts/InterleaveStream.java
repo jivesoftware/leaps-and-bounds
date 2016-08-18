@@ -5,6 +5,7 @@ import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.StreamRawEntry;
+import java.nio.ByteBuffer;
 import java.util.PriorityQueue;
 
 /**
@@ -73,9 +74,7 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
             if (active.nextRawEntry != null) {
                 if (!stream.stream(active.nextReadKeyFormatTransformer,
                     active.nextReadValueFormatTransformer,
-                    active.nextRawEntry,
-                    active.nextOffset,
-                    active.nextLength)) {
+                    active.nextRawEntry)) {
                     return Next.stopped;
                 }
             }
@@ -102,23 +101,19 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
 
         private FormatTransformer nextReadKeyFormatTransformer;
         private FormatTransformer nextReadValueFormatTransformer;
-        private byte[] nextRawEntry;
-        private int nextOffset;
-        private int nextLength;
-
+        private ByteBuffer nextRawEntry;
+        
         public Feed(int index, NextRawEntry feed, Rawhide rawhide) {
             this.index = index;
             this.feed = feed;
             this.rawhide = rawhide;
         }
 
-        private byte[] feedNext() throws Exception {
-            Next hadNext = feed.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+        private ByteBuffer feedNext() throws Exception {
+            Next hadNext = feed.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 nextRawEntry = rawEntry;
                 nextReadKeyFormatTransformer = readKeyFormatTransformer;
                 nextReadValueFormatTransformer = readValueFormatTransformer;
-                nextOffset = offset;
-                nextLength = length;
                 return true;
             });
             if (hadNext != Next.more) {

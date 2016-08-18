@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.Rawhide;
 import java.util.Arrays;
+import java.util.Comparator;
 
 /**
  *
@@ -9,12 +9,12 @@ import java.util.Arrays;
  */
 public class KeyRange implements Comparable<KeyRange> {
 
-    final Rawhide rawhide;
+    final Comparator<byte[]> keyComparator;
     final byte[] start;
     final byte[] end;
 
-    public KeyRange(Rawhide rawhide, byte[] start, byte[] end) {
-        this.rawhide = rawhide;
+    public KeyRange(Comparator<byte[]> keyComparator, byte[] start, byte[] end) {
+        this.keyComparator = keyComparator;
         this.start = start;
         this.end = end;
     }
@@ -23,15 +23,15 @@ public class KeyRange implements Comparable<KeyRange> {
         if (start == null || end == null) {
             return false;
         }
-        return rawhide.compare(start, range.start) <= 0 && rawhide.compare(end, range.end) >= 0;
+        return keyComparator.compare(start, range.start) <= 0 && keyComparator.compare(end, range.end) >= 0;
     }
 
     @Override
     public int compareTo(KeyRange o) {
 
-        int c = rawhide.compare(start, o.start);
+        int c = keyComparator.compare(start, o.start);
         if (c == 0) {
-            c = rawhide.compare(o.end, end); // reversed
+            c = keyComparator.compare(o.end, end); // reversed
         }
         return c;
     }
@@ -42,15 +42,15 @@ public class KeyRange implements Comparable<KeyRange> {
     }
 
     public KeyRange join(byte[] idStart, byte[] idEnd) {
-        return new KeyRange(rawhide, min(start, idStart), max(end, idEnd));
+        return new KeyRange(keyComparator, min(start, idStart), max(end, idEnd));
     }
 
     private byte[] min(byte[] a, byte[] b) {
-        return rawhide.compare(a, b) < 0 ? a : b;
+        return keyComparator.compare(a, b) < 0 ? a : b;
     }
 
     private byte[] max(byte[] a, byte[] b) {
-        return rawhide.compare(a, b) > 0 ? a : b;
+        return keyComparator.compare(a, b) > 0 ? a : b;
     }
 
     @Override

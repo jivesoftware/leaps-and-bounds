@@ -2,13 +2,18 @@ package com.jivesoftware.os.lab.api;
 
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
+import java.nio.ByteBuffer;
 import java.util.Comparator;
 
 /**
  *
  * @author jonathan.colt
  */
-public interface Rawhide extends Comparator<byte[]> {
+public interface Rawhide {
+
+    Comparator<byte[]> getKeyComparator();
+
+    Comparator<ByteBuffer> getByteBufferKeyComparator();
 
     byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
         FormatTransformer currentReadValueFormatTransormer,
@@ -22,8 +27,7 @@ public interface Rawhide extends Comparator<byte[]> {
     boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
+        ByteBuffer rawEntry,
         ValueStream stream,
         boolean hydrateValues) throws Exception;
 
@@ -50,40 +54,37 @@ public interface Rawhide extends Comparator<byte[]> {
         int offset,
         int length) throws Exception;
 
+    ByteBuffer key(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        ByteBuffer rawEntry) throws Exception;
+
     int compareKey(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        byte[] compareKey,
-        int compareOffset,
-        int compareLength);
+        ByteBuffer rawEntry,
+        ByteBuffer compareKey);
 
     int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         IReadable readable,
-        byte[] compareKey,
-        int compareOffset,
-        int compareLength)
+        ByteBuffer compareKey)
         throws Exception;
 
     int compareKey(FormatTransformer aReadKeyFormatTransormer,
         FormatTransformer aReadValueFormatTransormer,
-        byte[] aRawEntry,
+        ByteBuffer aRawEntry,
         FormatTransformer bReadKeyFormatTransormer,
         FormatTransformer bReadValueFormatTransormer,
-        byte[] bRawEntry);
+        ByteBuffer bRawEntry);
+
+    int compareKeys(ByteBuffer aKey, ByteBuffer bKey);
 
     long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length);
+        ByteBuffer rawEntry);
 
     long version(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length);
+        ByteBuffer rawEntry);
 
     default boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
         return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) >= 0;

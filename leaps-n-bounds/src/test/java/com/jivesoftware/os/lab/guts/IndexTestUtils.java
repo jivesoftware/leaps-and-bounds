@@ -74,7 +74,7 @@ public class IndexTestUtils {
         SimpleRawhide rawhide = new SimpleRawhide();
         indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
-            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 System.out.println("scanned:" + UIO.bytesLong(keys.get(index[0])) + " " + key(rawEntry));
                 Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), key(rawEntry));
                 index[0]++;
@@ -90,7 +90,7 @@ public class IndexTestUtils {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
                 GetRaw getRaw = IndexUtil.get(acquired);
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     byte[] expectedFP = desired.get(UIO.longBytes(key(rawEntry)));
                     if (expectedFP == null) {
                         Assert.assertTrue(expectedFP == null && value(rawEntry) == -1);
@@ -112,7 +112,7 @@ public class IndexTestUtils {
                 int _i = i;
 
                 int[] streamed = new int[1];
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     if (value(rawEntry) > -1) {
                         System.out.println("Streamed:" + key(rawEntry));
                         streamed[0]++;
@@ -135,7 +135,7 @@ public class IndexTestUtils {
             for (int i = 0; i < keys.size() - 3; i++) {
                 int _i = i;
                 int[] streamed = new int[1];
-                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     if (value(rawEntry) > -1) {
                         streamed[0]++;
                     }

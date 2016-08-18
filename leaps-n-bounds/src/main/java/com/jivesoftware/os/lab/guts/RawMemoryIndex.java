@@ -3,15 +3,17 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.guts.api.AppendEntries;
+import com.jivesoftware.os.lab.guts.api.AppendEntryStream;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
-import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -24,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author jonathan.colt
  */
-public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadableIndex, RawEntries {
+public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadableIndex, AppendEntries {
 
     private final ConcurrentSkipListMap<byte[], byte[]> index;
     private final AtomicLong approximateCount = new AtomicLong();
@@ -46,7 +48,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
         this.destroy = destroy;
         this.labHeapPressure = labHeapPressure;
         this.rawhide = rawhide;
-        this.index = new ConcurrentSkipListMap<>(rawhide);
+        this.index = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
         this.reader = new ReadIndex() {
 
             @Override
@@ -62,7 +64,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                         if (rawEntry == null) {
                             return false;
                         } else {
-                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
+                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(rawEntry));
                             return true;
                         }
                     }
@@ -80,7 +82,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
                         return more ? Next.more : Next.stopped;
                     }
                     return Next.eos;
@@ -93,7 +95,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                 return (stream) -> {
                     if (iterator.hasNext()) {
                         Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, next.getValue(), 0, next.getValue().length);
+                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
                         return more ? Next.more : Next.stopped;
                     }
                     return Next.eos;
@@ -149,7 +151,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public boolean consume(RawEntryStream stream) throws Exception {
+    public boolean consume(AppendEntryStream stream) throws Exception {
         for (Map.Entry<byte[], byte[]> e : index.entrySet()) {
             byte[] entry = e.getValue();
             if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, entry, 0, entry.length)) {
@@ -160,7 +162,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public boolean append(RawEntries entries) throws Exception {
+    public boolean append(AppendEntries entries) throws Exception {
         return entries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
 
             byte[] key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
@@ -184,8 +186,9 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
                     valuesCostInBytes.addAndGet(valueLengthDelta);
                     labHeapPressure.change(valueLengthDelta);
                 }
-                long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged, 0, merged.length);
-                long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged, 0, merged.length);
+                ByteBuffer bbMerged = ByteBuffer.wrap(merged);
+                long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, bbMerged);
+                long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, bbMerged);
                 updateMaxTimestampAndVersion(timestamp, version);
                 return merged;
             });

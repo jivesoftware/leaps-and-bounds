@@ -16,9 +16,9 @@ import java.nio.LongBuffer;
 public class Leaps {
 
     private final int index;
-    final byte[] lastKey;
+    final ByteBuffer lastKey;
     final long[] fps;
-    final byte[][] keys;
+    final ByteBuffer[] keys;
     final StartOfEntry startOfEntry;
     //final long[] startOfEntryIndex;
 
@@ -27,7 +27,7 @@ public class Leaps {
         LongBuffer get(IReadable readable) throws IOException;
     }
 
-    public Leaps(int index, byte[] lastKey, long[] fpIndex, byte[][] keys, StartOfEntry startOfEntry) {
+    public Leaps(int index, ByteBuffer lastKey, long[] fpIndex, ByteBuffer[] keys, StartOfEntry startOfEntry) {
         this.index = index;
         this.lastKey = lastKey;
         Preconditions.checkArgument(fpIndex.length == keys.length, "fpIndex and keys misalignment, %s != %s", fpIndex.length, keys.length);
@@ -37,18 +37,18 @@ public class Leaps {
     }
 
     void write(FormatTransformer keyFormatTransformer, IAppendOnly writeable) throws Exception {
-        byte[] writeLastKey = keyFormatTransformer.transform(lastKey);
-        byte[][] writeKeys = keyFormatTransformer.transform(keys);
+        ByteBuffer writeLastKey = keyFormatTransformer.transform(lastKey);
+        ByteBuffer[] writeKeys = keyFormatTransformer.transform(keys);
 
         LongBuffer startOfEntryBuffer = startOfEntry.get(null);
-        int entryLength = 4 + 4 + 4 + writeLastKey.length + 4 + (startOfEntryBuffer.limit() * 8) + 4;
+        int entryLength = 4 + 4 + 4 + writeLastKey.capacity() + 4 + (startOfEntryBuffer.limit() * 8) + 4;
         for (int i = 0; i < fps.length; i++) {
-            entryLength += 8 + 4 + writeKeys[i].length;
+            entryLength += 8 + 4 + writeKeys[i].capacity();
         }
         entryLength += 4;
         UIO.writeInt(writeable, entryLength, "entryLength");
         UIO.writeInt(writeable, index, "index");
-        UIO.writeInt(writeable, writeLastKey.length, "lastKeyLength");
+        UIO.writeInt(writeable, writeLastKey.capacity(), "lastKeyLength");
         UIO.write(writeable, writeLastKey, "lastKey");
         UIO.writeInt(writeable, fps.length, "fpIndexLength");
         for (int i = 0; i < fps.length; i++) {
@@ -71,10 +71,10 @@ public class Leaps {
         UIO.read(readable, lastKey);
         int fpIndexLength = UIO.readInt(readable, "fpIndexLength");
         long[] fpIndex = new long[fpIndexLength];
-        byte[][] keys = new byte[fpIndexLength][];
+        ByteBuffer[] keys = new ByteBuffer[fpIndexLength];
         for (int i = 0; i < fpIndexLength; i++) {
             fpIndex[i] = UIO.readLong(readable, "fpIndex");
-            keys[i] = UIO.readByteArray(readable, "keyLength");
+            keys[i] = ByteBuffer.wrap(UIO.readByteArray(readable, "keyLength"));
         }
         int startOfEntryLength = UIO.readInt(readable, "startOfEntryLength");
         int startOfEntryNumBytes = startOfEntryLength * 8;
@@ -95,7 +95,7 @@ public class Leaps {
         if (UIO.readInt(readable, "entryLength") != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
-        return new Leaps(index, keyFormatTransformer.transform(lastKey), fpIndex, keyFormatTransformer.transform(keys), startOfEntry);
+        return new Leaps(index, keyFormatTransformer.transform(ByteBuffer.wrap(lastKey)), fpIndex, keyFormatTransformer.transform(keys), startOfEntry);
     }
 
 }

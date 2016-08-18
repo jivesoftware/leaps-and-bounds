@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
-import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -191,7 +190,7 @@ public class LABStress {
             double writeRate = 0;
             if (writeCount > 0 && totalWrites < writeCount) {
                 long preWriteCount = count.get();
-                index.append((ValueStream stream) -> {
+                index.append((stream) -> {
                     for (int i = 0; i < writesPerSecond; i++) {
                         count.incrementAndGet();
                         long key = rand.nextInt(totalCardinality);
@@ -275,7 +274,7 @@ public class LABStress {
         double totalWriteRate = totalWriteTime > 0 ? (double) totalWrites * 1000 / (totalWriteTime) : 0;
 
         AtomicLong scanCount = new AtomicLong();
-        index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
+        index.rowScan((index1, key, timestamp, tombstoned, version1, payload) -> {
             if (!tombstoned) {
                 scanCount.incrementAndGet();
             }

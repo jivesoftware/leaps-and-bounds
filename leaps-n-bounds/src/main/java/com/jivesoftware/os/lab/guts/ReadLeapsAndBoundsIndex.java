@@ -8,6 +8,7 @@ import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IReadable;
+import java.nio.ByteBuffer;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
@@ -92,14 +93,14 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             boolean more = true;
             while (!once[0] && more) {
                 more = activeScan.next(fp,
-                    (readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, length) -> {
-                        int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, from, 0, from.length);
+                    (readKeyFormatTransormer, readValueFormatTransormer, rawEntry) -> {
+                        int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(from));
                         if (c >= 0) {
-                            c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, to, 0, to.length);
+                            c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(to));
                             if (c < 0) {
                                 once[0] = true;
                             }
-                            return c < 0 && stream.stream(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, offset, length);
+                            return c < 0 && stream.stream(readKeyFormatTransormer, readValueFormatTransormer, rawEntry);
                         } else {
                             return true;
                         }

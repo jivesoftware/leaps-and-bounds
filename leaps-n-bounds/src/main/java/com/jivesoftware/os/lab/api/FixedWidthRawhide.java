@@ -1,10 +1,11 @@
 package com.jivesoftware.os.lab.api;
 
-import com.google.common.primitives.UnsignedBytes;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
+import java.nio.ByteBuffer;
+import java.util.Comparator;
 
 /**
  *
@@ -36,19 +37,21 @@ public class FixedWidthRawhide implements Rawhide {
     public boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
+        ByteBuffer rawEntry,
         ValueStream stream,
         boolean hydrateValues) throws Exception {
         if (rawEntry == null) {
             return stream.stream(index, null, -1, false, -1, null);
         }
-        byte[] key = new byte[keyLength];
-        UIO.readBytes(rawEntry, 0, key);
-        byte[] payload = null;
+
+        rawEntry.clear();
+        rawEntry.limit(keyLength);
+        ByteBuffer key = rawEntry.slice();
+        ByteBuffer payload = null;
         if (hydrateValues) {
-            payload = new byte[payloadLength];
-            UIO.readBytes(rawEntry, keyLength, payload);
+            rawEntry.position(keyLength);
+            rawEntry.limit(keyLength + payloadLength);
+            payload = rawEntry.slice();
         }
         return stream.stream(index, key, 0, false, 0, payload);
     }
@@ -87,60 +90,76 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
+    public ByteBuffer key(FormatTransformer readKeyFormatTransormer,
+        FormatTransformer readValueFormatTransormer,
+        ByteBuffer rawEntry) {
+        rawEntry.clear();
+        rawEntry.limit(keyLength);
+        return rawEntry.slice();
+    }
+
+    @Override
     public int compareKey(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        byte[] compareKey,
-        int compareOffset,
-        int compareLength) {
-        return IndexUtil.compare(rawEntry, offset, keyLength, compareKey, compareOffset, compareLength);
+        ByteBuffer rawEntry,
+        ByteBuffer compareKey) {
+        rawEntry.clear();
+        rawEntry.limit(keyLength);
+        return IndexUtil.compare(rawEntry.slice(), compareKey);
     }
 
     @Override
     public int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         IReadable readable,
-        byte[] compareKey,
-        int compareOffset,
-        int compareLength) throws Exception {
-        return IndexUtil.compare(readable, keyLength, compareKey, compareOffset, compareLength);
+        ByteBuffer compareKey) throws Exception {
+        return IndexUtil.compare(readable, keyLength, compareKey);
     }
 
     @Override
-    public int compare(byte[] key1, byte[] key2) {
-        return UnsignedBytes.lexicographicalComparator().compare(key1, key2);
+    public Comparator<ByteBuffer> getByteBufferKeyComparator() {
+        return IndexUtil::compare;
+    }
+
+    @Override
+    public Comparator<byte[]> getKeyComparator() {
+        return (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
+    }
+
+    @Override
+    public int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
+        return IndexUtil.compare(aKey, bKey);
     }
 
     @Override
     public int compareKey(FormatTransformer aReadKeyFormatTransormer,
         FormatTransformer aReadValueFormatTransormer,
-        byte[] aRawEntry,
+        ByteBuffer aRawEntry,
         FormatTransformer bReadKeyFormatTransormer,
         FormatTransformer bReadValueFormatTransormer,
-        byte[] bRawEntry) {
+        ByteBuffer bRawEntry) {
 
         if (aRawEntry == null && bRawEntry == null) {
             return 0;
         } else if (aRawEntry == null) {
-            return -bRawEntry.length;
+            return -bRawEntry.capacity();
         } else if (bRawEntry == null) {
-            return aRawEntry.length;
+            return aRawEntry.capacity();
         } else {
-            return compare(
-                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, 0, aRawEntry.length),
-                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry, 0, bRawEntry.length)
+            return IndexUtil.compare(
+                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry),
+                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry)
             );
         }
     }
 
     @Override
-    public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, byte[] rawEntry, int offset, int length) {
+    public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, ByteBuffer rawEntry) {
         return 0;
     }
 
     @Override
-    public long version(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, byte[] rawEntry, int offset, int length) {
+    public long version(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, ByteBuffer rawEntry) {
         return 0;
     }
 

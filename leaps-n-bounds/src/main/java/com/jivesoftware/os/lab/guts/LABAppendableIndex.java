@@ -3,12 +3,13 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.guts.api.AppendEntries;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
-import com.jivesoftware.os.lab.guts.api.RawEntries;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * @author jonathan.colt
@@ -70,13 +71,13 @@ public class LABAppendableIndex implements RawAppendableIndex {
     }
 
     @Override
-    public boolean append(RawEntries rawEntries) throws Exception {
+    public boolean append(AppendEntries appendEntries) throws Exception {
         if (appendOnly == null) {
             appendOnly = index.appender();
         }
 
         AppendableHeap appendBuffer = new AppendableHeap(1024);
-        rawEntries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+        appendEntries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
 
             //entryBuffer.reset();
             long fp = appendOnly.getFilePointer();
@@ -91,13 +92,14 @@ public class LABAppendableIndex implements RawAppendableIndex {
             keysSizeInBytes += keyLength;
             valuesSizeInBytes += rawEntry.length - keyLength;
 
-            long rawEntryTimestamp = rawhide.timestamp(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
+            ByteBuffer bbRawEntry = ByteBuffer.wrap(rawEntry);
+            long rawEntryTimestamp = rawhide.timestamp(readKeyFormatTransformer, readValueFormatTransformer, bbRawEntry);
             if (rawEntryTimestamp > -1 && maxTimestamp < rawEntryTimestamp) {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
+                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, bbRawEntry);
             } else {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
+                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, bbRawEntry);
             }
 
             if (firstKey == null) {
@@ -197,7 +199,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         byte[] key,
         long[] startOfEntryIndex) throws Exception {
 
-        Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
+        Leaps nextLeaps = LeapFrog.computeNextLeaps(index, ByteBuffer.wrap(key), latest, maxLeaps, startOfEntryIndex);
         UIO.writeByte(appendableHeap, LEAP, "type");
         long startOfLeapFp = appendableHeap.getFilePointer() + writeIndex.getFilePointer();
         nextLeaps.write(writeKeyFormatTransormer, appendableHeap);

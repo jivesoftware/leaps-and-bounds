@@ -7,6 +7,7 @@ import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -96,12 +97,12 @@ public class LABNGTest {
 
                 HashSet<Long> rangeScan = new HashSet<>();
                 index.rangeScan(UIO.longBytes(f), UIO.longBytes(t),
-                    (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-                        boolean added = rangeScan.add(UIO.bytesLong(key));
+                    (index1, key, timestamp, tombstoned, version, payload) -> {
+                        boolean added = rangeScan.add(key.getLong(0));
                         //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
                         if (!added) {
                             fails.incrementAndGet();
-                            System.out.println("RANGE FAILED: from:" + ff + " to:" + tt + " already contained " + UIO.bytesLong(key));
+                            System.out.println("RANGE FAILED: from:" + ff + " to:" + tt + " already contained " + key.getLong(0));
                         }
                         return true;
                     }, true);
@@ -115,12 +116,12 @@ public class LABNGTest {
         }
 
         HashSet<Long> rowScan = new HashSet<>();
-        index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-            boolean added = rowScan.add(UIO.bytesLong(key));
+        index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
+            boolean added = rowScan.add(key.getLong(0));
             //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
             if (!added) {
                 fails.incrementAndGet();
-                System.out.println("RANGE FAILED: already contained " + UIO.bytesLong(key));
+                System.out.println("RANGE FAILED: already contained " + key.getLong(0));
             }
             return true;
         }, true);
@@ -216,8 +217,8 @@ public class LABNGTest {
                 keyStream.key(i, UIO.longBytes(expected[i]), 0, 8);
             }
             return true;
-        }, (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-            Assert.assertEquals(UIO.bytesLong(payload), expected[index1]);
+        }, (index1, key, timestamp, tombstoned, version, payload) -> {
+            Assert.assertEquals(payload.getLong(0), expected[index1]);
             return true;
         }, true);
     }
@@ -232,8 +233,8 @@ public class LABNGTest {
                     keyStream.key(0, key, 0, key.length);
                     return true;
                 },
-                (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-                    Assert.assertEquals(UIO.bytesLong(payload), e);
+                (index1, key, timestamp, tombstoned, version, payload) -> {
+                    Assert.assertEquals(payload.getLong(0), e);
                     return true;
                 }, true);
         }
@@ -245,9 +246,9 @@ public class LABNGTest {
                 keyStream.key(-1, UIO.longBytes(i), 0, 8);
             }
             return true;
-        }, (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+        }, (index1, key, timestamp, tombstoned, version, payload) -> {
             if (key != null || payload != null) {
-                Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
+                Assert.fail(IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
             }
             return true;
         }, true);
@@ -262,9 +263,9 @@ public class LABNGTest {
                     keyStream.key(0, key, 0, key.length);
                     return true;
                 },
-                (int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
+                (index1, key, timestamp, tombstoned, version, payload) -> {
                     if (key != null || payload != null) {
-                        Assert.fail(Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
+                        Assert.fail(IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
                     }
                     return true;
                 }, true);
@@ -274,10 +275,10 @@ public class LABNGTest {
     private void testScanExpected(ValueIndex index, long[] expected) throws Exception {
         System.out.println("Checking full scan");
         List<Long> scanned = new ArrayList<>();
-        index.rowScan((int index1, byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) -> {
-            System.out.println("scan:" + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
+        index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
+            System.out.println("scan:" + IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
             if (!tombstoned) {
-                scanned.add(UIO.bytesLong(payload));
+                scanned.add(payload.getLong(0));
             }
             return true;
         }, true);
@@ -293,9 +294,9 @@ public class LABNGTest {
         System.out.println("Checking range scan:" + Arrays.toString(from) + "->" + Arrays.toString(to));
         List<Long> scanned = new ArrayList<>();
         index.rangeScan(from, to, (index1, key, timestamp, tombstoned, version, payload) -> {
-            System.out.println("scan:" + Arrays.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + Arrays.toString(payload));
+            System.out.println("scan:" + IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
             if (!tombstoned) {
-                scanned.add(UIO.bytesLong(payload));
+                scanned.add(payload.getLong(0));
             }
             return true;
         }, true);
