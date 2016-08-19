@@ -60,8 +60,8 @@ public class IndexStressNGTest {
 
                 try {
 
-                    Callable<Void> compactor = indexs.compactor(-1, -1, -1, null, minMergeDebt, fsync,
-                        (minimumRun1, fsync1, callback) -> callback.call(minimumRun1, fsync1,
+                    Callable<Void> compactor = indexs.compactor("test", -1, -1, -1, null, minMergeDebt, fsync,
+                        (rawhideName, minimumRun1, fsync1, callback) -> callback.call(minimumRun1, fsync1,
                             (id, worstCaseCount) -> {
 
                                 long m = merge.incrementAndGet();

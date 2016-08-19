@@ -285,13 +285,14 @@ public class RangeStripedCompactableIndexes {
             FileUtils.deleteQuietly(splittingRoot);
         }
 
-        void append(RawConcurrentReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync) throws Exception {
+        void append(String rawhideName, RawConcurrentReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync) throws Exception {
 
-            LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawConcurrentReadableIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync);
+            LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawhideName,
+                rawConcurrentReadableIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync);
             compactableIndexes.append(lab);
         }
 
-        private LeapsAndBoundsIndex flushMemoryIndexToDisk(RawConcurrentReadableIndex rawConcurrentReadableIndex,
+        private LeapsAndBoundsIndex flushMemoryIndexToDisk(String rawhideName, RawConcurrentReadableIndex rawConcurrentReadableIndex,
             byte[] minKey,
             byte[] maxKey,
             long nextIndexId,
@@ -307,7 +308,10 @@ public class RangeStripedCompactableIndexes {
             long count = rawConcurrentReadableIndex.count();
             LOG.debug("Commiting memory index to on disk index: {}", count, activeRoot);
             LOG.inc("flushMemoryIndexToDisk");
-            LOG.inc("flushMemoryIndexToDisk>" + UIO.chunkPower(count, 0));
+            LOG.inc("flushMemoryIndexToDisk>" + rawhideName);
+            int histo = (int) Math.pow(2, UIO.chunkPower(count, 0));
+            LOG.inc("flushMemoryIndexToDisk>" + histo);
+            LOG.inc("flushMemoryIndexToDisk>" + rawhideName + ">" + histo);
 
             int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
@@ -358,10 +362,12 @@ public class RangeStripedCompactableIndexes {
             }
 
             File commitedIndexFile = indexRangeId.toFile(activeRoot);
-            return moveIntoPlace(commitingIndexFile, commitedIndexFile, indexRangeId, fsync);
+            return moveIntoPlace(rawhideName, commitingIndexFile, commitedIndexFile, indexRangeId, fsync);
         }
 
-        private LeapsAndBoundsIndex moveIntoPlace(File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId, boolean fsync) throws Exception {
+        private LeapsAndBoundsIndex moveIntoPlace(String rawhideName,
+            File commitingIndexFile, File commitedIndexFile, IndexRangeId indexRangeId, boolean fsync) throws Exception {
+
             FileUtils.forceMkdir(commitedIndexFile.getParentFile());
             Files.move(commitingIndexFile.toPath(), commitedIndexFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
             IndexFile indexFile = new IndexFile(commitedIndexFile, "r");
@@ -369,7 +375,10 @@ public class RangeStripedCompactableIndexes {
             reopenedIndex.flush(fsync);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
             LOG.inc("movedIntoPlace");
-            LOG.inc("movedIntoPlace>" + UIO.chunkPower(indexFile.length(), 0));
+            LOG.inc("movedIntoPlace>" + rawhideName);
+            int histo = (int) Math.pow(2, UIO.chunkPower(indexFile.length(), 0));
+            LOG.inc("movedIntoPlace>" + histo);
+            LOG.inc("movedIntoPlace>" + rawhideName + ">" + histo);
 
             return reopenedIndex;
         }
@@ -390,8 +399,9 @@ public class RangeStripedCompactableIndexes {
             return compactableIndexes.debt();
         }
 
-        Callable<Void> compactor(int minMergeDebt, boolean fsync) throws Exception {
+        Callable<Void> compactor(String rawhideName, int minMergeDebt, boolean fsync) throws Exception {
             return compactableIndexes.compactor(
+                rawhideName,
                 splitWhenKeysTotalExceedsNBytes,
                 splitWhenValuesTotalExceedsNBytes,
                 splitWhenValuesAndKeysTotalExceedsNBytes,
@@ -402,7 +412,7 @@ public class RangeStripedCompactableIndexes {
         }
 
         @Override
-        public Callable<Void> buildSplitter(boolean fsync, SplitterBuilderCallback callback) throws Exception {
+        public Callable<Void> buildSplitter(String rawhideName, boolean fsync, SplitterBuilderCallback callback) throws Exception {
 
             File indexRoot = new File(root, indexName);
             File stripeRoot = new File(indexRoot, String.valueOf(stripeId));
@@ -526,7 +536,7 @@ public class RangeStripedCompactableIndexes {
         }
 
         @Override
-        public Callable<Void> build(int minimumRun, boolean fsync, MergerBuilderCallback callback) throws Exception {
+        public Callable<Void> build(String rawhideName, int minimumRun, boolean fsync, MergerBuilderCallback callback) throws Exception {
             File indexRoot = new File(root, indexName);
             File stripeRoot = new File(indexRoot, String.valueOf(stripeId));
             File activeRoot = new File(stripeRoot, "active");
@@ -557,7 +567,7 @@ public class RangeStripedCompactableIndexes {
                 File mergedIndexFile = ids.get(0).toFile(mergingRoot);
                 File file = ids.get(0).toFile(activeRoot);
                 FileUtils.deleteQuietly(file);
-                return moveIntoPlace(mergedIndexFile, file, ids.get(0), fsync);
+                return moveIntoPlace(rawhideName, mergedIndexFile, file, ids.get(0), fsync);
             });
         }
 
@@ -579,7 +589,7 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public void append(RawConcurrentReadableIndex rawMemoryIndex, boolean fsync) throws Exception {
+    public void append(String rawhideName, RawConcurrentReadableIndex rawMemoryIndex, boolean fsync) throws Exception {
         appendSemaphore.acquire();
         try {
             byte[] minKey = rawMemoryIndex.minKey();
@@ -594,7 +604,7 @@ public class RangeStripedCompactableIndexes {
                     indexName,
                     stripeId,
                     new CompactableIndexes(rawhide));
-                index.append(rawMemoryIndex, null, null, fsync);
+                index.append(rawhideName, rawMemoryIndex, null, null, fsync);
 
                 synchronized (copyIndexOnWrite) {
                     ConcurrentSkipListMap<byte[], FileBackMergableIndexs> copyOfIndexes = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
@@ -632,7 +642,7 @@ public class RangeStripedCompactableIndexes {
                     priorEntry = currentEntry;
                 } else {
                     if (rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), currentEntry.getKey())) {
-                        priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync);
+                        priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync);
                     }
                     priorEntry = currentEntry;
                     if (keyComparator.compare(maxKey, currentEntry.getKey()) < 0) {
@@ -642,7 +652,7 @@ public class RangeStripedCompactableIndexes {
                 }
             }
             if (priorEntry != null && rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), null)) {
-                priorEntry.getValue().append(rawMemoryIndex, priorEntry.getKey(), null, fsync);
+                priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), null, fsync);
             }
 
         } finally {
@@ -742,11 +752,11 @@ public class RangeStripedCompactableIndexes {
         return maxDebt;
     }
 
-    public List<Callable<Void>> buildCompactors(boolean fsync, int minDebt) throws Exception {
+    public List<Callable<Void>> buildCompactors(String rawhideName, boolean fsync, int minDebt) throws Exception {
         List<Callable<Void>> compactors = null;
         for (FileBackMergableIndexs index : indexes.values()) {
             if (index.debt() >= minDebt) {
-                Callable<Void> compactor = index.compactor(minDebt, fsync);
+                Callable<Void> compactor = index.compactor(rawhideName, minDebt, fsync);
                 if (compactor != null) {
                     if (compactors == null) {
                         compactors = new ArrayList<>();

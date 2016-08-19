@@ -51,6 +51,7 @@ public class LABValidationNGTest {
         LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
+            LABRawhide.NAME,
             LABRawhide.SINGLETON,
             new RawEntryFormat(0, 0),
             scheduler,
@@ -167,6 +168,7 @@ public class LABValidationNGTest {
         LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
+            LABRawhide.NAME,
             LABRawhide.SINGLETON,
             new RawEntryFormat(0, 0),
             scheduler,

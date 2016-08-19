@@ -8,7 +8,7 @@ import java.util.concurrent.Callable;
  */
 public interface SplitterBuilder {
 
-    Callable<Void> buildSplitter(boolean fsync, SplitterBuilderCallback splitterBuilderCallback) throws Exception;
+    Callable<Void> buildSplitter(String rawhideName, boolean fsync, SplitterBuilderCallback splitterBuilderCallback) throws Exception;
 
     public static interface SplitterBuilderCallback {
 

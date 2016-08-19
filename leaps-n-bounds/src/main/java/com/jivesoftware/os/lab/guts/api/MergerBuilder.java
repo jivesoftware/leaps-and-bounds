@@ -8,7 +8,7 @@ import java.util.concurrent.Callable;
  */
 public interface MergerBuilder {
 
-    Callable<Void> build(int minimumRun, boolean fsync, MergerBuilderCallback callback) throws Exception;
+    Callable<Void> build(String rawhideName, int minimumRun, boolean fsync, MergerBuilderCallback callback) throws Exception;
 
     public static interface MergerBuilderCallback {
 

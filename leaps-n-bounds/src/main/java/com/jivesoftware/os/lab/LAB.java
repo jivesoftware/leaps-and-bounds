@@ -70,10 +70,12 @@ public class LAB implements ValueIndex {
     private volatile RawMemoryIndex flushingMemoryIndex;
     private volatile boolean corrupt = false;
 
+    private final String rawhideName;
     private final Rawhide rawhide;
     private final AtomicReference<RawEntryFormat> rawEntryFormat;
 
     public LAB(FormatTransformerProvider formatTransformerProvider,
+        String rawhideName,
         Rawhide rawhide,
         RawEntryFormat rawEntryFormat,
         ExecutorService schedule,
@@ -93,6 +95,7 @@ public class LAB implements ValueIndex {
         long splitWhenValuesAndKeysTotalExceedsNBytes,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
 
+        this.rawhideName = rawhideName;
         this.rawhide = rawhide;
         this.schedule = schedule;
         this.compact = compact;
@@ -520,7 +523,7 @@ public class LAB implements ValueIndex {
             }
             flushingMemoryIndex = stackCopy;
             memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide);
-            rangeStripedCompactableIndexes.append(stackCopy, fsync);
+            rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync);
             flushingMemoryIndex = null;
             stackCopy.destroy();
             wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
@@ -543,7 +546,7 @@ public class LAB implements ValueIndex {
             if (corrupt) {
                 throw new LABIndexCorruptedException();
             }
-            List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(fsync, minDebt);
+            List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(rawhideName, fsync, minDebt);
             if (compactors != null && !compactors.isEmpty()) {
                 if (awaitable == null) {
                     awaitable = new ArrayList<>(compactors.size());

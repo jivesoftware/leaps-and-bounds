@@ -105,6 +105,7 @@ public class CompactableIndexes {
     }
 
     public Callable<Void> compactor(
+        String rawhideName,
         long splittableIfKeysLargerThanBytes,
         long splittableIfValuesLargerThanBytes,
         long splittableIfLargerThanBytes,
@@ -121,7 +122,7 @@ public class CompactableIndexes {
 
         while (true) {
             if (splittable(splittableIfKeysLargerThanBytes, splittableIfValuesLargerThanBytes, splittableIfLargerThanBytes)) {
-                Callable<Void> splitter = splitterBuilder.buildSplitter(fsync, this::buildSplitter);
+                Callable<Void> splitter = splitterBuilder.buildSplitter(rawhideName, fsync, this::buildSplitter);
                 if (splitter != null) {
                     return () -> {
                         try {
@@ -132,7 +133,7 @@ public class CompactableIndexes {
                     };
                 }
             } else if (debt() > 0) {
-                Callable<Void> merger = mergerBuilder.build(minimumRun, fsync, this::buildMerger);
+                Callable<Void> merger = mergerBuilder.build(rawhideName, minimumRun, fsync, this::buildMerger);
                 if (merger != null) {
                     return () -> {
                         try {

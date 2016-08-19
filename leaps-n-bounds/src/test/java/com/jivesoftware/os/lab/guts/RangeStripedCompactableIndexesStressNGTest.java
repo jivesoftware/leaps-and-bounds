@@ -159,7 +159,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 new AtomicLong()),
                 LABRawhide.SINGLETON);
             long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
-            indexs.append(index, fsync);
+            indexs.append("test", index, fsync);
 
             int debt = indexs.debt();
             if (debt < minMergeDebt) {
@@ -167,7 +167,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             }
 
             while (true) {
-                List<Callable<Void>> compactors = indexs.buildCompactors(fsync, minMergeDebt);
+                List<Callable<Void>> compactors = indexs.buildCompactors("test", fsync, minMergeDebt);
                 if (compactors != null && !compactors.isEmpty()) {
                     for (Callable<Void> compactor : compactors) {
                         //LOG.info("Scheduling async compaction:{} for index:{} debt:{}", compactors, indexs, debt);

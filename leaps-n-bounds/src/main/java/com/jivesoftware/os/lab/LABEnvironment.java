@@ -202,6 +202,7 @@ public class LABEnvironment {
         }
 
         return new LAB(formatTransformerProvider,
+            config.rawhideName,
             rawhide,
             rawEntryFormat,
             scheduler,

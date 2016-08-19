@@ -43,7 +43,7 @@ public class LABEnvironmentNGTest {
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
-                1024 * 1024 * 10,root,
+                1024 * 1024 * 10, root,
                 labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.emptyList());
 

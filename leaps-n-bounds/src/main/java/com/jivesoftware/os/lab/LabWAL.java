@@ -170,7 +170,7 @@ public class LabWAL {
                                     valueIndexConfig.formatTransformerProviderName);
                                 Rawhide rawhide = environment.rawhide(valueIndexConfig.rawhideName);
                                 RawEntryFormat rawEntryFormat = environment.rawEntryFormat(valueIndexConfig.rawEntryFormatName);
-                                LAB appendToValueIndex = (LAB)openValueIndex(environment, valueIndexId, valueIndexes);
+                                LAB appendToValueIndex = (LAB) openValueIndex(environment, valueIndexId, valueIndexes);
 
                                 FormatTransformer readKey = formatTransformerProvider.read(rawEntryFormat.getKeyFormat());
                                 FormatTransformer readValue = formatTransformerProvider.read(rawEntryFormat.getValueFormat());
@@ -191,7 +191,7 @@ public class LabWAL {
 
                                 valueIndexVersionedEntries.removeAll(appendVersion);
                             }
-                        } 
+                        }
                     }
                 } catch (CorruptionDetectedException | EOFException x) {
                     LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", reader.getFilePointer(), reader.length(), walFile, x.getClass());
