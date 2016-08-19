@@ -96,7 +96,22 @@ public class IndexNGTest {
         LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
             64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
-        disIndex.append(memoryIndex);
+        disIndex.append((stream) -> {
+            ReadIndex reader = memoryIndex.acquireReader();
+            try {
+                NextRawEntry rowScan = reader.rowScan();
+                RawEntryStream rawStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                    byte[] bytes = IndexUtil.toByteArray(rawEntry);
+                    return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, bytes, 0, bytes.length);
+                };
+                while (rowScan.next(rawStream) == NextRawEntry.Next.more) {
+                }
+            } finally {
+                reader.release();
+                reader = null;
+            }
+            return true;
+        });
         disIndex.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);

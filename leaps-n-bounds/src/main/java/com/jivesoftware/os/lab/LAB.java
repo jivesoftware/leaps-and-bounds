@@ -22,6 +22,7 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
+import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -203,8 +204,8 @@ public class LAB implements ValueIndex {
         ReadIndex flushingMemoryIndexReader = null;
         try {
             while (!closeRequested.get()) {
-                RawMemoryIndex memoryIndexStackCopy;
-                RawMemoryIndex flushingMemoryIndexStackCopy;
+                RawConcurrentReadableIndex memoryIndexStackCopy;
+                RawConcurrentReadableIndex flushingMemoryIndexStackCopy;
 
                 commitSemaphore.acquire();
                 try {
@@ -297,8 +298,8 @@ public class LAB implements ValueIndex {
         ReadIndex flushingMemoryIndexReader = null;
         try {
             while (true) {
-                RawMemoryIndex memoryIndexStackCopy;
-                RawMemoryIndex flushingMemoryIndexStackCopy;
+                RawConcurrentReadableIndex memoryIndexStackCopy;
+                RawConcurrentReadableIndex flushingMemoryIndexStackCopy;
 
                 if (acquireCommitSemaphore) {
                     commitSemaphore.acquire();
@@ -381,20 +382,12 @@ public class LAB implements ValueIndex {
 
     }
 
-    private boolean mightContain(RawMemoryIndex memoryIndexStackCopy, long newerThanTimestamp, long newerThanTimestampVersion) {
+    private boolean mightContain(RawConcurrentReadableIndex memoryIndexStackCopy, long newerThanTimestamp, long newerThanTimestampVersion) {
         TimestampAndVersion timestampAndVersion = memoryIndexStackCopy.maxTimestampAndVersion();
         return rawhide.mightContain(timestampAndVersion.maxTimestamp,
             timestampAndVersion.maxTimestampVersion,
             newerThanTimestamp,
             newerThanTimestampVersion);
-    }
-
-    private boolean isNewerThan(long timestamp, long timestampVersion, RawMemoryIndex memoryIndexStackCopy) {
-        TimestampAndVersion timestampAndVersion = memoryIndexStackCopy.maxTimestampAndVersion();
-        return rawhide.isNewerThan(timestamp,
-            timestampVersion,
-            timestampAndVersion.maxTimestamp,
-            timestampAndVersion.maxTimestampVersion);
     }
 
     @Override

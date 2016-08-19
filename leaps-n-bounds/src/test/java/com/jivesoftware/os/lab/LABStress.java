@@ -11,6 +11,9 @@ import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
+import com.jivesoftware.os.mlogger.core.ValueType;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
@@ -24,6 +27,8 @@ import org.testng.annotations.Test;
  * @author jonathan.colt
  */
 public class LABStress {
+
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     @Test(enabled = false)
     public void stressWrites() throws Exception {
@@ -256,12 +261,28 @@ public class LABStress {
             }
 
             c++;
-            System.out.println(
-                name + ":" + c
+
+            long reads = misses.get() + hits.get();
+
+            LOG.set(ValueType.VALUE, "writesPerSecond", writesPerSecond);
+            LOG.set(ValueType.VALUE, "writeRate", (long) writeRate);
+            LOG.set(ValueType.VALUE, "writeElapse", writeElapse);
+            LOG.set(ValueType.VALUE, "reads", reads);
+            LOG.set(ValueType.VALUE, "readRate", (long) readRate);
+            LOG.set(ValueType.VALUE, "readElapse", readElapse);
+            LOG.set(ValueType.VALUE, "hits", hits.get());
+            LOG.set(ValueType.VALUE, "misses", misses.get());
+            LOG.set(ValueType.VALUE, "misses", misses.get());
+            LOG.set(ValueType.VALUE, "mergeCount", RangeStripedCompactableIndexes.mergeCount.get());
+            LOG.set(ValueType.VALUE, "splitCount", RangeStripedCompactableIndexes.splitCount.get());
+            LOG.set(ValueType.VALUE, "pointTxIndexCount", LAB.pointTxIndexCount.get());
+            LOG.set(ValueType.VALUE, "pointTxCalled", LAB.pointTxCalled.get());
+
+            System.out.println(name + ":" + c
                 + ", " + writesPerSecond
                 + ", " + writeRate
                 + ", " + writeElapse
-                + ", " + (misses.get() + hits.get())
+                + ", " + reads
                 + ", " + readRate
                 + ", " + readElapse
                 + ", " + hits.get() + ", " + misses.get()

@@ -34,7 +34,6 @@ public class ActiveScan implements ScanFromFp {
     private final Footer footer;
     private final IReadable readable;
     private final byte[] cacheKeyBuffer;
-    private byte[] entryBuffer;
     private long activeFp = Long.MAX_VALUE;
     private boolean activeResult;
 
@@ -107,7 +106,6 @@ public class ActiveScan implements ScanFromFp {
         Leaps l = leaps;
         long rowIndex = -1;
         ByteBuffer bbKey = ByteBuffer.wrap(key);
-
 
         if (rawhide.compareKeys(l.lastKey, bbKey) < 0) {
             return rowIndex;
@@ -183,8 +181,8 @@ public class ActiveScan implements ScanFromFp {
             return -1;
         } else {
             try {
-            return startOfEntryBuffer.get(low);
-            } catch(Exception x) {
+                return startOfEntryBuffer.get(low);
+            } catch (Exception x) {
                 throw x;
             }
         }

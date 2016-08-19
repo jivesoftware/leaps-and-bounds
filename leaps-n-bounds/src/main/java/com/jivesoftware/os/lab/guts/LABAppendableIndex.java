@@ -66,11 +66,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
     }
 
     @Override
-    public IndexRangeId id() {
-        return indexRangeId;
-    }
-
-    @Override
     public boolean append(AppendEntries appendEntries) throws Exception {
         if (appendOnly == null) {
             appendOnly = index.appender();

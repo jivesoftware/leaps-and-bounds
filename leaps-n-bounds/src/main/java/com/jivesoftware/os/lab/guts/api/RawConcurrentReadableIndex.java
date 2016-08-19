@@ -36,4 +36,6 @@ public interface RawConcurrentReadableIndex {
 
     TimestampAndVersion maxTimestampAndVersion();
 
+    boolean containsKeyInRange(byte[] from, byte[] to);
+
 }

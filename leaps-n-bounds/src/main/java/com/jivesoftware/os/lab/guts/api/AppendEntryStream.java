@@ -8,5 +8,9 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
  */
 public interface AppendEntryStream {
 
-    boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, byte[] rawEntry, int offset, int length) throws Exception;
+    boolean stream(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
+        byte[] rawEntry,
+        int offset,
+        int length) throws Exception;
 }

@@ -29,7 +29,12 @@ public class LabHeapPressure {
     private final Map<LAB, Boolean> labs = new ConcurrentHashMap<>();
     private final AtomicBoolean running = new AtomicBoolean();
 
-    public LabHeapPressure(ExecutorService schedule, String name, long maxHeapPressureInBytes, long blockOnHeapPressureInBytes, AtomicLong globalHeapCostInBytes) {
+    public LabHeapPressure(ExecutorService schedule,
+        String name,
+        long maxHeapPressureInBytes,
+        long blockOnHeapPressureInBytes,
+        AtomicLong globalHeapCostInBytes) {
+
         this.schedule = schedule;
         this.name = name;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;

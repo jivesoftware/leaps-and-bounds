@@ -10,6 +10,7 @@ import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -243,6 +244,12 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     @Override
     public TimestampAndVersion maxTimestampAndVersion() {
         return footer.maxTimestampAndVersion;
+    }
+
+    @Override
+    public boolean containsKeyInRange(byte[] from, byte[] to) {
+        Comparator<byte[]> keyComparator = rawhide.getKeyComparator();
+        return keyComparator.compare(footer.minKey, from) <= 0 && keyComparator.compare(footer.maxKey, to) >= 0;
     }
 
     @Override

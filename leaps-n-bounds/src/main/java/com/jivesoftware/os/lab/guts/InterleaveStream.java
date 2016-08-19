@@ -102,7 +102,7 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
         private FormatTransformer nextReadKeyFormatTransformer;
         private FormatTransformer nextReadValueFormatTransformer;
         private ByteBuffer nextRawEntry;
-        
+
         public Feed(int index, NextRawEntry feed, Rawhide rawhide) {
             this.index = index;
             this.feed = feed;

@@ -10,6 +10,7 @@ import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
+import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
@@ -283,13 +284,13 @@ public class RangeStripedCompactableIndexes {
             FileUtils.deleteQuietly(splittingRoot);
         }
 
-        void append(RawMemoryIndex rawMemoryIndex, byte[] minKey, byte[] maxKey, boolean fsync) throws Exception {
+        void append(RawConcurrentReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync) throws Exception {
 
-            LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawMemoryIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync);
+            LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawConcurrentReadableIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync);
             compactableIndexes.append(lab);
         }
 
-        private LeapsAndBoundsIndex flushMemoryIndexToDisk(RawMemoryIndex index,
+        private LeapsAndBoundsIndex flushMemoryIndexToDisk(RawConcurrentReadableIndex rawConcurrentReadableIndex,
             byte[] minKey,
             byte[] maxKey,
             long nextIndexId,
@@ -302,9 +303,10 @@ public class RangeStripedCompactableIndexes {
             File commitingRoot = new File(stripeRoot, "commiting");
             FileUtils.forceMkdir(commitingRoot);
 
-            LOG.debug("Commiting memory index ({}) to on disk index: {}", index.count(), activeRoot);
+            long count = rawConcurrentReadableIndex.count();
+            LOG.debug("Commiting memory index to on disk index: {}", count, activeRoot);
 
-            int maxLeaps = calculateIdealMaxLeaps(index.count(), entriesBetweenLeaps);
+            int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
             File commitingIndexFile = indexRangeId.toFile(commitingRoot);
             FileUtils.deleteQuietly(commitingIndexFile);
@@ -323,7 +325,7 @@ public class RangeStripedCompactableIndexes {
                     writeValueFormatTransformer,
                     format);
                 appendableIndex.append((stream) -> {
-                    ReadIndex reader = index.acquireReader();
+                    ReadIndex reader = rawConcurrentReadableIndex.acquireReader();
                     try {
                         NextRawEntry rangeScan = reader.rangeScan(minKey, maxKey);
                         RawEntryStream rawEntryStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
@@ -569,7 +571,7 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public void append(RawMemoryIndex rawMemoryIndex, boolean fsync) throws Exception {
+    public void append(RawConcurrentReadableIndex rawMemoryIndex, boolean fsync) throws Exception {
         appendSemaphore.acquire();
         try {
             byte[] minKey = rawMemoryIndex.minKey();

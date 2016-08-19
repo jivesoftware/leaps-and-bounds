@@ -304,13 +304,13 @@ public class CompactableIndexes {
                                     return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                                         int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
                                             ByteBuffer.wrap(middle));
-                                        byte[] rawEntryBytes = IndexUtil.toByteArray(rawEntry);
+                                        byte[] bytes = IndexUtil.toByteArray(rawEntry);
                                         if (c < 0) {
-                                            if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBytes, 0, rawEntryBytes.length)) {
+                                            if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, bytes, 0, bytes.length)) {
                                                 return false;
                                             }
-                                        } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBytes, 0,
-                                            rawEntryBytes.length)) {
+                                        } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, bytes, 0,
+                                            bytes.length)) {
                                             return false;
                                         }
                                         return true;

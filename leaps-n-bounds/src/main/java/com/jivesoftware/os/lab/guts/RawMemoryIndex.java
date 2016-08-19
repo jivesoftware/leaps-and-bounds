@@ -4,7 +4,6 @@ import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
-import com.jivesoftware.os.lab.guts.api.AppendEntryStream;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
@@ -16,6 +15,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author jonathan.colt
  */
-public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadableIndex, AppendEntries {
+public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadableIndex {
 
-    private final ConcurrentSkipListMap<byte[], byte[]> index;
+    private final SortedMap<byte[], byte[]> index;
     private final AtomicLong approximateCount = new AtomicLong();
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
@@ -124,17 +124,18 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
         };
     }
 
+    @Override
     public boolean containsKeyInRange(byte[] from, byte[] to) {
         return !subMap(from, to).isEmpty();
     }
 
     private Map<byte[], byte[]> subMap(byte[] from, byte[] to) {
         if (from != null && to != null) {
-            return index.subMap(from, true, to, false);
+            return index.subMap(from, to);
         } else if (from != null) {
-            return index.tailMap(from, true);
+            return index.tailMap(from);
         } else if (to != null) {
-            return index.headMap(to, false);
+            return index.headMap(to);
         } else {
             return index;
         }
@@ -148,17 +149,6 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     @Override
     public IndexRangeId id() {
         return null;
-    }
-
-    @Override
-    public boolean consume(AppendEntryStream stream) throws Exception {
-        for (Map.Entry<byte[], byte[]> e : index.entrySet()) {
-            byte[] entry = e.getValue();
-            if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, entry, 0, entry.length)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     @Override

@@ -85,13 +85,13 @@ public interface Rawhide {
         return IndexUtil.compare(aKey, bKey);
     }
 
-    static final Comparator<ByteBuffer> byteBufferKeyComparator = IndexUtil::compare;
+    final Comparator<ByteBuffer> byteBufferKeyComparator = IndexUtil::compare;
 
     default Comparator<ByteBuffer> getByteBufferKeyComparator() {
         return byteBufferKeyComparator;
     }
 
-    static final Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
+    final Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
 
     default Comparator<byte[]> getKeyComparator() {
         return keyComparator;
