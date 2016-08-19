@@ -22,14 +22,16 @@ public class LabHeapPressure {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final ExecutorService schedule;
+    private final String name;
     private final long maxHeapPressureInBytes;
     private final long blockOnHeapPressureInBytes;
     private final AtomicLong globalHeapCostInBytes;
     private final Map<LAB, Boolean> labs = new ConcurrentHashMap<>();
     private final AtomicBoolean running = new AtomicBoolean();
 
-    public LabHeapPressure(ExecutorService schedule, long maxHeapPressureInBytes, long blockOnHeapPressureInBytes, AtomicLong globalHeapCostInBytes) {
+    public LabHeapPressure(ExecutorService schedule, String name, long maxHeapPressureInBytes, long blockOnHeapPressureInBytes, AtomicLong globalHeapCostInBytes) {
         this.schedule = schedule;
+        this.name = name;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.blockOnHeapPressureInBytes = blockOnHeapPressureInBytes;
         this.globalHeapCostInBytes = globalHeapCostInBytes;
@@ -53,7 +55,7 @@ public class LabHeapPressure {
 
     void commitIfNecessary(LAB lab, long labMaxHeapPressureInBytes, boolean fsyncOnFlush) throws Exception {
         if (lab.approximateHeapPressureInBytes() > labMaxHeapPressureInBytes) {
-            LOG.inc("lab>commit>instance>" + fsyncOnFlush);
+            LOG.inc("lab>pressure>commit>" + name);
             labs.remove(lab);
             lab.commit(fsyncOnFlush, false); // todo config
         } else {
@@ -62,17 +64,17 @@ public class LabHeapPressure {
             });
         }
         long globalHeap = globalHeapCostInBytes.get();
-        LOG.set(ValueType.VALUE, "lab>heap>pressure", globalHeap);
-        LOG.set(ValueType.VALUE, "lab>commitable", labs.size());
+        LOG.set(ValueType.VALUE, "lab>heap>pressure>" + name, globalHeap);
+        LOG.set(ValueType.VALUE, "lab>commitable>" + name, labs.size());
         if (globalHeap > maxHeapPressureInBytes) {
 
             if (running.compareAndSet(false, true)) {
                 schedule.submit(() -> {
                     try {
-                        LOG.incAtomic("lab>heap>flushing");
+                        LOG.incAtomic("lab>heap>flushing>" + name);
                         long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
                         if (debtInBytes <= 0) {
-                            LOG.inc("lab>commit>global>skip");
+                            LOG.inc("lab>commit>global>skip>" + name);
                             return null;
                         }
                         LAB[] keys = labs.keySet().toArray(new LAB[0]);
@@ -85,13 +87,13 @@ public class LabHeapPressure {
                         int i = 0;
                         while (i < keys.length && debtInBytes > 0) {
                             long pressure = Long.MAX_VALUE - pressures[i];
-                            LOG.inc("lab>commit>global>pressure>" + UIO.chunkPower(pressure, 0));
+                            LOG.inc("lab>commit>global>pressure>" + name + ">" + UIO.chunkPower(pressure, 0));
                             debtInBytes -= pressure;
                             Boolean efsyncOnFlush = this.labs.remove(keys[i]);
                             if (efsyncOnFlush != null) {
                                 try {
-                                    LOG.inc("lab>commit>global>" + efsyncOnFlush);
-                                    LOG.set(ValueType.VALUE, "lab>commitable", this.labs.size());
+                                    LOG.inc("lab>global>pressure>commit>" + name);
+                                    LOG.set(ValueType.VALUE, "lab>commitable>" + name, this.labs.size());
                                     LOG.debug("Forcing flush due to heap pressure. lab:{}", lab);
                                     keys[i].commit(efsyncOnFlush, false); // todo config
                                 } catch (LABIndexCorruptedException | LABIndexClosedException x) {
@@ -104,24 +106,24 @@ public class LabHeapPressure {
                             }
                             i++;
                         }
-                        LOG.inc("lab>commit>global>depth>" + UIO.chunkPower(i, 0));
+                        LOG.inc("lab>commit>global>depth>" + name + ">" + UIO.chunkPower(i, 0));
                         return null;
                     } finally {
                         running.set(false);
-                        LOG.decAtomic("lab>heap>flushing");
+                        LOG.decAtomic("lab>heap>flushing>" + name);
                     }
                 });
             }
 
             while (globalHeap > blockOnHeapPressureInBytes) {
                 try {
-                    LOG.incAtomic("lab>heap>blocking");
+                    LOG.incAtomic("lab>heap>blocking>" + name);
                     synchronized (globalHeapCostInBytes) {
                         globalHeapCostInBytes.wait();
                     }
                     globalHeap = globalHeapCostInBytes.get();
                 } finally {
-                    LOG.decAtomic("lab>heap>blocking");
+                    LOG.decAtomic("lab>heap>blocking>" + name);
                 }
             }
         }

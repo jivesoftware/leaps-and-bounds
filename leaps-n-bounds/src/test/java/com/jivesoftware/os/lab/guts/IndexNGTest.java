@@ -68,7 +68,8 @@ public class IndexNGTest {
         int step = 10;
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), -1, -1, new AtomicLong()),
+        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
+            new AtomicLong()),
             new SimpleRawhide());
 
         IndexTestUtils.append(new Random(), walIndex, 0, step, count, desired);
@@ -85,7 +86,7 @@ public class IndexNGTest {
         int step = 10;
 
         RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy,
-            new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), -1, -1, new AtomicLong()), new SimpleRawhide());
+            new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong()), new SimpleRawhide());
 
         IndexTestUtils.append(new Random(), memoryIndex, 0, step, count, desired);
         assertions(memoryIndex, count, step, desired);
