@@ -48,13 +48,13 @@ public class LabWAL {
 
     private static final byte ENTRY = 0;
     private static final byte BATCH_ISOLATION = 1;
-    private static final byte FSYNC_ISOLATION = 2;
+    private static final byte COMMIT_ISOLATION = 2;
     private static final int[] MAGIC = new int[3];
 
     static {
         MAGIC[ENTRY] = 351126232;
         MAGIC[BATCH_ISOLATION] = 759984878;
-        MAGIC[FSYNC_ISOLATION] = 266850631;
+        MAGIC[COMMIT_ISOLATION] = 266850631;
     }
 
     private final List<ActiveWAL> oldWALs = Lists.newCopyOnWriteArrayList();
@@ -68,16 +68,19 @@ public class LabWAL {
     private final long maxWALSizeInBytes;
     private final long maxEntriesPerWAL;
     private final long maxEntrySizeInBytes;
+    private final long maxValueIndexHeapPressureOverride;
 
     public LabWAL(File walRoot,
         long maxWALSizeInBytes,
         long maxEntriesPerWAL,
-        long maxEntrySizeInBytes) throws IOException {
+        long maxEntrySizeInBytes,
+        long maxValueIndexHeapPressureOverride) throws IOException {
 
         this.walRoot = walRoot;
         this.maxWALSizeInBytes = maxWALSizeInBytes;
         this.maxEntriesPerWAL = maxEntriesPerWAL;
         this.maxEntrySizeInBytes = maxEntrySizeInBytes;
+        this.maxValueIndexHeapPressureOverride = maxValueIndexHeapPressureOverride;
     }
 
     public int oldWALCount() {
@@ -167,7 +170,7 @@ public class LabWAL {
                                     valueIndexConfig.formatTransformerProviderName);
                                 Rawhide rawhide = environment.rawhide(valueIndexConfig.rawhideName);
                                 RawEntryFormat rawEntryFormat = environment.rawEntryFormat(valueIndexConfig.rawEntryFormatName);
-                                ValueIndex appendToValueIndex = openValueIndex(environment, valueIndexId, valueIndexes);
+                                LAB appendToValueIndex = (LAB)openValueIndex(environment, valueIndexId, valueIndexes);
 
                                 FormatTransformer readKey = formatTransformerProvider.read(rawEntryFormat.getKeyFormat());
                                 FormatTransformer readValue = formatTransformerProvider.read(rawEntryFormat.getValueFormat());
@@ -184,11 +187,11 @@ public class LabWAL {
                                         }
                                     }
                                     return true;
-                                }, true);
+                                }, true, maxValueIndexHeapPressureOverride);
 
                                 valueIndexVersionedEntries.removeAll(appendVersion);
                             }
-                        }
+                        } 
                     }
                 } catch (CorruptionDetectedException | EOFException x) {
                     LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", reader.getFilePointer(), reader.length(), walFile, x.getClass());

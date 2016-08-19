@@ -42,7 +42,8 @@ public class LABEnvironmentNGTest {
             LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
-                1000, 1024 * 1024 * 10, root,
+                1000, 1024 * 1024 * 10,
+                1024 * 1024 * 10,root,
                 labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.emptyList());
 
@@ -62,7 +63,8 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
-                1000, 1024 * 1024 * 10, root,
+                1000, 1024 * 1024 * 10,
+                1024 * 1024 * 10, root,
                 labHeapPressure, 4, 8, leapsCache);
 
             index = env.open(valueIndexConfig);
@@ -81,7 +83,8 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
-                1000, 1024 * 1024 * 10, root,
+                1000, 1024 * 1024 * 10,
+                1024 * 1024 * 10, root,
                 labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.singletonList("foo"));
             env.rename("foo", "bar");
@@ -104,7 +107,8 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
                 "wal", 1024 * 1024 * 10,
-                1000, 1024 * 1024 * 10, root,
+                1000, 1024 * 1024 * 10,
+                1024 * 1024 * 10, root,
                 labHeapPressure, 4, 8, leapsCache);
             assertEquals(env.list(), Collections.singletonList("bar"));
             env.remove("bar");
@@ -175,7 +179,8 @@ public class LABEnvironmentNGTest {
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
-            1000, 1024 * 1024 * 10, root,
+            1000, 1024 * 1024 * 10,
+            1024 * 1024 * 10, root,
             labHeapPressure, 4, 8, leapsCache);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
@@ -197,7 +202,8 @@ public class LABEnvironmentNGTest {
         env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
-            1000, 1024 * 1024 * 10, root,
+            1000, 1024 * 1024 * 10,
+            1024 * 1024 * 10, root,
             labHeapPressure, 4, 8, leapsCache);
         System.out.println("Recreate env");
 
@@ -227,6 +233,7 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
             1000,
+            1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 4, 8, leapsCache);
 
@@ -250,6 +257,7 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
             1000,
+            1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 4, 8, leapsCache);
         System.out.println("Recreate env");
@@ -269,6 +277,7 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
             1000,
+            1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 4, 8, leapsCache);
         System.out.println("Re-Recreate env");

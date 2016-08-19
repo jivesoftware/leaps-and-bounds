@@ -392,18 +392,22 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend) throws Exception {
-        return internalAppend(true, fsyncAfterAppend, values, fsyncAfterAppend);
+        return internalAppend(true, values, fsyncAfterAppend, -1);
     }
 
     @Override
     public boolean append(AppendValues values, boolean fsyncOnFlush) throws Exception {
-        return internalAppend(false, false, values, fsyncOnFlush);
+        return internalAppend(false, values, fsyncOnFlush, -1);
+    }
+
+    public boolean append(AppendValues values, boolean fsyncOnFlush, long overrideMaxHeapPressureInBytes) throws Exception {
+        return internalAppend(false, values, fsyncOnFlush, overrideMaxHeapPressureInBytes);
     }
 
     private boolean internalAppend(boolean appendToWal,
-        boolean fsyncAfterAppend,
         AppendValues values,
-        boolean fsyncOnFlush) throws Exception, InterruptedException {
+        boolean fsyncOnFlush,
+        long overrideMaxHeapPressureInBytes) throws Exception, InterruptedException {
 
         if (values == null) {
             return false;
@@ -480,8 +484,7 @@ public class LAB implements ValueIndex {
         } finally {
             commitSemaphore.release();
         }
-
-        labHeapFlusher.commitIfNecessary(this, maxHeapPressureInBytes, fsyncOnFlush);
+        labHeapFlusher.commitIfNecessary(this, overrideMaxHeapPressureInBytes >= 0 ? overrideMaxHeapPressureInBytes : maxHeapPressureInBytes, fsyncOnFlush);
         return appended;
     }
 

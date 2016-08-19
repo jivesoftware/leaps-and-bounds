@@ -141,6 +141,7 @@ public class LABStress {
             1024 * 1024 * 10,
             1000,
             1024 * 1024 * 10,
+            1024 * 1024 * 10,
             root, // rootFile
             labHeapPressure,
             4, // minMergeDebt

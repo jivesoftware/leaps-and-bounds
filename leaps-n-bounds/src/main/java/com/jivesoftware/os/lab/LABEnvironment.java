@@ -85,6 +85,7 @@ public class LABEnvironment {
         long maxWALSizeInBytes,
         long maxEntriesPerWAL,
         long maxEntrySizeInBytes,
+        long maxValueIndexHeapPressureOverride,
         File labRoot,
         LabHeapPressure labHeapPressure,
         int minMergeDebt,
@@ -105,7 +106,7 @@ public class LABEnvironment {
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
         this.walName = walName;
-        this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes);
+        this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
 
     }
 

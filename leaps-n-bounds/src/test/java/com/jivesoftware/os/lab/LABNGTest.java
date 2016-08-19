@@ -37,7 +37,8 @@ public class LABNGTest {
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1), LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
-            1000, 1024 * 1024 * 10, root,
+            1000, 1024 * 1024 * 10,
+            1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache);
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
@@ -143,7 +144,8 @@ public class LABNGTest {
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
             "wal", 1024 * 1024 * 10,
-            1000, 1024 * 1024 * 10, root,
+            1000, 1024 * 1024 * 10,
+            1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,

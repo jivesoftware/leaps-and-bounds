@@ -48,7 +48,7 @@ public class LABValidationNGTest {
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", 1024 * 1024 * 10, 1024 * 1024 * 10,
             new AtomicLong());
 
-        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10);
+        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.SINGLETON,
@@ -164,7 +164,7 @@ public class LABValidationNGTest {
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", 1024 * 1024 * 10, 1024 * 1024 * 10,
             new AtomicLong());
 
-        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10);
+        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.SINGLETON,

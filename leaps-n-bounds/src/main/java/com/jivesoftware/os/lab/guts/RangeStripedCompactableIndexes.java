@@ -765,7 +765,7 @@ public class RangeStripedCompactableIndexes {
     public long count() throws Exception {
         long count = 0;
         for (FileBackMergableIndexs index : indexes.values()) {
-            count = index.count();
+            count = +index.count();
         }
         return count;
     }
