@@ -30,7 +30,7 @@ public class LABStress {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void stressWrites() throws Exception {
 
         File root = Files.createTempDir();
@@ -43,7 +43,7 @@ public class LABStress {
         String write = stress("warm:jit",
             index,
             totalCardinality,
-            300_000, // writesPerSecond
+            800_000, // writesPerSecond
             1_000_000, //writeCount
             true, // writeMonotonicly
             1, //readForNSeconds
@@ -78,7 +78,7 @@ public class LABStress {
         write = stress("stress:RW",
             index,
             totalCardinality,
-            300_000, // writesPerSecond
+            800_000, // writesPerSecond
             50_000_000, //writeCount
             true, // writeMonotonicly
             0, //readForNSeconds

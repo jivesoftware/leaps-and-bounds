@@ -24,18 +24,6 @@ import sun.misc.Unsafe;
  */
 public class IndexUtil {
 
-    public static boolean equals(ByteBuffer a, ByteBuffer b) {
-        if (a == null && b == null) {
-            return true;
-        }
-        if (a == null || b == null) {
-            return false;
-        }
-        a.clear();
-        b.clear();
-        return a.equals(b);
-    }
-
     public static String toString(ByteBuffer bb) {
         return Arrays.toString(toByteArray(bb));
     }
@@ -149,29 +137,6 @@ public class IndexUtil {
         }
     }
 
-    public static int compare(IReadable left, int leftLength, byte[] right, int rightOffset, int rightLength) throws IOException {
-        int minLength = Math.min(leftLength, rightLength);
-        for (int i = 0; i < minLength; i++) {
-            int result = (left.read() & 0xFF) - (right[rightOffset + i] & 0xFF);
-            if (result != 0) {
-                return result;
-            }
-        }
-        return leftLength - rightLength;
-    }
-
-    public static int compare(IReadable left, int leftLength, ByteBuffer right) throws IOException {
-        int rightLength = right.capacity();
-        int minLength = Math.min(leftLength, rightLength);
-        for (int i = 0; i < minLength; i++) {
-            int result = (left.read() & 0xFF) - (right.get(i) & 0xFF);
-            if (result != 0) {
-                return result;
-            }
-        }
-        return leftLength - rightLength;
-    }
-
     public static int compare(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {
         if (theUnsafe != null) {
             return compareNative(left, leftOffset, leftLength, right, rightOffset, rightLength);
@@ -219,6 +184,25 @@ public class IndexUtil {
         return leftLength - rightLength;
     }
 
+    public static int compare(IReadable left, int leftLength, ByteBuffer right) throws IOException {
+//        if (left.canSlice(leftLength)) {
+//            return compare(left.slice(leftLength), right);
+//        } else {
+//            byte[] rawEntry = new byte[leftLength];
+//            left.read(rawEntry);
+//            return compare(ByteBuffer.wrap(rawEntry), right);
+//        }
+
+        int rightLength = right.capacity();
+        int minLength = Math.min(leftLength, rightLength);
+        for (int i = 0; i < minLength; i++) {
+            int result = (left.read() & 0xFF) - (right.get(i) & 0xFF);
+            if (result != 0) {
+                return result;
+            }
+        }
+        return leftLength - rightLength;
+    }
 
     public static int compare(ByteBuffer left, ByteBuffer right) {
         int leftLength = left.capacity();

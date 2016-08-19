@@ -112,6 +112,7 @@ public class FixedWidthRawhide implements Rawhide {
         FormatTransformer readValueFormatTransormer,
         IReadable readable,
         ByteBuffer compareKey) throws Exception {
+
         return IndexUtil.compare(readable, keyLength, compareKey);
     }
 

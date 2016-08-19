@@ -14,6 +14,7 @@ import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
+import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
@@ -305,6 +306,8 @@ public class RangeStripedCompactableIndexes {
 
             long count = rawConcurrentReadableIndex.count();
             LOG.debug("Commiting memory index to on disk index: {}", count, activeRoot);
+            LOG.inc("flushMemoryIndexToDisk");
+            LOG.inc("flushMemoryIndexToDisk>" + UIO.chunkPower(count, 0));
 
             int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
@@ -365,6 +368,9 @@ public class RangeStripedCompactableIndexes {
             LeapsAndBoundsIndex reopenedIndex = new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, formatTransformerProvider, rawhide, leapsCache);
             reopenedIndex.flush(fsync);  // Sorry
             // TODO Files.fsync index when java 9 supports it.
+            LOG.inc("movedIntoPlace");
+            LOG.inc("movedIntoPlace>" + UIO.chunkPower(indexFile.length(), 0));
+
             return reopenedIndex;
         }
 
@@ -587,6 +593,7 @@ public class RangeStripedCompactableIndexes {
                     stripeId,
                     new CompactableIndexes(rawhide));
                 index.append(rawMemoryIndex, null, null, fsync);
+
                 synchronized (copyIndexOnWrite) {
                     ConcurrentSkipListMap<byte[], FileBackMergableIndexs> copyOfIndexes = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
                     copyOfIndexes.putAll(indexes);
