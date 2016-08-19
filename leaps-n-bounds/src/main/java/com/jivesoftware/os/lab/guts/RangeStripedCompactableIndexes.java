@@ -417,6 +417,7 @@ public class RangeStripedCompactableIndexes {
             long nextStripeIdRight = largestStripeId.incrementAndGet();
             FileBackMergableIndexs self = this;
             splitCount.incrementAndGet();
+            LOG.inc("split");
             return () -> {
                 appendSemaphore.acquire(Short.MAX_VALUE);
                 try {
@@ -537,6 +538,7 @@ public class RangeStripedCompactableIndexes {
             FormatTransformer writeValueFormatTransformer = formatTransformerProvider.write(format.getValueFormat());
 
             mergeCount.incrementAndGet();
+            LOG.inc("merge");
             return callback.call(minimumRun, fsync, (id, count) -> {
                 int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
                 File mergingIndexFile = id.toFile(mergingRoot);
