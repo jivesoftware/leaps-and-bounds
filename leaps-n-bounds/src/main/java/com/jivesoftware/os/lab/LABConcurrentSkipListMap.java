@@ -1625,6 +1625,12 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
 
     }
 
+    public void freeAll() {
+        for (Iterator<byte[]> iterator = new FreeIterator(); iterator.hasNext();) {
+            iterator.next();
+        }
+        comparator.freeAll();
+    }
 
     /* ---------------- View methods -------------- */
 
@@ -2182,6 +2188,19 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             lastReturned = null;
         }
 
+    }
+
+    final class FreeIterator extends Iter<byte[]> {
+
+        @Override
+        public byte[] next() {
+            Node n = next;
+            advance();
+            byte[] freeing = comparator.bytes(n.key);
+            comparator.free(n.key);
+            comparator.free(n.value);
+            return freeing;
+        }
     }
 
     final class ValueIterator extends Iter<byte[]> {

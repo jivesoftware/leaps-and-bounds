@@ -87,6 +87,9 @@ public class LABIndexableMemory implements Comparator<Long> {
     }
 
     public void free(long index) {
+        if (index == -1) {
+            return;
+        }
 
 //        int size = memory.readInt(index);
 //        memory.freeMemory(index, size + 4);
