@@ -5,6 +5,7 @@ import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -960,7 +961,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                     n = f;
                     continue;
                 }
-                if (value != null && !value.equals(comparator.bytes((Long) v))) {
+                if (value != null && !Arrays.equals((byte[])value, comparator.bytes((Long) v))) {
                     break outer;
                 }
                 if (!n.casValue(v, null)) {
@@ -1407,7 +1408,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
         }
         for (Node n = findFirst(); n != null; n = n.next) {
             byte[] v = n.getValidValue(comparator);
-            if (v != null && value.equals(v)) {
+            if (v != null && Arrays.equals((byte[]) value, v)) {
                 return true;
             }
         }
@@ -1836,7 +1837,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                 return false;
             }
             if ((v = n.value) != null) {
-                if (!oldValue.equals(comparator.bytes((Long) v))) {
+                if (!Arrays.equals(oldValue, comparator.bytes((Long) v))) {
                     return false;
                 }
                 long nid = comparator.allocate(newValue);
@@ -2900,7 +2901,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                 isBeforeEnd(n, m.comparator);
                 n = n.next) {
                 byte[] v = n.getValidValue(m.comparator);
-                if (v != null && value.equals(v)) {
+                if (v != null && Arrays.equals((byte[]) value, v)) {
                     return true;
                 }
             }
