@@ -430,6 +430,7 @@ public class LAB implements ValueIndex {
                 appendVersion = -1;
             }
 
+            long[] count = { 0 };
             appended = memoryIndex.append(
                 (stream) -> {
                     return values.consume(
@@ -440,6 +441,7 @@ public class LAB implements ValueIndex {
                                 wal.append(walId, appendVersion, rawEntry);
                             }
 
+                            count[0]++;
                             return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
 
                             /*RawMemoryIndex copy = flushingMemoryIndex;
@@ -479,6 +481,7 @@ public class LAB implements ValueIndex {
                     );
                 }
             );
+            LOG.inc("append>count", count[0]);
 
             if (appendToWal) {
                 wal.flush(walId, appendVersion, fsyncOnFlush);
@@ -521,6 +524,7 @@ public class LAB implements ValueIndex {
             if (stackCopy.isEmpty()) {
                 return false;
             }
+            LOG.inc("commit>count", stackCopy.count());
             flushingMemoryIndex = stackCopy;
             memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide);
             rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync);
