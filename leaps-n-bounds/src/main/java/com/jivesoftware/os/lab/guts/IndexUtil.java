@@ -208,6 +208,16 @@ public class IndexUtil {
         int leftLength = left.capacity();
         int rightLength = right.capacity();
 
+//        int minLength = Math.min(leftLength, rightLength);
+//        for (int i = 0; i < minLength; i++) {
+//            int result = (left.get(i) & 0xFF) - (right.get(i) & 0xFF);
+//            if (result != 0) {
+//                return result;
+//            }
+//        }
+//        return leftLength - rightLength;
+
+
         int minLength = Math.min(leftLength, rightLength);
         int minWords = minLength / 8;
 

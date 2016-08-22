@@ -44,7 +44,7 @@ public class LABEnvironmentNGTest {
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
-                labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache,false);
             assertEquals(env.list(), Collections.emptyList());
 
             ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
@@ -65,7 +65,7 @@ public class LABEnvironmentNGTest {
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
-                labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache,false);
 
             index = env.open(valueIndexConfig);
             assertEquals(env.list(), Collections.singletonList("foo"));
@@ -85,7 +85,7 @@ public class LABEnvironmentNGTest {
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
-                labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache,false);
             assertEquals(env.list(), Collections.singletonList("foo"));
             env.rename("foo", "bar");
 
@@ -109,7 +109,7 @@ public class LABEnvironmentNGTest {
                 "wal", 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
-                labHeapPressure, 4, 8, leapsCache);
+                labHeapPressure, 4, 8, leapsCache,false);
             assertEquals(env.list(), Collections.singletonList("bar"));
             env.remove("bar");
             assertEquals(env.list(), Collections.emptyList());
@@ -181,7 +181,7 @@ public class LABEnvironmentNGTest {
             "wal", 1024 * 1024 * 10,
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure, 4, 8, leapsCache);
+            labHeapPressure, 4, 8, leapsCache,false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
@@ -204,7 +204,7 @@ public class LABEnvironmentNGTest {
             "wal", 1024 * 1024 * 10,
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure, 4, 8, leapsCache);
+            labHeapPressure, 4, 8, leapsCache,false);
         System.out.println("Recreate env");
 
         index = env.open(valueIndexConfig);
@@ -235,7 +235,7 @@ public class LABEnvironmentNGTest {
             1000,
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure, 4, 8, leapsCache);
+            labHeapPressure, 4, 8, leapsCache,false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
@@ -259,7 +259,7 @@ public class LABEnvironmentNGTest {
             1000,
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure, 4, 8, leapsCache);
+            labHeapPressure, 4, 8, leapsCache,false);
         System.out.println("Recreate env");
         env.open();
         System.out.println("Re-open index");
@@ -279,7 +279,7 @@ public class LABEnvironmentNGTest {
             1000,
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure, 4, 8, leapsCache);
+            labHeapPressure, 4, 8, leapsCache,false);
         System.out.println("Re-Recreate env");
         env.open();
         System.out.println("Re-Re-open index");

@@ -673,6 +673,8 @@ public class RangeStripedCompactableIndexes {
         });
     }
 
+    private static final ReadIndex[] EMPTY = new ReadIndex[0];
+
     public boolean rangeTx(int index,
         byte[] from,
         byte[] to,
@@ -685,7 +687,7 @@ public class RangeStripedCompactableIndexes {
         while (true) {
             ConcurrentSkipListMap<byte[], FileBackMergableIndexs> stackCopy = indexes;
             if (stackCopy.isEmpty()) {
-                return tx.tx(index, from, to, new ReadIndex[0], hydrateValues);
+                return tx.tx(index, from, to, EMPTY, hydrateValues);
             }
             SortedMap<byte[], FileBackMergableIndexs> map;
             if (from != null && to != null) {
@@ -709,7 +711,7 @@ public class RangeStripedCompactableIndexes {
             }
 
             if (map.isEmpty()) {
-                return tx.tx(index, from, to, new ReadIndex[0], hydrateValues);
+                return tx.tx(index, from, to, EMPTY, hydrateValues);
             } else {
                 boolean streamed = false;
                 @SuppressWarnings("unchecked")
@@ -736,7 +738,7 @@ public class RangeStripedCompactableIndexes {
                     }
                 }
                 if (!streamed) {
-                    return tx.tx(index, from, to, new ReadIndex[0], hydrateValues);
+                    return tx.tx(index, from, to, EMPTY, hydrateValues);
                 }
             }
             return true;

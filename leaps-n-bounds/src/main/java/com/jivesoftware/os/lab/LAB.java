@@ -73,6 +73,7 @@ public class LAB implements ValueIndex {
     private final String rawhideName;
     private final Rawhide rawhide;
     private final AtomicReference<RawEntryFormat> rawEntryFormat;
+    private final boolean useOffHeap;
 
     public LAB(FormatTransformerProvider formatTransformerProvider,
         String rawhideName,
@@ -93,7 +94,8 @@ public class LAB implements ValueIndex {
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
-        LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
+        boolean useOffHeap) throws Exception {
 
         this.rawhideName = rawhideName;
         this.rawhide = rawhide;
@@ -104,7 +106,7 @@ public class LAB implements ValueIndex {
         this.walId = walId;
         this.labHeapFlusher = labHeapFlusher;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
-        this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide);
+        this.memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide, useOffHeap);
         this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
         this.indexName = indexName;
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
@@ -120,6 +122,7 @@ public class LAB implements ValueIndex {
             leapsCache);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
+        this.useOffHeap = useOffHeap;
     }
 
     @Override
@@ -526,7 +529,7 @@ public class LAB implements ValueIndex {
             }
             LOG.inc("commit>count", stackCopy.count());
             flushingMemoryIndex = stackCopy;
-            memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide);
+            memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide, useOffHeap);
             rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync);
             flushingMemoryIndex = null;
             stackCopy.destroy();

@@ -121,7 +121,7 @@ public class InterleaveStreamNGTest {
 
                 memoryIndexes[i] = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
                     new AtomicLong()),
-                    rawhide);
+                    rawhide,false);
                 IndexTestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
                 System.out.println("Index " + i);
 

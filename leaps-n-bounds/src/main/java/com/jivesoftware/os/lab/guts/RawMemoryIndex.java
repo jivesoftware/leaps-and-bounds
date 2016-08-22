@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
+import com.jivesoftware.os.lab.LABIndexableMemory;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
@@ -44,11 +46,15 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final ReadIndex reader;
     private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
 
-    public RawMemoryIndex(ExecutorService destroy, LabHeapPressure labHeapPressure, Rawhide rawhide) {
+    public RawMemoryIndex(ExecutorService destroy, LabHeapPressure labHeapPressure, Rawhide rawhide, boolean useOffHeap) {
         this.destroy = destroy;
         this.labHeapPressure = labHeapPressure;
         this.rawhide = rawhide;
-        this.index = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
+        if (useOffHeap) {
+            this.index = new LABConcurrentSkipListMap(new LABIndexableMemory(rawhide.getKeyComparator()));
+        } else {
+            this.index = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
+        }
         this.reader = new ReadIndex() {
 
             @Override
@@ -215,6 +221,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             hideABone.acquire(numBones);
             try {
                 disposed.set(true);
+                //index.freeAll();
                 index.clear();
                 labHeapPressure.change(-sizeInBytes());
             } finally {

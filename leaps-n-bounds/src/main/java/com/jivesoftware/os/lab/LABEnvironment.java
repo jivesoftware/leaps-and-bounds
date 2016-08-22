@@ -47,6 +47,7 @@ public class LABEnvironment {
     private final int minMergeDebt;
     private final int maxMergeDebt;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
+    private final boolean useOffHeap;
 
     private final String walName;
     private final LabWAL wal;
@@ -90,7 +91,8 @@ public class LABEnvironment {
         LabHeapPressure labHeapPressure,
         int minMergeDebt,
         int maxMergeDebt,
-        LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws IOException {
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
+        boolean useOffHeap) throws IOException {
 
         register(NoOpFormatTransformerProvider.NAME, NoOpFormatTransformerProvider.NO_OP);
         register(KeyValueRawhide.NAME, KeyValueRawhide.SINGLETON);
@@ -107,6 +109,7 @@ public class LABEnvironment {
         this.leapsCache = leapsCache;
         this.walName = walName;
         this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
+        this.useOffHeap = useOffHeap;
 
     }
 
@@ -220,7 +223,8 @@ public class LABEnvironment {
             config.splitWhenKeysTotalExceedsNBytes,
             config.splitWhenValuesTotalExceedsNBytes,
             config.splitWhenValuesAndKeysTotalExceedsNBytes,
-            leapsCache);
+            leapsCache,
+            useOffHeap);
 
     }
 

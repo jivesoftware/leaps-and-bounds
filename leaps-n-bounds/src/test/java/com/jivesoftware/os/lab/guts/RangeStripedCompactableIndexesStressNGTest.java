@@ -157,7 +157,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
             RawMemoryIndex index = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
                 new AtomicLong()),
-                LABRawhide.SINGLETON);
+                LABRawhide.SINGLETON,false);
             long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
             indexs.append("test", index, fsync);
 

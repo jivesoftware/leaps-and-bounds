@@ -44,7 +44,8 @@ public class LABEnvironmentConcurrenyNGTest {
             labHeapPressure,
             4,
             10,
-            leapsCache);
+            leapsCache,
+            false);
 
         concurentTest(env);
     }
@@ -68,7 +69,8 @@ public class LABEnvironmentConcurrenyNGTest {
             labHeapPressure,
             4,
             10,
-            leapsCache);
+            leapsCache,
+            false);
 
         concurentTest(env);
     }
