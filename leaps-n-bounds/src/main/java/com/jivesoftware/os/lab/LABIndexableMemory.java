@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.lang.reflect.Field;
 import java.util.Comparator;
 import sun.misc.Unsafe;
@@ -9,6 +11,8 @@ import sun.misc.Unsafe;
  * @author jonathan.colt
  */
 public class LABIndexableMemory implements Comparator<Long> {
+
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private static Unsafe unsafe;
 
@@ -70,6 +74,7 @@ public class LABIndexableMemory implements Comparator<Long> {
         if (bytes == null) {
             throw new IllegalStateException();
         }
+        LOG.incAtomic("allocate");
 
 //        long index = memory.allocate(bytes.length + 4);
 //        memory.writeInt(index, bytes.length);
@@ -90,6 +95,7 @@ public class LABIndexableMemory implements Comparator<Long> {
         if (index == -1) {
             return;
         }
+        LOG.incAtomic("free");
 
 //        int size = memory.readInt(index);
 //        memory.freeMemory(index, size + 4);
