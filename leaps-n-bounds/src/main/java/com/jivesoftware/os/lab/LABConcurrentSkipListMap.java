@@ -782,11 +782,26 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                     }
                     if (c == 0) {
                         if (onlyIfAbsent) {
+                            if (kid != NIL) {
+                                comparator.free(kid);
+                            }
+                            if (vid != NIL) {
+                                comparator.free(vid);
+                            }
                             return comparator.bytes(v);
+                        }
+                        if (vid == NIL) {
+                            vid = valueBytes == null ? NIL : comparator.allocate(valueBytes);
                         }
                         if (n.casValue(v, vid)) {
                             byte[] was = comparator.bytes(v);
                             comparator.free(v);
+                            if (kid != NIL) {
+                                comparator.free(kid);
+                            }
+                            if (vid != NIL) {
+                                comparator.free(vid);
+                            }
                             return was;
                         }
                         break; // restart if lost race to replace value
@@ -1817,7 +1832,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
         if (keyBytes == null) {
             throw new NullPointerException();
         }
-        return value != null && doRemove((byte[]) keyBytes, (byte[])value) != null;
+        return value != null && doRemove((byte[]) keyBytes, (byte[]) value) != null;
 
     }
 
