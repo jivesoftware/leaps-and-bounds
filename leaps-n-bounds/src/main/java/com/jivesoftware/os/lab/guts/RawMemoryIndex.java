@@ -50,7 +50,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
         this.destroy = destroy;
         this.labHeapPressure = labHeapPressure;
         this.rawhide = rawhide;
-        if (useOffHeap) {
+        if (true) {
             this.index = new LABConcurrentSkipListMap(new LABIndexableMemory(rawhide.getKeyComparator()));
         } else {
             this.index = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());

@@ -33,6 +33,9 @@ public class LABIndexableMemory implements Comparator<Long> {
     }
 
     public byte[] bytes(long index) {
+        if (index == -1) {
+            return null;
+        }
 
 //        int size = memory.readInt(index);
 //        byte[] bytes = new byte[size];
@@ -60,7 +63,6 @@ public class LABIndexableMemory implements Comparator<Long> {
 //
 //        byte[] wtf = new byte[bytes.length];
 //        System.arraycopy(bytes, 0, wtf, 0, bytes.length);
-
         return bytes;
     }
 
@@ -100,12 +102,16 @@ public class LABIndexableMemory implements Comparator<Long> {
         return comparator.compare(bytes(o1), bytes(o2));
     }
 
-    public int compare(Long o1, byte[] o2) {
+    public int compare(long o1, long o2) {
+        return comparator.compare(bytes(o1), bytes(o2));
+    }
+
+    public int compare(long o1, byte[] o2) {
         return comparator.compare(bytes(o1), o2);
     }
 
-    public int compare(byte[] o1, Long o2) {
-        return comparator.compare(o1, bytes(o2));
+    public int compare(byte[] o1, long o2) {
+        return comparator.compare(o1, o2 == -1 ? null : bytes(o2));
     }
 
     public int compare(byte[] o1, byte[] o2) {
