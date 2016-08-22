@@ -74,7 +74,7 @@ public class LABIndexableMemory implements Comparator<Long> {
         if (bytes == null) {
             throw new IllegalStateException();
         }
-        LOG.incAtomic("allocate");
+        LOG.incAtomic("allocated");
 
 //        long index = memory.allocate(bytes.length + 4);
 //        memory.writeInt(index, bytes.length);
@@ -95,7 +95,7 @@ public class LABIndexableMemory implements Comparator<Long> {
         if (index == -1) {
             return;
         }
-        LOG.incAtomic("free");
+        LOG.decAtomic("allocated");
 
 //        int size = memory.readInt(index);
 //        memory.freeMemory(index, size + 4);
