@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.lang.reflect.Field;
@@ -10,7 +11,7 @@ import sun.misc.Unsafe;
  *
  * @author jonathan.colt
  */
-public class LABIndexableMemory implements Comparator<Long> {
+public class LABIndexableMemory {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
@@ -28,12 +29,14 @@ public class LABIndexableMemory implements Comparator<Long> {
         }
     }
 //    private static Memory memory = OS.memory();
+    private final Rawhide rawhide;
     private final Comparator<byte[]> comparator;
 //    private final AtomicLong pointerProvider = new AtomicLong();
 //    private final Map<Long, byte[]> map = new ConcurrentHashMap<>();
 
-    public LABIndexableMemory(Comparator<byte[]> comparator) {
-        this.comparator = comparator;
+    public LABIndexableMemory(Rawhide rawhide) {
+        this.rawhide = rawhide;
+        this.comparator = rawhide.getKeyComparator();
     }
 
     public byte[] bytes(long index) {
@@ -106,28 +109,45 @@ public class LABIndexableMemory implements Comparator<Long> {
         unsafe.freeMemory(index);
     }
 
-    @Override
-    public int compare(Long o1, Long o2) {
-        return comparator.compare(bytes(o1), bytes(o2));
-    }
-
     public int compare(long o1, long o2) {
-        return comparator.compare(bytes(o1), bytes(o2));
+        if (o1 == -1 && o2 == -1) {
+            return rawhide.compareLL(-1, -1, -1, -1);
+        } else if (o1 == -1) {
+            int l2 = unsafe.getInt(o2);
+            return rawhide.compareLL(-1, -1, o2 + 4, l2);
+        } else if (o2 == -1) {
+            int l1 = unsafe.getInt(o1);
+            return rawhide.compareLL(o1 + 4, l1, -1, -1);
+        } else {
+            int l1 = unsafe.getInt(o1);
+            int l2 = unsafe.getInt(o2);
+            return rawhide.compareLL(o1 + 4, l1, o2 + 4, l2);
+        }
     }
 
     public int compare(long o1, byte[] o2) {
-        return comparator.compare(bytes(o1), o2);
+        if (o1 == -1) {
+            return rawhide.compareLB(-1, -1, o2, 0, o2 == null ? -1 : o2.length);
+        } else {
+            int l1 = unsafe.getInt(o1);
+            return rawhide.compareLB(o1 + 4, l1, o2, 0, o2 == null ? -1 : o2.length);
+        }
     }
 
     public int compare(byte[] o1, long o2) {
-        return comparator.compare(o1, o2 == -1 ? null : bytes(o2));
+        if (o2 == -1) {
+            return rawhide.compareBL(o1, 0, o1 == null ? -1 : o1.length, -1, -1);
+        } else {
+            int l2 = unsafe.getInt(o2);
+            return rawhide.compareBL(o1, 0, o1 == null ? -1 : o1.length, o2 + 4, l2);
+        }
     }
 
     public int compare(byte[] o1, byte[] o2) {
-        return comparator.compare(o1, o2);
+        return rawhide.compareBB(o1, 0, o1 == null ? -1 : o1.length, o2, 0, o2 == null ? -1 : o2.length);
     }
 
-    Comparator<? super byte[]> bytesCompartor() {
+    Comparator<? super byte[]> bytesComparator() {
         return comparator;
     }
 

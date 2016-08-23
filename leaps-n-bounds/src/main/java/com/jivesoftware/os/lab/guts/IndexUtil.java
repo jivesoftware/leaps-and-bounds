@@ -216,8 +216,6 @@ public class IndexUtil {
 //            }
 //        }
 //        return leftLength - rightLength;
-
-
         int minLength = Math.min(leftLength, rightLength);
         int minWords = minLength / 8;
 
@@ -238,5 +236,84 @@ public class IndexUtil {
         }
 
         return leftLength - rightLength;
+    }
+
+    public static int compareLL(long left, int leftLength, long right, int rightLength) {
+        if (leftLength == -1 && rightLength == -1) {
+            return 0;
+        }
+        if (leftLength == -1) {
+            return -1;
+        }
+        if (rightLength == -1) {
+            return 1;
+        }
+
+        int minLength = Math.min(leftLength, rightLength);
+        int minWords = minLength / 8;
+
+        int i;
+        for (i = 0; i < minWords * 8; i += 8) {
+            long result = theUnsafe.getLong(left + i);
+            long rw = theUnsafe.getLong(right + i);
+            if (result != rw) {
+                if (BIG_ENDIAN) {
+                    return UnsignedLongs.compare(result, rw);
+                }
+
+                int n = Long.numberOfTrailingZeros(result ^ rw) & -8;
+                return (int) ((result >>> n & 255L) - (rw >>> n & 255L));
+            }
+        }
+
+        for (i = minWords * 8; i < minLength; ++i) {
+            int var11 = UnsignedBytes.compare(theUnsafe.getByte(left + i), theUnsafe.getByte(right + i));
+            if (var11 != 0) {
+                return var11;
+            }
+        }
+
+        return leftLength - rightLength;
+
+    }
+
+    public static int compareLB(long left, int leftLength, byte[] right, int rightOffset, int rightLength) {
+        if (leftLength == -1 && rightLength == -1) {
+            return 0;
+        }
+        if (leftLength == -1) {
+            return -1;
+        }
+        if (rightLength == -1) {
+            return 1;
+        }
+
+
+        int minLength = Math.min(leftLength, rightLength);
+        int minWords = minLength / 8;
+
+        int i;
+        for (i = 0; i < minWords * 8; i += 8) {
+            long result = theUnsafe.getLong(left + i);
+            long rw = theUnsafe.getLong(right, (long) BYTE_ARRAY_BASE_OFFSET + rightOffset + i);
+            if (result != rw) {
+                if (BIG_ENDIAN) {
+                    return UnsignedLongs.compare(result, rw);
+                }
+
+                int n = Long.numberOfTrailingZeros(result ^ rw) & -8;
+                return (int) ((result >>> n & 255L) - (rw >>> n & 255L));
+            }
+        }
+
+        for (i = minWords * 8; i < minLength; ++i) {
+            int var11 = UnsignedBytes.compare(theUnsafe.getByte(left + i), right[rightOffset + i]);
+            if (var11 != 0) {
+                return var11;
+            }
+        }
+
+        return leftLength - rightLength;
+
     }
 }

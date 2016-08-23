@@ -5,7 +5,6 @@ import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -979,7 +978,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                     n = f;
                     continue;
                 }
-                if (value != null && !Arrays.equals((byte[]) value, comparator.bytes(v))) {
+                if (value != null && comparator.compare((byte[])value, v) != 0) {
                     break outer;
                 }
                 if (!n.casValue(v, NIL)) {
@@ -1425,8 +1424,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             throw new NullPointerException();
         }
         for (Node n = findFirst(); n != null; n = n.next) {
-            byte[] v = n.getValidValue(comparator);
-            if (v != null && Arrays.equals((byte[]) value, v)) {
+            if (n.value != NIL && n.value != SELF && comparator.compare((byte[]) value, n.value) == 0) {
                 return true;
             }
         }
@@ -1452,7 +1450,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
     public int size() {
         long count = 0;
         for (Node n = findFirst(); n != null; n = n.next) {
-            if (n.getValidValue(comparator) != null) {
+            if (n.value != NIL && n.value != SELF) {
                 ++count;
             }
         }
@@ -1854,7 +1852,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                 return false;
             }
             if ((v = n.value) != NIL) {
-                if (!Arrays.equals(oldValue, comparator.bytes(v))) {
+                if (comparator.compare(oldValue, v) != 0) {
                     return false;
                 }
                 long nid = comparator.allocate(newValue);
@@ -1902,7 +1900,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
 
     /* ------ SortedMap API methods ------ */
     public Comparator<? super byte[]> comparator() {
-        return comparator.bytesCompartor();
+        return comparator.bytesComparator();
     }
 
     /**
@@ -2242,7 +2240,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             Node n = next;
             byte[] v = nextValue;
             advance();
-            return new AbstractMap.SimpleImmutableEntry<byte[], byte[]>(comparator.bytes(n.key), v);
+            return new AbstractMap.SimpleImmutableEntry<>(comparator.bytes(n.key), v);
         }
     }
 
@@ -2603,9 +2601,8 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             byte[] fromKey, boolean fromInclusive,
             byte[] toKey, boolean toInclusive,
             boolean isDescending) {
-            Comparator<? super Long> cmp = map.comparator;
             if (fromKey != null && toKey != null) {
-                if (map.comparator.bytesCompartor().compare(fromKey, toKey) > 0) {
+                if (map.comparator.bytesComparator().compare(fromKey, toKey) > 0) {
                     throw new IllegalArgumentException("inconsistent range");
                 }
             }
@@ -2618,6 +2615,33 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
         }
 
         /* ----------------  Utilities -------------- */
+        boolean tooLow(long key, LABIndexableMemory cmp) {
+            int c;
+
+            if (lo != null) {
+                return ((c = cprlb(cmp, key, lo)) < 0 || (c == 0 && !loInclusive));
+
+            } else {
+                return false;
+            }
+
+        }
+
+        boolean tooHigh(long key, LABIndexableMemory cmp) {
+            int c;
+            if (hi != null) {
+                return ((c = cprlb(cmp, key, hi)) > 0 || (c == 0 && !hiInclusive));
+            } else {
+                return false;
+            }
+
+        }
+
+        boolean inBounds(long key, LABIndexableMemory cmp) {
+            return !tooLow(key, cmp) && !tooHigh(key, cmp);
+        }
+
+
         boolean tooLow(byte[] key, LABIndexableMemory cmp) {
             int c;
 
@@ -2643,6 +2667,8 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
         boolean inBounds(byte[] key, LABIndexableMemory cmp) {
             return !tooLow(key, cmp) && !tooHigh(key, cmp);
         }
+
+
 
         void checkKeyBounds(byte[] keyBytes, LABIndexableMemory cmp) {
             if (keyBytes == null) {
@@ -2750,7 +2776,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
         Map.Entry<byte[], byte[]> highestEntry() {
             for (;;) {
                 LABConcurrentSkipListMap.Node n = hiNode(m.comparator);
-                if (n == null || !inBounds(m.comparator.bytes(n.key), m.comparator)) {
+                if (n == null || !inBounds(n.key, m.comparator)) {
                     return null;
                 }
                 Map.Entry<byte[], byte[]> e = n.createSnapshot(m.comparator);
@@ -2772,7 +2798,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                 }
                 byte[] v = m.doRemove(k, null);
                 if (v != null) {
-                    return new AbstractMap.SimpleImmutableEntry<byte[], byte[]>(k, v);
+                    return new AbstractMap.SimpleImmutableEntry<>(k, v);
                 }
             }
         }
@@ -2789,7 +2815,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                 }
                 byte[] v = m.doRemove(k, null);
                 if (v != null) {
-                    return new AbstractMap.SimpleImmutableEntry<byte[], byte[]>(k, v);
+                    return new AbstractMap.SimpleImmutableEntry<>(k, v);
                 }
             }
         }
@@ -2813,13 +2839,13 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             }
             for (;;) {
                 Node n = m.findNear(key, rel, m.comparator);
-                if (n == null || !inBounds(m.comparator.bytes(n.key), m.comparator)) {
+                if (n == null || !inBounds(n.key, m.comparator)) {
                     return null;
                 }
                 long k = n.key;
                 byte[] v = n.getValidValue(m.comparator);
                 if (v != null) {
-                    return new AbstractMap.SimpleImmutableEntry<byte[], byte[]>(m.comparator.bytes(k), v);
+                    return new AbstractMap.SimpleImmutableEntry<>(m.comparator.bytes(k), v);
                 }
             }
         }
@@ -2856,12 +2882,11 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             }
             for (;;) {
                 Node n = m.findNear(key, rel, m.comparator);
-                if (n == null || !inBounds(m.comparator.bytes(n.key), m.comparator)) {
+                if (n == null || !inBounds(n.key, m.comparator)) {
                     return null;
                 }
                 long k = n.key;
-                byte[] v = n.getValidValue(m.comparator);
-                if (v != null) {
+                if (n.value != NIL && n.value != SELF) {
                     return m.comparator.bytes(k);
                 }
             }
@@ -2898,7 +2923,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             for (LABConcurrentSkipListMap.Node n = loNode(m.comparator);
                 isBeforeEnd(n, m.comparator);
                 n = n.next) {
-                if (n.getValidValue(m.comparator) != null) {
+                if (n.value != NIL && n.value != SELF) {
                     ++count;
                 }
             }
@@ -2916,8 +2941,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             for (LABConcurrentSkipListMap.Node n = loNode(m.comparator);
                 isBeforeEnd(n, m.comparator);
                 n = n.next) {
-                byte[] v = n.getValidValue(m.comparator);
-                if (v != null && Arrays.equals((byte[]) value, v)) {
+                if (n.value != NIL && n.value != SELF && m.comparator.compare((byte[]) value, n.value) == 0) {
                     return true;
                 }
             }
@@ -2928,7 +2952,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
             for (LABConcurrentSkipListMap.Node n = loNode(m.comparator);
                 isBeforeEnd(n, m.comparator);
                 n = n.next) {
-                if (n.getValidValue(m.comparator) != null) {
+                if (n.value != NIL && n.value != SELF) {
                     m.remove(n.key);
                 }
             }
@@ -3196,7 +3220,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                     }
                     long x = next.value;
                     if (x != NIL && x != SELF) {
-                        if (tooHigh(m.comparator.bytes(next.key), m.comparator)) {
+                        if (tooHigh(next.key, m.comparator)) {
                             next = null;
                         } else {
                             nextValue = m.comparator.bytes(x);
@@ -3214,7 +3238,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                     }
                     long x = next.value;
                     if (x != NIL && x != SELF) {
-                        if (tooLow(m.comparator.bytes(next.key), m.comparator)) {
+                        if (tooLow(next.key, m.comparator)) {
                             next = null;
                         } else {
                             nextValue = m.comparator.bytes(x);
@@ -3294,7 +3318,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
                 Node n = next;
                 byte[] v = nextValue;
                 advance();
-                return new AbstractMap.SimpleImmutableEntry<byte[], byte[]>(m.comparator.bytes(n.key), v);
+                return new AbstractMap.SimpleImmutableEntry<>(m.comparator.bytes(n.key), v);
             }
 
             public int characteristics() {
@@ -3462,7 +3486,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
         }
 
         public final Comparator<? super byte[]> getComparator() {
-            return comparator.bytesCompartor();
+            return comparator.bytesComparator();
         }
     }
 
@@ -3659,7 +3683,7 @@ public class LABConcurrentSkipListMap extends AbstractMap<byte[], byte[]>
         }
 
         public final Comparator<Map.Entry<byte[], byte[]>> getComparator() {
-            return Map.Entry.comparingByKey(comparator.bytesCompartor());
+            return Map.Entry.comparingByKey(comparator.bytesComparator());
         }
     }
 

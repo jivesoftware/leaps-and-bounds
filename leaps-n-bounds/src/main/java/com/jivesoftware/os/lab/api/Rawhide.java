@@ -112,4 +112,21 @@ public interface Rawhide {
         }
         return Long.compare(timestampVersion, otherTimestampVersion);
     }
+
+    default int compareLL(long leftAddress, int leftLength, long rightAddress, int rightLength) {
+        return IndexUtil.compareLL(leftAddress, leftLength, rightAddress, rightLength);
+    }
+
+    default int compareLB(long leftAddress, int leftLength, byte[] right, int rightOffset, int rightLength) {
+        return IndexUtil.compareLB(leftAddress, leftLength, right, rightOffset, rightLength);
+
+    }
+
+    default int compareBL(byte[] left, int leftOffset, int leftLength, long rightAddress, int rightLength) {
+        return -IndexUtil.compareLB(rightAddress, rightLength, left, leftOffset, leftLength);
+    }
+
+    default int compareBB(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {
+        return IndexUtil.compare(left, leftOffset, leftLength, right, rightOffset, rightLength);
+    }
 }
