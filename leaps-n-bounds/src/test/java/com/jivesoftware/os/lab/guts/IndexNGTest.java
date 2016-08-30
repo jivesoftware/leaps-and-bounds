@@ -1,16 +1,22 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -46,7 +52,7 @@ public class IndexNGTest {
         LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
             64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
-        IndexTestUtils.append(new Random(), write, 0, step, count, desired);
+        TestUtils.append(new Random(), write, 0, step, count, desired);
         write.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
@@ -68,11 +74,24 @@ public class IndexNGTest {
         int step = 10;
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        RawMemoryIndex walIndex = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
-            new AtomicLong()),
-            new SimpleRawhide(),false);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
+            new AtomicLong());
+        SimpleRawhide rawhide = new SimpleRawhide();
+        RawMemoryIndex walIndex = new RawMemoryIndex(destroy,
+            labHeapPressure,
+            rawhide,
+            new LABConcurrentSkipListMap(
+                new LABConcurrentSkipListMemory(rawhide,
+                    new LABIndexableMemory("memory",
+                        new LABAppendOnlyAllocator(() -> {
+                            labHeapPressure.freeHeap();
+                            return null;
+                        })
+                    )
+                )
+            ));
 
-        IndexTestUtils.append(new Random(), walIndex, 0, step, count, desired);
+        TestUtils.append(new Random(), walIndex, 0, step, count, desired);
         assertions(walIndex, count, step, desired);
     }
 
@@ -84,11 +103,23 @@ public class IndexNGTest {
 
         int count = 10;
         int step = 10;
+        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong());
 
+        SimpleRawhide rawhide = new SimpleRawhide();
         RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy,
-            new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong()), new SimpleRawhide(),false);
+            labHeapPressure, rawhide,
+            new LABConcurrentSkipListMap(
+                new LABConcurrentSkipListMemory(rawhide,
+                    new LABIndexableMemory("memory",
+                        new LABAppendOnlyAllocator(() -> {
+                            labHeapPressure.freeHeap();
+                            return null;
+                        })
+                    )
+                )
+            ));
 
-        IndexTestUtils.append(new Random(), memoryIndex, 0, step, count, desired);
+        TestUtils.append(new Random(), memoryIndex, 0, step, count, desired);
         assertions(memoryIndex, count, step, desired);
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
@@ -99,12 +130,12 @@ public class IndexNGTest {
         disIndex.append((stream) -> {
             ReadIndex reader = memoryIndex.acquireReader();
             try {
-                NextRawEntry rowScan = reader.rowScan();
+                Scanner rowScan = reader.rowScan();
                 RawEntryStream rawStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     byte[] bytes = IndexUtil.toByteArray(rawEntry);
-                    return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, bytes, 0, bytes.length);
+                    return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, new BolBuffer(bytes));
                 };
-                while (rowScan.next(rawStream) == NextRawEntry.Next.more) {
+                while (rowScan.next(rawStream) == Scanner.Next.more) {
                 }
             } finally {
                 reader.release();
@@ -127,14 +158,14 @@ public class IndexNGTest {
         int[] index = new int[1];
         ReadIndex reader = walIndex.acquireReader();
         try {
-            NextRawEntry rowScan = reader.rowScan();
+            Scanner rowScan = reader.rowScan();
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 System.out.println("rowScan:" + SimpleRawhide.key(rawEntry));
                 Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawhide.key(rawEntry));
                 index[0]++;
                 return true;
             };
-            while (rowScan.next(stream) == NextRawEntry.Next.more) {
+            while (rowScan.next(stream) == Scanner.Next.more) {
             }
         } finally {
             reader.release();
@@ -146,12 +177,12 @@ public class IndexNGTest {
             reader = walIndex.acquireReader();
             try {
                 GetRaw getRaw = reader.get();
-                byte[] key = UIO.longBytes(k);
+                byte[] key = UIO.longBytes(k, new byte[8], 0);
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
 
                     System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
                     if (rawEntry != null) {
-                        byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry));
+                        byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry), new byte[8], 0);
                         Assert.assertEquals(rawKey, key);
                         byte[] d = desired.get(key);
                         if (d == null) {
@@ -187,8 +218,8 @@ public class IndexNGTest {
             System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
             reader = walIndex.acquireReader();
             try {
-                NextRawEntry rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
-                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                Scanner rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
+                while (rangeScan.next(stream) == Scanner.Next.more) {
                 }
                 Assert.assertEquals(3, streamed[0]);
             } finally {
@@ -208,8 +239,8 @@ public class IndexNGTest {
             };
             reader = walIndex.acquireReader();
             try {
-                NextRawEntry rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3));
-                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                Scanner rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3));
+                while (rangeScan.next(stream) == Scanner.Next.more) {
                 }
                 Assert.assertEquals(2, streamed[0]);
             } finally {

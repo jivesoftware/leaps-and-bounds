@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FixedWidthRawhide;
@@ -132,7 +134,11 @@ public class LABStress {
     private ValueIndex createIndex(File root) throws Exception {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
-        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", 1024 * 1024 * 10, 1024 * 1024 * 10,
+        LabHeapPressure labHeapPressure = new LabHeapPressure(
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            1024 * 1024 * 10,
+            1024 * 1024 * 20,
             new AtomicLong());
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
@@ -147,13 +153,17 @@ public class LABStress {
             4, // minMergeDebt
             8, // maxMergeDebt
             leapsCache,
-            true);
+            true,
+            new LABIndexableMemory("memory", new LABAppendOnlyAllocator( () -> {
+                labHeapPressure.freeHeap();
+                return null;
+            })));
 
         env.register("8x8fixedWidthRawhide", new FixedWidthRawhide(8, 8));
 
         System.out.println("Created env");
         ValueIndex index = env.open(new ValueIndexConfig("foo",
-            1024 * 10, // entriesBetweenLeaps
+            4096, // entriesBetweenLeaps
             1024 * 1024 * 512, // maxHeapPressureInBytes
             -1, // splitWhenKeysTotalExceedsNBytes
             -1, // splitWhenValuesTotalExceedsNBytes
@@ -191,6 +201,10 @@ public class LABStress {
         AtomicLong monotonic = new AtomicLong();
 
         int c = 0;
+        byte[] keyBytes = new byte[8];
+        byte[] valuesBytes = new byte[8];
+        BolBuffer rawEntryBuffer = new BolBuffer();
+   
         while ((writeCount > 0 && totalWrites < writeCount) || (readCount > 0 && totalReads < readCount)) {
             long start = System.currentTimeMillis();
             long writeElapse = 0;
@@ -205,14 +219,14 @@ public class LABStress {
                             key = monotonic.incrementAndGet();
                         }
                         stream.stream(-1,
-                            UIO.longBytes(key),
+                            UIO.longBytes(key, keyBytes, 0),
                             System.currentTimeMillis(),
                             (removes) ? rand.nextBoolean() : false,
                             version.incrementAndGet(),
-                            UIO.longBytes(value.incrementAndGet()));
+                            UIO.longBytes(value.incrementAndGet(), valuesBytes, 0));
                     }
                     return true;
-                }, true);
+                }, true, rawEntryBuffer);
 
                 //index.commit(true);
                 long wrote = count.get() - preWriteCount;
@@ -242,8 +256,8 @@ public class LABStress {
 
                     index.get((Keys.KeyStream keyStream) -> {
                         long k = rand.nextInt(totalCardinality);
-                        byte[] key = UIO.longBytes(k);
-                        keyStream.key(0, key, 0, key.length);
+                        UIO.longBytes(k, keyBytes, 0);
+                        keyStream.key(0, keyBytes, 0, keyBytes.length);
                         return true;
                     }, (index1, key, timestamp, tombstoned, version1, value1) -> {
                         if (value1 != null && !tombstoned) {

@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Keys;
@@ -9,6 +11,7 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
+import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -39,7 +42,12 @@ public class LABNGTest {
             "wal", 1024 * 1024 * 10,
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure, 1, 2, leapsCache,false);
+            labHeapPressure, 1, 2, leapsCache,
+            true,
+            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
+                labHeapPressure.freeHeap();
+                return null;
+            })));
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
 
@@ -51,15 +59,17 @@ public class LABNGTest {
         AtomicLong count = new AtomicLong();
         AtomicLong fails = new AtomicLong();
 
+        BolBuffer rawEntryBuffer = new BolBuffer();
+        AppendableHeap appendableHeap = new AppendableHeap(8192);
         while (count.get() < 100) {
             index.append((stream) -> {
                 for (int i = 0; i < 10; i++) {
                     long v = count.get();
-                    stream.stream(-1, UIO.longBytes(v), v, false, 0, UIO.longBytes(v));
+                    stream.stream(-1, UIO.longBytes(v, new byte[8], 0), v, false, 0, UIO.longBytes(v, new byte[8], 0));
                     count.incrementAndGet();
                 }
                 return true;
-            }, fsync);
+            }, fsync, rawEntryBuffer);
 
             long c = count.get();
             AtomicLong f;
@@ -97,7 +107,7 @@ public class LABNGTest {
                 long tt = t;
 
                 HashSet<Long> rangeScan = new HashSet<>();
-                index.rangeScan(UIO.longBytes(f), UIO.longBytes(t),
+                index.rangeScan(UIO.longBytes(f, new byte[8], 0), UIO.longBytes(t, new byte[8], 0),
                     (index1, key, timestamp, tombstoned, version, payload) -> {
                         boolean added = rangeScan.add(key.getLong(0));
                         //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
@@ -146,30 +156,36 @@ public class LABNGTest {
             "wal", 1024 * 1024 * 10,
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure, 1, 2, leapsCache,false);
+            labHeapPressure, 1, 2, leapsCache,
+            true,
+            new LABIndexableMemory("memory", new LABAppendOnlyAllocator( () -> {
+                labHeapPressure.freeHeap();
+                return null;
+            })));
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
 
         ValueIndex index = env.open(valueIndexConfig);
-
+        BolBuffer rawEntryBuffer = new BolBuffer();
+        AppendableHeap appendableHeap = new AppendableHeap(8192);
         index.append((stream) -> {
-            stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), false, 0, UIO.longBytes(1));
-            stream.stream(-1, UIO.longBytes(2), System.currentTimeMillis(), false, 0, UIO.longBytes(2));
-            stream.stream(-1, UIO.longBytes(3), System.currentTimeMillis(), false, 0, UIO.longBytes(3));
+            stream.stream(-1, UIO.longBytes(1, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(1, new byte[8], 0));
+            stream.stream(-1, UIO.longBytes(2, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(2, new byte[8], 0));
+            stream.stream(-1, UIO.longBytes(3, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(3, new byte[8], 0));
             return true;
-        }, fsync);
+        }, fsync, rawEntryBuffer);
         List<Future<Object>> awaitable = index.commit(fsync, true);
         for (Future<Object> future : awaitable) {
             future.get();
         }
 
         index.append((stream) -> {
-            stream.stream(-1, UIO.longBytes(7), System.currentTimeMillis(), false, 0, UIO.longBytes(7));
-            stream.stream(-1, UIO.longBytes(8), System.currentTimeMillis(), false, 0, UIO.longBytes(8));
-            stream.stream(-1, UIO.longBytes(9), System.currentTimeMillis(), false, 0, UIO.longBytes(9));
+            stream.stream(-1, UIO.longBytes(7, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(7, new byte[8], 0));
+            stream.stream(-1, UIO.longBytes(8, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(8, new byte[8], 0));
+            stream.stream(-1, UIO.longBytes(9, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(9, new byte[8], 0));
             return true;
-        }, fsync);
+        }, fsync, rawEntryBuffer);
         awaitable = index.commit(fsync, true);
         for (Future<Object> future : awaitable) {
             future.get();
@@ -188,18 +204,18 @@ public class LABNGTest {
         testNotExpected(index, new long[]{0, 4, 5, 6, 10});
         testNotExpectedMultiGet(index, new long[]{0, 4, 5, 6, 10});
         testScanExpected(index, expected);
-        testRangeScanExpected(index, UIO.longBytes(2), null, new long[]{2, 3, 7, 8, 9});
-        testRangeScanExpected(index, UIO.longBytes(2), UIO.longBytes(7), new long[]{2, 3});
-        testRangeScanExpected(index, UIO.longBytes(4), UIO.longBytes(7), new long[]{});
+        testRangeScanExpected(index, UIO.longBytes(2, new byte[8], 0), null, new long[]{2, 3, 7, 8, 9});
+        testRangeScanExpected(index, UIO.longBytes(2, new byte[8], 0), UIO.longBytes(7, new byte[8], 0), new long[]{2, 3});
+        testRangeScanExpected(index, UIO.longBytes(4, new byte[8], 0), UIO.longBytes(7, new byte[8], 0), new long[]{});
 
         index.commit(fsync, true);
 
         index.append((stream) -> {
-            stream.stream(-1, UIO.longBytes(1), System.currentTimeMillis(), true, 1, UIO.longBytes(1));
-            stream.stream(-1, UIO.longBytes(2), System.currentTimeMillis(), true, 1, UIO.longBytes(2));
-            stream.stream(-1, UIO.longBytes(3), System.currentTimeMillis(), true, 1, UIO.longBytes(3));
+            stream.stream(-1, UIO.longBytes(1, new byte[8], 0), System.currentTimeMillis(), true, 1, UIO.longBytes(1, new byte[8], 0));
+            stream.stream(-1, UIO.longBytes(2, new byte[8], 0), System.currentTimeMillis(), true, 1, UIO.longBytes(2, new byte[8], 0));
+            stream.stream(-1, UIO.longBytes(3, new byte[8], 0), System.currentTimeMillis(), true, 1, UIO.longBytes(3, new byte[8], 0));
             return true;
-        }, fsync);
+        }, fsync, rawEntryBuffer);
 
         expected = new long[]{7, 8, 9};
         testExpected(index, expected);
@@ -207,7 +223,7 @@ public class LABNGTest {
         testNotExpected(index, new long[]{0, 4, 5, 6, 10});
         testNotExpectedMultiGet(index, new long[]{0, 4, 5, 6, 10});
         testScanExpected(index, expected);
-        testRangeScanExpected(index, UIO.longBytes(1), UIO.longBytes(9), new long[]{7, 8});
+        testRangeScanExpected(index, UIO.longBytes(1, new byte[8], 0), UIO.longBytes(9, new byte[8], 0), new long[]{7, 8});
 
         env.shutdown();
 
@@ -216,7 +232,7 @@ public class LABNGTest {
     private void testExpectedMultiGet(ValueIndex index, long[] expected) throws Exception {
         index.get((Keys.KeyStream keyStream) -> {
             for (int i = 0; i < expected.length; i++) {
-                keyStream.key(i, UIO.longBytes(expected[i]), 0, 8);
+                keyStream.key(i, UIO.longBytes(expected[i], new byte[8], 0), 0, 8);
             }
             return true;
         }, (index1, key, timestamp, tombstoned, version, payload) -> {
@@ -231,7 +247,7 @@ public class LABNGTest {
             int ii = i;
             index.get(
                 (keyStream) -> {
-                    byte[] key = UIO.longBytes(expected[ii]);
+                    byte[] key = UIO.longBytes(expected[ii], new byte[8], 0);
                     keyStream.key(0, key, 0, key.length);
                     return true;
                 },
@@ -245,7 +261,7 @@ public class LABNGTest {
     private void testNotExpectedMultiGet(ValueIndex index, long[] notExpected) throws Exception {
         index.get((Keys.KeyStream keyStream) -> {
             for (long i : notExpected) {
-                keyStream.key(-1, UIO.longBytes(i), 0, 8);
+                keyStream.key(-1, UIO.longBytes(i, new byte[8], 0), 0, 8);
             }
             return true;
         }, (index1, key, timestamp, tombstoned, version, payload) -> {
@@ -261,7 +277,7 @@ public class LABNGTest {
             long ii = i;
             index.get(
                 (keyStream) -> {
-                    byte[] key = UIO.longBytes(ii);
+                    byte[] key = UIO.longBytes(ii, new byte[8], 0);
                     keyStream.key(0, key, 0, key.length);
                     return true;
                 },

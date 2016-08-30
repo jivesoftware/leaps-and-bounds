@@ -10,9 +10,9 @@ public interface ReadIndex {
 
     GetRaw get() throws Exception;
 
-    NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception;
+    Scanner rangeScan(byte[] from, byte[] to) throws Exception;
 
-    NextRawEntry rowScan() throws Exception;
+    Scanner rowScan() throws Exception;
 
     void close() throws Exception;
 

@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
@@ -9,7 +10,6 @@ import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 /**
  * @author jonathan.colt
@@ -33,8 +33,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private int updatesSinceLeap;
 
     private final long[] startOfEntryIndex;
-    private byte[] firstKey;
-    private byte[] lastKey;
+    private BolBuffer firstKey;
+    private BolBuffer lastKey;
     private int leapCount;
     private long count;
     private long keysSizeInBytes;
@@ -71,54 +71,57 @@ public class LABAppendableIndex implements RawAppendableIndex {
             appendOnly = index.appender();
         }
 
-        AppendableHeap appendBuffer = new AppendableHeap(1024);
-        appendEntries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+        AppendableHeap appendableHeap = new AppendableHeap(1024);
+        appendEntries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer) -> {
 
             //entryBuffer.reset();
             long fp = appendOnly.getFilePointer();
-            startOfEntryIndex[updatesSinceLeap] = fp + appendBuffer.length();
-            UIO.writeByte(appendBuffer, ENTRY, "type");
+            startOfEntryIndex[updatesSinceLeap] = fp + appendableHeap.length();
+            UIO.writeByte(appendableHeap, ENTRY, "type");
 
-            rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length,
-                writeKeyFormatTransormer, writeValueFormatTransormer, appendBuffer);
+            rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer,
+                writeKeyFormatTransormer, writeValueFormatTransormer, appendableHeap);
 
-            byte[] key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
+            BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
             int keyLength = key.length;
             keysSizeInBytes += keyLength;
-            valuesSizeInBytes += rawEntry.length - keyLength;
+            valuesSizeInBytes += rawEntryBuffer.length - keyLength;
 
-            ByteBuffer bbRawEntry = ByteBuffer.wrap(rawEntry);
-            long rawEntryTimestamp = rawhide.timestamp(readKeyFormatTransformer, readValueFormatTransformer, bbRawEntry);
+            long rawEntryTimestamp = rawhide.timestamp(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
             if (rawEntryTimestamp > -1 && maxTimestamp < rawEntryTimestamp) {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, bbRawEntry);
+                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
             } else {
                 maxTimestamp = rawEntryTimestamp;
-                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, bbRawEntry);
+                maxTimestampVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
             }
 
             if (firstKey == null) {
-                firstKey = key;
+                firstKey = new BolBuffer();
+                firstKey.set(key);
             }
-            lastKey = key;
+            if (lastKey == null) {
+                lastKey = new BolBuffer();
+            }
+            lastKey.set(key);
             updatesSinceLeap++;
             count++;
 
             if (updatesSinceLeap >= updatesBetweenLeaps) { // TODO consider bytes between leaps
                 long[] copyOfStartOfEntryIndex = new long[updatesSinceLeap];
                 System.arraycopy(startOfEntryIndex, 0, copyOfStartOfEntryIndex, 0, updatesSinceLeap);
-                latestLeapFrog = writeLeaps(appendOnly, appendBuffer, latestLeapFrog, leapCount, key, copyOfStartOfEntryIndex);
+                latestLeapFrog = writeLeaps(appendOnly, appendableHeap, latestLeapFrog, leapCount, key, copyOfStartOfEntryIndex);
                 updatesSinceLeap = 0;
                 leapCount++;
 
-                appendOnly.append(appendBuffer.leakBytes(), 0, (int) appendBuffer.length());
-                appendBuffer.reset();
+                appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
+                appendableHeap.reset();
             }
             return true;
         });
 
-        if (appendBuffer.length() > 0) {
-            appendOnly.append(appendBuffer.leakBytes(), 0, (int) appendBuffer.length());
+        if (appendableHeap.length() > 0) {
+            appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
         }
         return true;
     }
@@ -148,8 +151,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 count,
                 keysSizeInBytes,
                 valuesSizeInBytes,
-                firstKey,
-                lastKey,
+                firstKey.copy(),
+                lastKey.copy(),
                 rawhideFormat.getKeyFormat(),
                 rawhideFormat.getValueFormat(),
                 new TimestampAndVersion(maxTimestamp,
@@ -191,10 +194,10 @@ public class LABAppendableIndex implements RawAppendableIndex {
         IAppendOnly appendableHeap,
         LeapFrog latest,
         int index,
-        byte[] key,
+        BolBuffer key,
         long[] startOfEntryIndex) throws Exception {
 
-        Leaps nextLeaps = LeapFrog.computeNextLeaps(index, ByteBuffer.wrap(key), latest, maxLeaps, startOfEntryIndex);
+        Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
         UIO.writeByte(appendableHeap, LEAP, "type");
         long startOfLeapFp = appendableHeap.getFilePointer() + writeIndex.getFilePointer();
         nextLeaps.write(writeKeyFormatTransormer, appendableHeap);

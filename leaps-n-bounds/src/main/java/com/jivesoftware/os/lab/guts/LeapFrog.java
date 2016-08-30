@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
@@ -16,7 +17,7 @@ class LeapFrog {
         this.leaps = leaps;
     }
 
-    static public Leaps computeNextLeaps(int index, ByteBuffer lastKey, LeapFrog latest, int maxLeaps, long[] startOfEntryIndex) {
+    static public Leaps computeNextLeaps(int index, BolBuffer lastKey, LeapFrog latest, int maxLeaps, long[] startOfEntryIndex) {
         long[] fpIndex;
         ByteBuffer[] keys;
         if (latest == null) {
@@ -64,7 +65,7 @@ class LeapFrog {
                 }
             }
         }
-        return new Leaps(index, lastKey, fpIndex, keys, readable1 -> LongBuffer.wrap(startOfEntryIndex));
+        return new Leaps(index, ByteBuffer.wrap(lastKey.copy()), fpIndex, keys, readable1 -> LongBuffer.wrap(startOfEntryIndex));
     }
 
     static private double euclidean(long[] a, long[] b) {

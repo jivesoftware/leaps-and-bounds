@@ -23,23 +23,23 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
+    public BolBuffer merge(FormatTransformer currentReadKeyFormatTransormer,
         FormatTransformer currentReadValueFormatTransormer,
-        byte[] currentRawEntry,
+        BolBuffer currentRawEntry,
         FormatTransformer addingReadKeyFormatTransormer,
         FormatTransformer addingReadValueFormatTransormer,
-        byte[] addingRawEntry,
+        BolBuffer addingRawEntry,
         FormatTransformer mergedReadKeyFormatTransormer,
         FormatTransformer mergedReadValueFormatTransormer) {
 
-        int currentKeyLength = UIO.bytesInt(currentRawEntry);
-        int addingKeyLength = UIO.bytesInt(addingRawEntry);
+        int currentKeyLength = currentRawEntry.getInt(0);
+        int addingKeyLength = addingRawEntry.get(0);
 
-        long currentsTimestamp = UIO.bytesLong(currentRawEntry, 4 + currentKeyLength);
-        long currentsVersion = UIO.bytesLong(currentRawEntry, 4 + currentKeyLength + 8 + 1);
+        long currentsTimestamp = currentRawEntry.getLong(4 + currentKeyLength);
+        long currentsVersion = currentRawEntry.getLong(4 + currentKeyLength + 8 + 1);
 
-        long addingsTimestamp = UIO.bytesLong(addingRawEntry, 4 + addingKeyLength);
-        long addingsVersion = UIO.bytesLong(addingRawEntry, 4 + addingKeyLength + 8 + 1);
+        long addingsTimestamp = addingRawEntry.getLong(4 + addingKeyLength);
+        long addingsVersion = addingRawEntry.getLong(4 + addingKeyLength + 8 + 1);
 
         if ((currentsTimestamp > addingsTimestamp) || (currentsTimestamp == addingsTimestamp && currentsVersion > addingsVersion)) {
             return currentRawEntry;
@@ -51,23 +51,15 @@ public class LABRawhide implements Rawhide {
     @Override
     public long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntrys) {
-
-        rawEntrys.clear();
-        int keyLength = rawEntrys.getInt();
-        rawEntrys.position(4 + keyLength);
-        return rawEntrys.getLong();
+        BolBuffer rawEntrys) {
+        return rawEntrys.getLong(4 + rawEntrys.getInt(0));
     }
 
     @Override
     public long version(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntrys) {
-
-        rawEntrys.clear();
-        int keyLength = rawEntrys.getInt();
-        rawEntrys.position(4 + keyLength + 8 + 1);
-        return rawEntrys.getLong();
+        BolBuffer rawEntrys) {
+        return rawEntrys.getLong(4 + rawEntrys.getInt(0) + 8 + 1);
     }
 
     @Override
@@ -106,24 +98,26 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] toRawEntry(
+    public BolBuffer toRawEntry(
         byte[] key,
         long timestamp,
         boolean tombstoned,
         long version,
-        byte[] value) throws IOException {
+        byte[] value,
+        BolBuffer rawEntryBuffer) throws IOException {
 
-        byte[] rawEntry = new byte[LABUtils.rawArrayLength(key) + 8 + 1 + 8 + LABUtils.rawArrayLength(value)];
+        rawEntryBuffer.allocate(LABUtils.rawArrayLength(key) + 8 + 1 + 8 + LABUtils.rawArrayLength(value));
+
         int o = 0;
-        o = LABUtils.writeByteArray(key, rawEntry, o);
-        UIO.longBytes(timestamp, rawEntry, o);
+        o = LABUtils.writeByteArray(key, rawEntryBuffer.bytes, o);
+        UIO.longBytes(timestamp, rawEntryBuffer.bytes, o);
         o += 8;
-        rawEntry[o] = tombstoned ? (byte) 1 : (byte) 0;
+        rawEntryBuffer.bytes[o] = tombstoned ? (byte) 1 : (byte) 0;
         o++;
-        UIO.longBytes(version, rawEntry, o);
+        UIO.longBytes(version, rawEntryBuffer.bytes, o);
         o += 8;
-        LABUtils.writeByteArray(value, rawEntry, o);
-        return rawEntry;
+        LABUtils.writeByteArray(value, rawEntryBuffer.bytes, o);
+        return rawEntryBuffer;
     }
 
     @Override
@@ -135,26 +129,23 @@ public class LABRawhide implements Rawhide {
     @Override
     public void writeRawEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length,
+        BolBuffer rawEntryBuffer,
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
         IAppendOnly appendOnly) throws Exception {
 
-        int entryLength = 4 + length + 4;
+        int entryLength = 4 + rawEntryBuffer.length + 4;
         UIO.writeInt(appendOnly, entryLength, "entryLength");
-        appendOnly.append(rawEntry, offset, length);
+        appendOnly.append(rawEntryBuffer.bytes, rawEntryBuffer.offset, rawEntryBuffer.length);
         UIO.writeInt(appendOnly, entryLength, "entryLength");
     }
 
     @Override
-    public byte[] key(FormatTransformer readKeyFormatTransormer,
+    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length) {
-        return LABUtils.readByteArray(rawEntry, offset);
+        BolBuffer rawEntry) {
+        int length = rawEntry.getInt(0);
+        return rawEntry.slice(4, length);
     }
 
     @Override

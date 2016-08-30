@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.api;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
@@ -12,12 +13,12 @@ import java.util.Comparator;
  */
 public interface Rawhide {
 
-    byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
+    BolBuffer merge(FormatTransformer currentReadKeyFormatTransormer,
         FormatTransformer currentReadValueFormatTransormer,
-        byte[] currentRawEntry,
+        BolBuffer currentRawEntry,
         FormatTransformer addingReadKeyFormatTransormer,
         FormatTransformer addingReadValueFormatTransormer,
-        byte[] addingRawEntry,
+        BolBuffer addingRawEntry,
         FormatTransformer mergedReadKeyFormatTransormer,
         FormatTransformer mergedReadValueFormatTransormer);
 
@@ -28,28 +29,25 @@ public interface Rawhide {
         ValueStream stream,
         boolean hydrateValues) throws Exception;
 
-    byte[] toRawEntry(byte[] key,
+    BolBuffer toRawEntry(byte[] key,
         long timestamp,
         boolean tombstoned,
         long version,
-        byte[] value) throws Exception;
+        byte[] value,
+        BolBuffer rawEntryBuffer) throws Exception;
 
     int rawEntryLength(IReadable readable) throws Exception;
 
     void writeRawEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length,
+        BolBuffer rawEntryBuffer,
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
         IAppendOnly appendOnly) throws Exception;
 
-    byte[] key(FormatTransformer readKeyFormatTransormer,
+    BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length) throws Exception;
+        BolBuffer rawEntry) throws Exception;
 
     ByteBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
@@ -75,11 +73,11 @@ public interface Rawhide {
 
     long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry);
+        BolBuffer rawEntry);
 
     long version(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry);
+        BolBuffer rawEntry);
 
     default int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
         return IndexUtil.compare(aKey, bKey);
@@ -111,19 +109,6 @@ public interface Rawhide {
             return c;
         }
         return Long.compare(timestampVersion, otherTimestampVersion);
-    }
-
-    default int compareLL(long leftAddress, int leftLength, long rightAddress, int rightLength) {
-        return IndexUtil.compareLL(leftAddress, leftLength, rightAddress, rightLength);
-    }
-
-    default int compareLB(long leftAddress, int leftLength, byte[] right, int rightOffset, int rightLength) {
-        return IndexUtil.compareLB(leftAddress, leftLength, right, rightOffset, rightLength);
-
-    }
-
-    default int compareBL(byte[] left, int leftOffset, int leftLength, long rightAddress, int rightLength) {
-        return -IndexUtil.compareLB(rightAddress, rightLength, left, leftOffset, leftLength);
     }
 
     default int compareBB(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {

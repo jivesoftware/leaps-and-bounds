@@ -1,16 +1,17 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.ConcurrentSplitException;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
+import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -251,20 +252,20 @@ public class CompactableIndexes {
 
         @Override
         public Void call() throws Exception {
+            BolBuffer rawEntryBuffer = new BolBuffer();
+            AppendableHeap appendableHeap = new AppendableHeap(8192);
             Comparator<byte[]> comparator = rawhide.getKeyComparator();
             while (true) {
                 ReadIndex[] readers = new ReadIndex[all.length];
                 try {
                     int splitLength = all.length;
                     long worstCaseCount = 0;
-                    NextRawEntry[] feeders = new NextRawEntry[all.length];
                     IndexRangeId join = null;
                     byte[] minKey = null;
                     byte[] maxKey = null;
                     for (int i = 0; i < all.length; i++) {
                         readers[i] = all[i].acquireReader();
                         worstCaseCount += readers[i].count();
-                        feeders[i] = readers[i].rowScan();
                         IndexRangeId id = all[i].id();
                         if (join == null) {
                             join = new IndexRangeId(id.start, id.end, id.generation + 1);
@@ -291,33 +292,37 @@ public class CompactableIndexes {
                         return null;
                     } else {
                         byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1, rawhide.getKeyComparator())).get(1);
+                        ByteBuffer bbMiddle = ByteBuffer.wrap(middle);
                         LABAppendableIndex leftAppenableIndex = null;
                         LABAppendableIndex rightAppenableIndex = null;
                         try {
                             leftAppenableIndex = leftHalfIndexFactory.createIndex(join, worstCaseCount - 1);
                             rightAppenableIndex = rightHalfIndexFactory.createIndex(join, worstCaseCount - 1);
                             LABAppendableIndex effectiveFinalRightAppenableIndex = rightAppenableIndex;
-                            InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
+                            InterleaveStream feedInterleaver = new InterleaveStream(readers, null, null, rawhide);
+                            try {
+                                LOG.debug("Splitting with a middle of:{}", Arrays.toString(middle));
+                                leftAppenableIndex.append((leftStream) -> {
+                                    return effectiveFinalRightAppenableIndex.append((rightStream) -> {
+                                        return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                                            int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
+                                                bbMiddle);
 
-                            LOG.debug("Splitting with a middle of:{}", Arrays.toString(middle));
-                            leftAppenableIndex.append((leftStream) -> {
-                                return effectiveFinalRightAppenableIndex.append((rightStream) -> {
-                                    return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                                        int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
-                                            ByteBuffer.wrap(middle));
-                                        byte[] bytes = IndexUtil.toByteArray(rawEntry);
-                                        if (c < 0) {
-                                            if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, bytes, 0, bytes.length)) {
+                                            IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
+                                            if (c < 0) {
+                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
+                                                    return false;
+                                                }
+                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
                                                 return false;
                                             }
-                                        } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, bytes, 0,
-                                            bytes.length)) {
-                                            return false;
-                                        }
-                                        return true;
+                                            return true;
+                                        });
                                     });
                                 });
-                            });
+                            } finally {
+                                feedInterleaver.close();
+                            }
 
                             LOG.debug("Splitting is flushing for a middle of:{}", Arrays.toString(middle));
                             leftAppenableIndex.closeAppendable(fsync);
@@ -394,28 +399,29 @@ public class CompactableIndexes {
 
                                     ReadIndex catchupReader = catchup.acquireReader();
                                     try {
-                                        InterleaveStream catchupFeedInterleaver = new InterleaveStream(new NextRawEntry[]{catchupReader.rowScan()}, rawhide);
-
-                                        LOG.debug("Doing a catchup split for a middle of:{}", Arrays.toString(middle));
-                                        catchupLeftAppenableIndex.append((leftStream) -> {
-                                            return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
-                                                return catchupFeedInterleaver.stream(
-                                                    (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                                                        byte[] rawEntryBytes = IndexUtil.toByteArray(rawEntry);
-                                                        if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
-                                                            ByteBuffer.wrap(middle)) < 0) {
-                                                            if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBytes, 0,
-                                                                rawEntryBytes.length)) {
+                                        InterleaveStream catchupFeedInterleaver = new InterleaveStream(new ReadIndex[]{catchupReader}, null, null, rawhide);
+                                        try {
+                                            LOG.debug("Doing a catchup split for a middle of:{}", Arrays.toString(middle));
+                                            catchupLeftAppenableIndex.append((leftStream) -> {
+                                                return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
+                                                    return catchupFeedInterleaver.stream(
+                                                        (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                                                            IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
+                                                            if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
+                                                                bbMiddle) < 0) {
+                                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
+                                                                    return false;
+                                                                }
+                                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
                                                                 return false;
                                                             }
-                                                        } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBytes, 0,
-                                                            rawEntryBytes.length)) {
-                                                            return false;
-                                                        }
-                                                        return true;
-                                                    });
+                                                            return true;
+                                                        });
+                                                });
                                             });
-                                        });
+                                        } finally {
+                                            catchupFeedInterleaver.close();
+                                        }
                                     } finally {
                                         catchupReader.release();
                                     }
@@ -551,6 +557,7 @@ public class CompactableIndexes {
 
         @Override
         public Void call() throws Exception {
+            BolBuffer rawEntryBuffer = new BolBuffer();
             LeapsAndBoundsIndex index = null;
             ReadIndex[] readers = new ReadIndex[mergeSet.length];
             try {
@@ -558,23 +565,25 @@ public class CompactableIndexes {
                 long startMerge = System.currentTimeMillis();
 
                 long worstCaseCount = 0;
-                NextRawEntry[] feeders = new NextRawEntry[mergeSet.length];
-                for (int i = 0; i < feeders.length; i++) {
+                for (int i = 0; i < mergeSet.length; i++) {
                     readers[i] = mergeSet[i].acquireReader();
                     worstCaseCount += readers[i].count();
-                    feeders[i] = readers[i].rowScan();
                 }
 
                 LABAppendableIndex appendableIndex = null;
                 try {
                     appendableIndex = indexFactory.createIndex(mergeRangeId, worstCaseCount);
-                    InterleaveStream feedInterleaver = new InterleaveStream(feeders, rawhide);
-                    appendableIndex.append((stream) -> {
-                        return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                            byte[] rawEntryBytes = IndexUtil.toByteArray(rawEntry);
-                            return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBytes, 0, rawEntryBytes.length);
+                    InterleaveStream feedInterleaver = new InterleaveStream(readers, null, null, rawhide);
+                    try {
+                        appendableIndex.append((stream) -> {
+                            return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                                IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
+                                return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
+                            });
                         });
-                    });
+                    } finally {
+                        feedInterleaver.close();
+                    }
                     appendableIndex.closeAppendable(fsync);
                 } catch (Exception x) {
                     try {
@@ -630,7 +639,16 @@ public class CompactableIndexes {
                 }
 
             } catch (Exception x) {
-                LOG.warn("Failed to merge range:" + mergeRangeId, x);
+                StringBuilder sb = new StringBuilder();
+                sb.append("[");
+                for (int i = 0; i < mergeSet.length; i++) {
+                    if (i > 0) {
+                        sb.append(", ");
+                    }
+                    sb.append(mergeSet[i].name());
+                }
+                sb.append("]");
+                LOG.warn("Failed to merge range:" + mergeRangeId + " for " + sb.toString(), x);
 
                 synchronized (indexesLock) {
                     boolean[] updateMerging = new boolean[merging.length];
@@ -744,7 +762,7 @@ public class CompactableIndexes {
         return copy;
     }
 
-    void auditRanges(String prefix, KeyToString keyToString) {
+    void auditRanges(String prefix, KeyToString keyToString) throws Exception {
         RawConcurrentReadableIndex[] copy;
         synchronized (indexesLock) {
             copy = indexes;

@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
@@ -45,7 +47,11 @@ public class LABEnvironmentConcurrenyNGTest {
             4,
             10,
             leapsCache,
-            false);
+            true,
+            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
+                labHeapPressure.freeHeap();
+                return null;
+            })));
 
         concurentTest(env);
     }
@@ -70,104 +76,117 @@ public class LABEnvironmentConcurrenyNGTest {
             4,
             10,
             leapsCache,
-            false);
+            true,
+            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
+                labHeapPressure.freeHeap();
+                return null;
+            })));
 
         concurentTest(env);
     }
 
     private void concurentTest(LABEnvironment env) throws Exception {
-        int writerCount = 16;
-        int readerCount = 16;
 
-        AtomicLong hits = new AtomicLong();
-        AtomicLong version = new AtomicLong();
-        AtomicLong value = new AtomicLong();
-        AtomicLong count = new AtomicLong();
+        try {
+            int writerCount = 16;
+            int readerCount = 16;
 
-        int totalCardinality = 100_000_000;
-        int commitCount = 10;
-        int batchSize = 1000;
-        boolean fsync = true;
+            AtomicLong hits = new AtomicLong();
+            AtomicLong version = new AtomicLong();
+            AtomicLong value = new AtomicLong();
+            AtomicLong count = new AtomicLong();
 
-        ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
-        ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
+            int totalCardinality = 100_000_000;
+            int commitCount = 10;
+            int batchSize = 1000;
+            boolean fsync = true;
 
-        Random rand = new Random(12345);
-        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
-        ValueIndex index = env.open(valueIndexConfig);
+            ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
+            ExecutorService readers = Executors.newFixedThreadPool(readerCount, new ThreadFactoryBuilder().setNameFormat("readers-%d").build());
 
-        AtomicLong running = new AtomicLong();
-        List<Future> writerFutures = new ArrayList<>();
-        for (int i = 0; i < writerCount; i++) {
-            running.incrementAndGet();
-            writerFutures.add(writers.submit(() -> {
-                try {
-                    for (int c = 0; c < commitCount; c++) {
-                        index.append((stream) -> {
-                            for (int b = 0; b < batchSize; b++) {
-                                count.incrementAndGet();
-                                stream.stream(-1,
-                                    UIO.longBytes(rand.nextInt(totalCardinality)),
-                                    System.currentTimeMillis(),
-                                    rand.nextBoolean(),
-                                    version.incrementAndGet(),
-                                    UIO.longBytes(value.incrementAndGet()));
-                            }
-                            return true;
-                        }, fsync);
-                        index.commit(fsync, true);
-                        System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt());
-                    }
-                    return null;
-                } catch (Exception x) {
-                    x.printStackTrace();
-                    throw x;
-                } finally {
-                    running.decrementAndGet();
-                }
-            }));
-        }
+            Random rand = new Random(12345);
+            ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1000, 10 * 1024 * 1024, 0, 0,
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+            ValueIndex index = env.open(valueIndexConfig);
 
-        List<Future> readerFutures = new ArrayList<>();
-        for (int r = 0; r < readerCount; r++) {
-            int readerId = r;
-            readerFutures.add(readers.submit(() -> {
-                try {
-
-                    while (running.get() > 0) {
-                        index.get(
-                            (keyStream) -> {
-                                byte[] key = UIO.longBytes(rand.nextInt(1_000_000));
-                                keyStream.key(0, key, 0, key.length);
+            AtomicLong running = new AtomicLong();
+            List<Future> writerFutures = new ArrayList<>();
+            for (int i = 0; i < writerCount; i++) {
+                running.incrementAndGet();
+                writerFutures.add(writers.submit(() -> {
+                    try {
+                        BolBuffer rawEntryBuffer = new BolBuffer();
+                        for (int c = 0; c < commitCount; c++) {
+                            index.append((stream) -> {
+                                for (int b = 0; b < batchSize; b++) {
+                                    count.incrementAndGet();
+                                    stream.stream(-1,
+                                        UIO.longBytes(rand.nextInt(totalCardinality), new byte[8], 0),
+                                        System.currentTimeMillis(),
+                                        rand.nextBoolean(),
+                                        version.incrementAndGet(),
+                                        UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
+                                }
                                 return true;
-                            },
-                            (index1, key, timestamp, tombstoned, version1, value1) -> {
-                                hits.incrementAndGet();
-                                return true;
-                            }, true);
+                            }, fsync, rawEntryBuffer);
+                            index.commit(fsync, true);
+                            System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt());
+                        }
+                        return null;
+                    } catch (Exception x) {
+                        x.printStackTrace();
+                        throw x;
+                    } finally {
+                        running.decrementAndGet();
                     }
-                    System.out.println("Reader (" + readerId + ") finished.");
-                    return null;
-                } catch (Exception x) {
-                    x.printStackTrace();
-                    throw x;
-                }
-            }));
-        }
+                }));
+            }
 
-        for (Future f : writerFutures) {
-            f.get();
-        }
+            List<Future> readerFutures = new ArrayList<>();
+            for (int r = 0; r < readerCount; r++) {
+                int readerId = r;
+                readerFutures.add(readers.submit(() -> {
+                    try {
 
-        for (Future f : readerFutures) {
-            f.get();
-        }
+                        while (running.get() > 0) {
+                            index.get(
+                                (keyStream) -> {
+                                    byte[] key = UIO.longBytes(rand.nextInt(1_000_000), new byte[8], 0);
+                                    keyStream.key(0, key, 0, key.length);
+                                    return true;
+                                },
+                                (index1, key, timestamp, tombstoned, version1, value1) -> {
+                                    hits.incrementAndGet();
+                                    return true;
+                                }, true);
+                        }
+                        System.out.println("Reader (" + readerId + ") finished.");
+                        return null;
+                    } catch (Exception x) {
+                        x.printStackTrace();
+                        throw x;
+                    }
+                }));
+            }
 
-        writers.shutdown();
-        readers.shutdown();
-        System.out.println("ALL DONE");
-        env.shutdown();
+            for (Future f : writerFutures) {
+                f.get();
+            }
+
+            for (Future f : readerFutures) {
+                f.get();
+            }
+
+            writers.shutdown();
+            readers.shutdown();
+            System.out.println("ALL DONE");
+            env.shutdown();
+
+        } catch (Throwable x) {
+            x.printStackTrace();
+            System.out.println("Sleeping");
+            Thread.sleep(Long.MAX_VALUE);
+        }
     }
 
 }

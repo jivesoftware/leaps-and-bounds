@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.ConcurrentSplitException;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
@@ -9,10 +10,10 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -285,10 +286,11 @@ public class RangeStripedCompactableIndexes {
             FileUtils.deleteQuietly(splittingRoot);
         }
 
-        void append(String rawhideName, RawConcurrentReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync) throws Exception {
+        void append(String rawhideName, RawConcurrentReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync,
+            BolBuffer rawEntryBuffer) throws Exception {
 
             LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawhideName,
-                rawConcurrentReadableIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync);
+                rawConcurrentReadableIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync, rawEntryBuffer);
             compactableIndexes.append(lab);
         }
 
@@ -297,7 +299,8 @@ public class RangeStripedCompactableIndexes {
             byte[] maxKey,
             long nextIndexId,
             int generation,
-            boolean fsync) throws Exception {
+            boolean fsync,
+            BolBuffer rawEntryBuffer) throws Exception {
 
             File indexRoot = new File(root, indexName);
             File stripeRoot = new File(indexRoot, String.valueOf(stripeId));
@@ -334,12 +337,12 @@ public class RangeStripedCompactableIndexes {
                 appendableIndex.append((stream) -> {
                     ReadIndex reader = rawConcurrentReadableIndex.acquireReader();
                     try {
-                        NextRawEntry rangeScan = reader.rangeScan(minKey, maxKey);
+                        Scanner scanner = reader.rangeScan(minKey, maxKey);
                         RawEntryStream rawEntryStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                            byte[] rawEntryBytes = IndexUtil.toByteArray(rawEntry);
-                            return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBytes, 0, rawEntryBytes.length);
+                            IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
+                            return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
                         };
-                        while (rangeScan.next(rawEntryStream) == NextRawEntry.Next.more) {
+                        while (scanner.next(rawEntryStream) == Scanner.Next.more) {
                         }
                         return true;
                     } finally {
@@ -571,7 +574,7 @@ public class RangeStripedCompactableIndexes {
             });
         }
 
-        private void auditRanges(String prefix, KeyToString keyToString) {
+        private void auditRanges(String prefix, KeyToString keyToString) throws Exception {
             compactableIndexes.auditRanges(prefix, keyToString);
         }
 
@@ -589,7 +592,8 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public void append(String rawhideName, RawConcurrentReadableIndex rawMemoryIndex, boolean fsync) throws Exception {
+    public void append(String rawhideName, RawConcurrentReadableIndex rawMemoryIndex, boolean fsync, BolBuffer rawEntryBuffer) throws Exception {
+        
         appendSemaphore.acquire();
         try {
             byte[] minKey = rawMemoryIndex.minKey();
@@ -604,7 +608,7 @@ public class RangeStripedCompactableIndexes {
                     indexName,
                     stripeId,
                     new CompactableIndexes(rawhide));
-                index.append(rawhideName, rawMemoryIndex, null, null, fsync);
+                index.append(rawhideName, rawMemoryIndex, null, null, fsync, rawEntryBuffer);
 
                 synchronized (copyIndexOnWrite) {
                     ConcurrentSkipListMap<byte[], FileBackMergableIndexs> copyOfIndexes = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
@@ -642,7 +646,7 @@ public class RangeStripedCompactableIndexes {
                     priorEntry = currentEntry;
                 } else {
                     if (rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), currentEntry.getKey())) {
-                        priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync);
+                        priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync, rawEntryBuffer);
                     }
                     priorEntry = currentEntry;
                     if (keyComparator.compare(maxKey, currentEntry.getKey()) < 0) {
@@ -652,7 +656,7 @@ public class RangeStripedCompactableIndexes {
                 }
             }
             if (priorEntry != null && rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), null)) {
-                priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), null, fsync);
+                priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), null, fsync, rawEntryBuffer);
             }
 
         } finally {
@@ -794,7 +798,7 @@ public class RangeStripedCompactableIndexes {
         return 1 + maxLeaps;
     }
 
-    public void auditRanges(KeyToString keyToString) {
+    public void auditRanges(KeyToString keyToString) throws Exception {
         for (Entry<byte[], FileBackMergableIndexs> entry : indexes.entrySet()) {
 
             System.out.println("key:" + keyToString.keyToString(entry.getKey()));

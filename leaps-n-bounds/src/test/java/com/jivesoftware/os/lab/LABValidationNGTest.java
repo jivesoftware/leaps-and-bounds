@@ -1,10 +1,15 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.guts.LABCSLMIndex;
+import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -50,6 +55,20 @@ public class LABValidationNGTest {
 
         LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
+        LABIndexProvider indexProvider = (rawhide1) -> {
+            if (true) {
+                LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(() -> {
+                    labHeapPressure.freeHeap();
+                    return null;
+                });
+                LABIndexableMemory memory = new LABIndexableMemory("", allocator);
+                LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
+                return new LABConcurrentSkipListMap(skipList);
+            } else {
+                return new LABCSLMIndex(rawhide1);
+            }
+        };
+
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.NAME,
             LABRawhide.SINGLETON,
@@ -70,7 +89,7 @@ public class LABValidationNGTest {
             0,
             0,
             leapsCache,
-            false);
+            indexProvider);
 
         int writerCount = 12;
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
@@ -90,6 +109,7 @@ public class LABValidationNGTest {
             running.incrementAndGet();
             writerFutures.add(writers.submit(() -> {
                 try {
+                    BolBuffer rawEntryBuffer = new BolBuffer();
                     for (int c = 0; c < commitCount; c++) {
 
                         if (version.get() > (writerCount * commitCount * batchSize) / 2) {
@@ -111,14 +131,14 @@ public class LABValidationNGTest {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
                                 stream.stream(-1,
-                                    UIO.longBytes(nextId.incrementAndGet()),
+                                    UIO.longBytes(nextId.incrementAndGet(), new byte[8], 0),
                                     System.currentTimeMillis(),
                                     false,
                                     version.incrementAndGet(),
-                                    UIO.longBytes(value.incrementAndGet()));
+                                    UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
                             }
                             return true;
-                        }, fsync);
+                        }, fsync, rawEntryBuffer);
 
                         lab.commit(fsync, true);
                     }
@@ -168,9 +188,25 @@ public class LABValidationNGTest {
 
         LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
+       
+        LABRawhide rawhide = LABRawhide.SINGLETON;
+
+        LABIndexProvider indexProvider = (rawhide1) -> {
+            if (true) {
+                LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(() -> {
+                    labHeapPressure.freeHeap();
+                    return null;
+                });
+                LABIndexableMemory memory = new LABIndexableMemory("", allocator);
+                LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
+                return new LABConcurrentSkipListMap(skipList);
+            } else {
+                return new LABCSLMIndex(rawhide1);
+            }
+        };
+
         LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
-            LABRawhide.NAME,
-            LABRawhide.SINGLETON,
+            LABRawhide.NAME, rawhide,
             new RawEntryFormat(0, 0),
             scheduler,
             compact,
@@ -184,7 +220,7 @@ public class LABValidationNGTest {
             1024 * 1024 * 10,
             4, 8, 128, 0, 0,
             leapsCache,
-            false);
+            indexProvider);
 
         validationTest(lab);
 
@@ -218,19 +254,20 @@ public class LABValidationNGTest {
             running.incrementAndGet();
             writerFutures.add(writers.submit(() -> {
                 try {
+                    BolBuffer rawEntryBuffer = new BolBuffer();
                     for (int c = 0; c < commitCount; c++) {
                         lab.append((stream) -> {
                             for (int b = 0; b < batchSize; b++) {
                                 count.incrementAndGet();
                                 stream.stream(-1,
-                                    UIO.longBytes(nextId.incrementAndGet()),
+                                    UIO.longBytes(nextId.incrementAndGet(), new byte[8], 0),
                                     System.currentTimeMillis(),
                                     false,
                                     version.incrementAndGet(),
-                                    UIO.longBytes(value.incrementAndGet()));
+                                    UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
                             }
                             return true;
-                        }, fsync);
+                        }, fsync, rawEntryBuffer);
                         lab.commit(fsync, true);
                         System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + lab.debt());
                     }
@@ -244,62 +281,6 @@ public class LABValidationNGTest {
             }));
         }
 
-//        for (Future f : writerFutures) {
-//            f.get();
-//        }
-//
-//        boolean balls = false;
-//        do {
-//            balls = false;
-//            long mid = nextId.get();
-//            Set<Long> scanFound = new HashSet<>();
-//            for (int i = 1; i <= mid; i++) {
-//                lab.get(UIO.longBytes(i), (key, timestamp, tombstoned, version1, value1) -> {
-//                    if (value1 != null) {
-//                        scanFound.add(UIO.bytesLong(key));
-//                    }
-//                    return true;
-//
-//                });
-//
-//                lab.rowScan((key, timestamp, tombstoned, version1, value1) -> {
-//                    if (value1 != null) {
-//                        scanFound.add(UIO.bytesLong(key));
-//                    }
-//                    return true;
-//                });
-//            }
-//
-//            if (mid != scanFound.size()) {
-//                balls = true;
-//                long[] last = new long[1];
-//                lab.rowScan((key, timestamp, tombstoned, version1, value1) -> {
-//                    long l = UIO.bytesLong(key);
-//                    if (l - 1 != last[0]) {
-//                        System.out.println("Fuck:" + l);
-//                    }
-//                    last[0] = l;
-//                    return true;
-//                });
-//
-//                List<Long> missing = new ArrayList<>();
-//                for (long i = 1; i <= mid; i++) {
-//                    if (!scanFound.contains(i)) {
-//                        missing.add(i);
-//                    }
-//                }
-//                System.out.println("SCAN FAILED: " + scanFound.size() + "  vs " + mid + " " + missing + " " + missing.size());
-//                //org.testng.Assert.fail();
-//            }
-//            if (balls) {
-//                Thread.sleep(1000);
-//            }
-//        } while (balls);
-//
-//        if (2 + 2 == 4) {
-//            return;
-//        }
-//        System.out.println("------------------------- WRITERS ARE DONE -----------------------");
         AtomicLong passed = new AtomicLong();
         AtomicLong failed = new AtomicLong();
         List<String> log = new ArrayList<>();
@@ -317,7 +298,7 @@ public class LABValidationNGTest {
                             int ii = i;
                             lab.get(
                                 (keyStream) -> {
-                                    byte[] key = UIO.longBytes(ii);
+                                    byte[] key = UIO.longBytes(ii, new byte[8], 0);
                                     keyStream.key(0, key, 0, key.length);
                                     return true;
                                 },
@@ -328,25 +309,6 @@ public class LABValidationNGTest {
                                 }, true);
                         }
 
-//                        Set<Long> scanFound = new HashSet<>();
-//                        for (int i = 0; i < maxId; i++) {
-//                            lab.rowScan((byte[] key, long timestamp, boolean tombstoned, long version1, byte[] payload) -> {
-//                                scanFound.add(UIO.bytesLong(key));
-//                                return true;
-//                            });
-//                        }
-//                        if (maxId != scanFound.size()) {
-//                            failed.incrementAndGet();
-//                            System.out.println("SCAN FAILED: " + scanFound.size() + "  vs " + maxId);
-//                            List<Long> missing = new ArrayList<>();
-//                            for (long i = 0; i < maxId; i++) {
-//                                if (!scanFound.contains(i)) {
-//                                    missing.add(i);
-//                                }
-//
-//                            }
-//                            log.add("SCAN FAILED: " + found.size() + "  vs " + maxId + " missing=" + missing);
-//                        }
                         if (maxId == found.size()) {
                             passed.incrementAndGet();
                             System.out.println("PASSED: " + found.size() + "  vs " + maxId);
@@ -405,5 +367,4 @@ public class LABValidationNGTest {
         }
     }
 
-    //Thread.sleep(Integer.MAX_VALUE);
 }

@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts.api;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 
 /**
@@ -10,7 +11,5 @@ public interface AppendEntryStream {
 
     boolean stream(FormatTransformer readKeyFormatTransformer,
         FormatTransformer readValueFormatTransformer,
-        byte[] rawEntry,
-        int offset,
-        int length) throws Exception;
+        BolBuffer rawEntry) throws Exception;
 }

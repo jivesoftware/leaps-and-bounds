@@ -2,8 +2,9 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
+import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.StreamRawEntry;
 import java.nio.ByteBuffer;
 import java.util.PriorityQueue;
@@ -11,19 +12,33 @@ import java.util.PriorityQueue;
 /**
  * @author jonathan.colt
  */
-class InterleaveStream implements StreamRawEntry, NextRawEntry {
+public class InterleaveStream implements StreamRawEntry, Scanner {
 
     private final Rawhide rawhide;
     private final PriorityQueue<Feed> feeds = new PriorityQueue<>();
     private Feed active;
     private Feed until;
 
-    public InterleaveStream(NextRawEntry[] nextRawEntries, Rawhide rawhide) throws Exception {
+    public InterleaveStream(ReadIndex[] indexs, byte[] from, byte[] to, Rawhide rawhide) throws Exception {
         this.rawhide = rawhide;
-        for (int i = 0; i < nextRawEntries.length; i++) {
-            Feed feed = new Feed(i, nextRawEntries[i], rawhide);
+        boolean rowScan = from == null && to == null;
+        for (int i = 0; i < indexs.length; i++) {
+            Scanner scanner;
+            if (rowScan) {
+                scanner = indexs[i].rowScan();
+            } else {
+                scanner = indexs[i].rangeScan(from, to);
+            }
+            Feed feed = new Feed(i, scanner, rawhide);
             feed.feedNext();
             feeds.add(feed);
+        }
+    }
+
+    @Override
+    public void close() throws Exception {
+        for (Feed feed : feeds) {
+            feed.scanner.close();
         }
     }
 
@@ -96,21 +111,21 @@ class InterleaveStream implements StreamRawEntry, NextRawEntry {
     private static class Feed implements Comparable<Feed> {
 
         private final int index;
-        private final NextRawEntry feed;
+        private final Scanner scanner;
         private final Rawhide rawhide;
 
         private FormatTransformer nextReadKeyFormatTransformer;
         private FormatTransformer nextReadValueFormatTransformer;
         private ByteBuffer nextRawEntry;
 
-        public Feed(int index, NextRawEntry feed, Rawhide rawhide) {
+        public Feed(int index, Scanner scanner, Rawhide rawhide) {
             this.index = index;
-            this.feed = feed;
+            this.scanner = scanner;
             this.rawhide = rawhide;
         }
 
         private ByteBuffer feedNext() throws Exception {
-            Next hadNext = feed.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+            Next hadNext = scanner.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 nextRawEntry = rawEntry;
                 nextReadKeyFormatTransformer = readKeyFormatTransformer;
                 nextReadValueFormatTransformer = readValueFormatTransformer;

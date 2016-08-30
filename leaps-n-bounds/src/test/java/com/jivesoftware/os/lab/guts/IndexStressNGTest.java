@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.TestUtils;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
@@ -126,7 +127,7 @@ public class IndexStressNGTest {
                     continue;
                 }
                 while (indexs.tx(-1, null, null, (index, fromKey, toKey, acquire, hydrateValues) -> {
-                    GetRaw getRaw = IndexUtil.get(acquire);
+                    GetRaw getRaw = new PointGetRaw(acquire);
 
                     try {
 
@@ -176,7 +177,7 @@ public class IndexStressNGTest {
             LABAppendableIndex write = new LABAppendableIndex(id,
                 new IndexFile(indexFiler, "rw"), maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
                 new RawEntryFormat(0, 0));
-            long lastKey = IndexTestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
+            long lastKey = TestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
             write.closeAppendable(fsync);
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));

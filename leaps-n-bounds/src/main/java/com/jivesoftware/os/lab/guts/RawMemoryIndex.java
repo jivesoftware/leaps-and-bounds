@@ -1,24 +1,20 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
-import com.jivesoftware.os.lab.LABIndexableMemory;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,7 +26,9 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadableIndex {
 
-    private final SortedMap<byte[], byte[]> index;
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
+    private final LABIndex index;
     private final AtomicLong approximateCount = new AtomicLong();
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 
@@ -46,15 +44,15 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final ReadIndex reader;
     private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
 
-    public RawMemoryIndex(ExecutorService destroy, LabHeapPressure labHeapPressure, Rawhide rawhide, boolean useOffHeap) {
+    public RawMemoryIndex(ExecutorService destroy,
+        LabHeapPressure labHeapPressure,
+        Rawhide rawhide,
+        LABIndex index) throws InterruptedException {
+
         this.destroy = destroy;
         this.labHeapPressure = labHeapPressure;
         this.rawhide = rawhide;
-        if (useOffHeap) {
-            this.index = new LABConcurrentSkipListMap(new LABIndexableMemory(rawhide));
-        } else {
-            this.index = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
-        }
+        this.index = index;
         this.reader = new ReadIndex() {
 
             @Override
@@ -66,11 +64,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
                     @Override
                     public boolean get(byte[] key, RawEntryStream stream) throws Exception {
-                        byte[] rawEntry = index.get(key);
+                        BolBuffer rawEntry = index.get(new BolBuffer(key), new BolBuffer()); // Grrr
                         if (rawEntry == null) {
                             return false;
                         } else {
-                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(rawEntry));
+                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry.asByteBuffer());
                             return true;
                         }
                     }
@@ -83,29 +81,31 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             }
 
             @Override
-            public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
-                Iterator<Map.Entry<byte[], byte[]>> iterator = subMap(from, to).entrySet().iterator();
-                return (stream) -> {
-                    if (iterator.hasNext()) {
-                        Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
-                        return more ? Next.more : Next.stopped;
-                    }
-                    return Next.eos;
-                };
+            public Scanner rangeScan(byte[] from, byte[] to) throws Exception {
+//                Iterator<Map.Entry<byte[], byte[]>> iterator = subMap(from, to).entrySet().iterator();
+//                return (stream) -> {
+//                    if (iterator.hasNext()) {
+//                        Map.Entry<byte[], byte[]> next = iterator.next();
+//                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
+//                        return more ? Next.more : Next.stopped;
+//                    }
+//                    return Next.eos;
+//                };
+                return index.scanner(from, to);
             }
 
             @Override
-            public NextRawEntry rowScan() throws Exception {
-                Iterator<Map.Entry<byte[], byte[]>> iterator = index.entrySet().iterator();
-                return (stream) -> {
-                    if (iterator.hasNext()) {
-                        Map.Entry<byte[], byte[]> next = iterator.next();
-                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
-                        return more ? Next.more : Next.stopped;
-                    }
-                    return Next.eos;
-                };
+            public Scanner rowScan() throws Exception {
+//                Iterator<Map.Entry<byte[], byte[]>> iterator = index.entrySet().iterator();
+//                return (stream) -> {
+//                    if (iterator.hasNext()) {
+//                        Map.Entry<byte[], byte[]> next = iterator.next();
+//                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
+//                        return more ? Next.more : Next.stopped;
+//                    }
+//                    return Next.eos;
+//                };
+                return index.scanner(null, null);
             }
 
             @Override
@@ -131,20 +131,8 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public boolean containsKeyInRange(byte[] from, byte[] to) {
-        return !subMap(from, to).isEmpty();
-    }
-
-    private Map<byte[], byte[]> subMap(byte[] from, byte[] to) {
-        if (from != null && to != null) {
-            return index.subMap(from, to);
-        } else if (from != null) {
-            return index.tailMap(from);
-        } else if (to != null) {
-            return index.headMap(to);
-        } else {
-            return index;
-        }
+    public boolean containsKeyInRange(byte[] from, byte[] to) throws Exception {
+        return index.contains(from, to);
     }
 
     @Override
@@ -159,35 +147,38 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public boolean append(AppendEntries entries) throws Exception {
-        return entries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length) -> {
+        BolBuffer valueBuffer = new BolBuffer(); // Grrrr
+        return entries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer) -> {
 
-            byte[] key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, offset, length);
+            BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
             int keyLength = key.length;
-            index.compute(key, (k, value) -> {
-                byte[] merged;
-                int valueLength = ((rawEntry == null) ? 0 : rawEntry.length);
-                if (value == null) {
-                    approximateCount.incrementAndGet();
-                    keysCostInBytes.addAndGet(keyLength);
-                    valuesCostInBytes.addAndGet(valueLength);
-                    labHeapPressure.change(keyLength + valueLength);
-                    merged = rawEntry;
-                } else {
-                    merged = rawhide.merge(FormatTransformer.NO_OP, FormatTransformer.NO_OP, value,
-                        readKeyFormatTransformer, readValueFormatTransformer,
-                        rawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP);
+            index.compute(key, valueBuffer,
+                (value) -> {
 
-                    int mergeValueLength = ((merged == null) ? 0 : merged.length);
-                    int valueLengthDelta = mergeValueLength - valueLength;
-                    valuesCostInBytes.addAndGet(valueLengthDelta);
-                    labHeapPressure.change(valueLengthDelta);
+                    BolBuffer merged;
+                    int valueLength = ((rawEntryBuffer.length == -1) ? 0 : rawEntryBuffer.length);
+                    if (value == null) {
+                        approximateCount.incrementAndGet();
+                        keysCostInBytes.addAndGet(keyLength);
+                        valuesCostInBytes.addAndGet(valueLength);
+                        labHeapPressure.change(keyLength + valueLength);
+                        merged = rawEntryBuffer;
+                    } else {
+                        merged = rawhide.merge(FormatTransformer.NO_OP, FormatTransformer.NO_OP, value,
+                            readKeyFormatTransformer, readValueFormatTransformer,
+                            rawEntryBuffer, FormatTransformer.NO_OP, FormatTransformer.NO_OP);
+
+                        int mergeValueLength = ((merged.length == -1) ? 0 : merged.length);
+                        int valueLengthDelta = mergeValueLength - valueLength;
+                        valuesCostInBytes.addAndGet(valueLengthDelta);
+                        labHeapPressure.change(valueLengthDelta);
+                    }
+                    long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
+                    long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
+                    updateMaxTimestampAndVersion(timestamp, version);
+                    return merged;
                 }
-                ByteBuffer bbMerged = ByteBuffer.wrap(merged);
-                long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, bbMerged);
-                long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, bbMerged);
-                updateMaxTimestampAndVersion(timestamp, version);
-                return merged;
-            });
+            );
             return true;
         });
     }
@@ -221,12 +212,14 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             hideABone.acquire(numBones);
             try {
                 disposed.set(true);
-
                 if (index instanceof LABConcurrentSkipListMap) {
                     ((LABConcurrentSkipListMap) index).freeAll();
                 }
                 index.clear();
                 labHeapPressure.change(-sizeInBytes());
+            } catch (Throwable t) {
+                LOG.error("Destroy failed horribly!", t);
+                throw t;
             } finally {
                 hideABone.release(numBones);
             }
@@ -243,7 +236,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public boolean isEmpty() {
+    public boolean isEmpty() throws Exception {
         return index.isEmpty();
     }
 
@@ -268,12 +261,12 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public byte[] minKey() {
+    public byte[] minKey() throws Exception {
         return index.firstKey();
     }
 
     @Override
-    public byte[] maxKey() {
+    public byte[] maxKey() throws Exception {
         return index.lastKey();
     }
 

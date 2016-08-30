@@ -1,9 +1,9 @@
 package com.jivesoftware.os.lab.api;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IReadable;
-import com.jivesoftware.os.lab.io.api.UIO;
 import java.nio.ByteBuffer;
 
 /**
@@ -21,12 +21,12 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
+    public BolBuffer merge(FormatTransformer currentReadKeyFormatTransormer,
         FormatTransformer currentReadValueFormatTransormer,
-        byte[] currentRawEntry,
+        BolBuffer currentRawEntry,
         FormatTransformer addingReadKeyFormatTransormer,
         FormatTransformer addingReadValueFormatTransormer,
-        byte[] addingRawEntry,
+        BolBuffer addingRawEntry,
         FormatTransformer mergedReadKeyFormatTransormer,
         FormatTransformer mergedReadValueFormatTransormer) {
         return addingRawEntry;
@@ -56,8 +56,12 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception {
-        return payload != null ? UIO.add(key, payload) : key;
+    public BolBuffer toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload, BolBuffer rawEntryBuffer) throws
+        Exception {
+        rawEntryBuffer.allocate(key.length + payload.length);
+        System.arraycopy(key, 0, rawEntryBuffer.bytes, 0, key.length);
+        System.arraycopy(payload, 0, rawEntryBuffer.bytes, key.length, payload.length);
+        return rawEntryBuffer;
     }
 
     @Override
@@ -68,24 +72,18 @@ public class FixedWidthRawhide implements Rawhide {
     @Override
     public void writeRawEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length,
+        BolBuffer rawEntryBuffer,
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
         IAppendOnly appendOnly) throws Exception {
-        appendOnly.append(rawEntry, offset, length);
+        appendOnly.append(rawEntryBuffer.bytes, rawEntryBuffer.offset, rawEntryBuffer.length);
     }
 
     @Override
-    public byte[] key(FormatTransformer readKeyFormatTransormer,
+    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length) {
-        byte[] key = new byte[keyLength];
-        UIO.readBytes(rawEntry, 0, key);
-        return key;
+        BolBuffer rawEntry) {
+        return rawEntry.slice(0, keyLength);
     }
 
     @Override
@@ -139,12 +137,12 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, ByteBuffer rawEntry) {
+    public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {
         return 0;
     }
 
     @Override
-    public long version(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, ByteBuffer rawEntry) {
+    public long version(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {
         return 0;
     }
 

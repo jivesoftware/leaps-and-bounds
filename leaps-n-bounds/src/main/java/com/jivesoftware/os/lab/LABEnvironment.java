@@ -1,5 +1,8 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
@@ -15,6 +18,8 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.guts.LABCSLMIndex;
+import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.Leaps;
 import java.io.File;
 import java.io.IOException;
@@ -23,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +53,8 @@ public class LABEnvironment {
     private final int minMergeDebt;
     private final int maxMergeDebt;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
-    private final boolean useOffHeap;
+    private final boolean useIndexableMemory;
+    private final LABIndexableMemory indexableMemory;
 
     private final String walName;
     private final LabWAL wal;
@@ -92,7 +99,8 @@ public class LABEnvironment {
         int minMergeDebt,
         int maxMergeDebt,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
-        boolean useOffHeap) throws IOException {
+        boolean useIndexableMemory,
+        LABIndexableMemory indexableMemory) throws IOException {
 
         register(NoOpFormatTransformerProvider.NAME, NoOpFormatTransformerProvider.NO_OP);
         register(KeyValueRawhide.NAME, KeyValueRawhide.SINGLETON);
@@ -109,7 +117,8 @@ public class LABEnvironment {
         this.leapsCache = leapsCache;
         this.walName = walName;
         this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
-        this.useOffHeap = useOffHeap;
+        this.useIndexableMemory = useIndexableMemory;
+        this.indexableMemory = indexableMemory;
 
     }
 
@@ -204,6 +213,23 @@ public class LABEnvironment {
             MAPPER.writeValue(configFile, config);
         }
 
+        Callable<Void> callOnOOM = () -> {
+            labHeapPressure.freeHeap();
+            return null;
+        };
+
+        LABIndexProvider indexProvider = (rawhide1) -> {
+            if (useIndexableMemory) {
+                LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(callOnOOM);
+
+                LABIndexableMemory memory = new LABIndexableMemory(config.rawhideName, allocator);
+                LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
+                return new LABConcurrentSkipListMap(skipList);
+            } else {
+                return new LABCSLMIndex(rawhide1);
+            }
+        };
+
         return new LAB(formatTransformerProvider,
             config.rawhideName,
             rawhide,
@@ -224,7 +250,7 @@ public class LABEnvironment {
             config.splitWhenValuesTotalExceedsNBytes,
             config.splitWhenValuesAndKeysTotalExceedsNBytes,
             leapsCache,
-            useOffHeap);
+            indexProvider);
 
     }
 

@@ -111,8 +111,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
             if (leaps == null) {
                 IReadable readableIndex = index.reader(null, index.length());
                 long indexLength = readableIndex.length();
-                byte[] lengthBuffer = new byte[8];
-
+                
                 long seekTo = indexLength - 4;
                 if (seekTo < 0 || seekTo > indexLength) {
                     throw new LABIndexCorruptedException(

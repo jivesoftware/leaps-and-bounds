@@ -116,6 +116,7 @@ public class LabWAL {
         Map<String, ListMultimap<Long, byte[]>> allEntries = Maps.newHashMap();
 
         BAHash<ValueIndex> valueIndexes = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
+        BolBuffer rawEntryBuffer = new BolBuffer();
         for (File walFile : listWALFiles) {
 
             IndexFile indexFile = null;
@@ -142,7 +143,7 @@ public class LabWAL {
                         if (valueIndexIdLength >= maxEntrySizeInBytes) {
                             throw new CorruptionDetectedException("valueIndexId length corruption" + valueIndexIdLength + ">=" + maxEntrySizeInBytes);
                         }
-
+                        
                         byte[] valueIndexId = new byte[valueIndexIdLength];
                         reader.read(valueIndexId);
 
@@ -187,7 +188,7 @@ public class LabWAL {
                                         }
                                     }
                                     return true;
-                                }, true, maxValueIndexHeapPressureOverride);
+                                }, true, maxValueIndexHeapPressureOverride, rawEntryBuffer);
 
                                 valueIndexVersionedEntries.removeAll(appendVersion);
                             }
@@ -264,7 +265,7 @@ public class LabWAL {
         }
     }
 
-    public void append(byte[] valueIndexId, long appendVersion, byte[] entry) throws Exception {
+    public void append(byte[] valueIndexId, long appendVersion, BolBuffer entry) throws Exception {
         semaphore.acquire();
         try {
             if (closed.get()) {
@@ -386,12 +387,12 @@ public class LabWAL {
             this.appendOnly = wal.appender();
         }
 
-        public void append(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, byte[] entry) throws Exception {
+        public void append(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, BolBuffer entry) throws Exception {
             entryCount.incrementAndGet();
             sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8 + entry.length);
             synchronized (oneWriteAtTimeLock) {
                 append(appendableHeap, ENTRY, valueIndexId, appendVersion);
-                UIO.writeByteArray(appendableHeap, entry, "entry");
+                UIO.writeByteArray(appendableHeap, entry.bytes, 0, entry.length, "entry");
             }
         }
 
@@ -403,7 +404,7 @@ public class LabWAL {
                 appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
                 appendOnly.flush(fsync);
 
-                appendableHeap.clear();
+                appendableHeap.reset();
                 appendVersions.put(valueIndexId, appendVersion);
             }
         }

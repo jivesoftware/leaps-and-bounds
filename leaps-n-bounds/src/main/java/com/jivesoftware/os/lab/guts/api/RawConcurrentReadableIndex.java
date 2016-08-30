@@ -2,7 +2,6 @@ package com.jivesoftware.os.lab.guts.api;
 
 import com.jivesoftware.os.lab.guts.IndexRangeId;
 import com.jivesoftware.os.lab.guts.TimestampAndVersion;
-import java.io.IOException;
 
 /**
  *
@@ -14,28 +13,28 @@ public interface RawConcurrentReadableIndex {
 
     IndexRangeId id();
 
-    byte[] minKey();
+    byte[] minKey() throws Exception;
 
-    byte[] maxKey();
+    byte[] maxKey() throws Exception;
 
     ReadIndex acquireReader() throws Exception;
 
     void destroy() throws Exception;
 
-    boolean isEmpty() throws IOException;
+    boolean isEmpty() throws Exception;
 
-    long count() throws IOException;
+    long count() throws Exception;
 
     void closeReadable() throws Exception;
 
-    long sizeInBytes() throws IOException;
+    long sizeInBytes() throws Exception;
 
-    long keysSizeInBytes() throws IOException;
+    long keysSizeInBytes() throws Exception;
 
-    long valuesSizeInBytes() throws IOException;
+    long valuesSizeInBytes() throws Exception;
 
     TimestampAndVersion maxTimestampAndVersion();
 
-    boolean containsKeyInRange(byte[] from, byte[] to);
+    boolean containsKeyInRange(byte[] from, byte[] to) throws Exception;
 
 }

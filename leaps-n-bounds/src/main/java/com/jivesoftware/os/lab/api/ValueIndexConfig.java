@@ -18,7 +18,7 @@ public class ValueIndexConfig {
     public final String formatTransformerProviderName;
     public final String rawhideName;
     public final String rawEntryFormatName;
-
+    
     @JsonCreator
     public ValueIndexConfig(@JsonProperty("primaryName") String primaryName,
         @JsonProperty("entriesBetweenLeaps") int entriesBetweenLeaps,

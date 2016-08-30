@@ -157,9 +157,14 @@ public class AppendableHeap implements IAppendOnly {
         if (src == null) {
             return new byte[amount];
         }
-        byte[] newSrc = new byte[IntMath.checkedAdd(src.length, amount)];
-        System.arraycopy(src, 0, newSrc, 0, src.length);
-        return newSrc;
+        try {
+            byte[] newSrc = new byte[IntMath.checkedAdd(src.length, amount)];
+            System.arraycopy(src, 0, newSrc, 0, src.length);
+            return newSrc;
+        } catch (ArithmeticException x) {
+            System.out.println(src.length + " + " + amount + " overflows an int!");
+            throw x;
+        }
     }
 
 }

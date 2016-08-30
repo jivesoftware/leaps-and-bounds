@@ -1,9 +1,11 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
@@ -11,9 +13,10 @@ import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -44,6 +47,7 @@ public class CompactableIndexsNGTest {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         CompactableIndexes indexs = new CompactableIndexes(new SimpleRawhide());
         AtomicLong id = new AtomicLong();
+        AppendableHeap appendableHeap = new AppendableHeap(8192);
 
         int[] counts = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
         for (int wi = 0; wi < counts.length; wi++) {
@@ -62,7 +66,7 @@ public class CompactableIndexsNGTest {
                 for (int i = 0; i < counts[ci]; i++) {
                     long time = timeProvider.nextId();
                     byte[] rawEntry = rawEntry(id.incrementAndGet(), time);
-                    if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length)) {
+                    if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(rawEntry))) {
                         break;
                     }
                 }
@@ -77,7 +81,7 @@ public class CompactableIndexsNGTest {
 
         for (int i = 1; i <= id.get(); i++) {
             long g = i;
-            byte[] k = UIO.longBytes(i);
+            byte[] k = UIO.longBytes(i, new byte[8], 0);
             boolean[] passed = {false};
             System.out.println("Get:" + i);
             indexs.tx(-1, null, null, (index, fromKey, toKey, readIndexs, hydrateValues) -> {
@@ -128,7 +132,7 @@ public class CompactableIndexsNGTest {
 
                 LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry, FormatTransformer.NO_OP,
                     FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
-                IndexTestUtils.append(rand, write, 0, step, count, desired);
+                TestUtils.append(rand, write, 0, step, count, desired);
                 write.closeAppendable(fsync);
 
                 indexFile = new IndexFile(file, "r");
@@ -197,7 +201,7 @@ public class CompactableIndexsNGTest {
 
             LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
                 new RawEntryFormat(0, 0));
-            IndexTestUtils.append(rand, write, 0, step, count, desired);
+            TestUtils.append(rand, write, 0, step, count, desired);
             write.closeAppendable(fsync);
 
             indexFile = new IndexFile(indexFiler, "r");
@@ -208,12 +212,12 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs, hydrateValues) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
-                NextRawEntry rowScan = readIndex.rowScan();
+                Scanner rowScan = readIndex.rowScan();
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
-                while (rowScan.next(stream) == NextRawEntry.Next.more) {
+                while (rowScan.next(stream) == Scanner.Next.more) {
                 }
             }
             return true;
@@ -247,12 +251,12 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs, hydrateValues) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
-                NextRawEntry rowScan = readIndex.rowScan();
+                Scanner rowScan = readIndex.rowScan();
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(" Found:" + SimpleRawhide.toString(rawEntry));
                     return true;
                 };
-                while (rowScan.next(stream) == NextRawEntry.Next.more) {
+                while (rowScan.next(stream) == Scanner.Next.more) {
                 }
             }
             return true;
@@ -277,18 +281,22 @@ public class CompactableIndexsNGTest {
         int[] index = new int[1];
         SimpleRawhide rawhide = new SimpleRawhide();
         indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
-            NextRawEntry rowScan = IndexUtil.rowScan(acquired, rawhide);
             AtomicBoolean failed = new AtomicBoolean();
-            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                System.out.println("Expected:key:" + UIO.bytesLong(keys.get(index[0])) + " Found:" + SimpleRawhide.toString(rawEntry));
-                //Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
-                if (UIO.bytesLong(keys.get(index[0])) != SimpleRawhide.key(rawEntry)) {
-                    failed.set(true);
+            Scanner rowScan = new InterleaveStream(acquired, null, null, rawhide);
+            try {
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                    System.out.println("Expected:key:" + UIO.bytesLong(keys.get(index[0])) + " Found:" + SimpleRawhide.toString(rawEntry));
+                    //Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawEntry.key(rawEntry));
+                    if (UIO.bytesLong(keys.get(index[0])) != SimpleRawhide.key(rawEntry)) {
+                        failed.set(true);
+                    }
+                    index[0]++;
+                    return true;
+                };
+                while (rowScan.next(stream) == Scanner.Next.more) {
                 }
-                index[0]++;
-                return true;
-            };
-            while (rowScan.next(stream) == NextRawEntry.Next.more) {
+            } finally {
+                rowScan.close();
             }
             Assert.assertFalse(failed.get());
 
@@ -300,13 +308,13 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
-                GetRaw getRaw = IndexUtil.get(acquired);
-                byte[] key = UIO.longBytes(k);
+                GetRaw getRaw = new PointGetRaw(acquired);
+                byte[] key = UIO.longBytes(k, new byte[8], 0);
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println("->" + SimpleRawhide.key(rawEntry) + " " + SimpleRawhide.value(IndexUtil.toByteArray(rawEntry)));
                     if (rawEntry != null) {
                         System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
-                        byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry));
+                        byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry), new byte[8], 0);
                         Assert.assertEquals(rawKey, key);
                         byte[] d = desired.get(key);
                         if (d == null) {
@@ -339,8 +347,12 @@ public class CompactableIndexsNGTest {
                 };
 
                 System.out.println("Asked index:" + _i + " key:" + UIO.bytesLong(keys.get(_i)) + " to:" + UIO.bytesLong(keys.get(_i + 3)));
-                NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, keys.get(_i), keys.get(_i + 3), rawhide);
-                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                Scanner rangeScan = new InterleaveStream(acquired, keys.get(_i), keys.get(_i + 3), rawhide);
+                try {
+                    while (rangeScan.next(stream) == Scanner.Next.more) {
+                    }
+                } finally {
+                    rangeScan.close();
                 }
                 Assert.assertEquals(3, streamed[0]);
 
@@ -359,8 +371,13 @@ public class CompactableIndexsNGTest {
                     }
                     return true;
                 };
-                NextRawEntry rangeScan = IndexUtil.rangeScan(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1), keys.get(_i + 3), rawhide);
-                while (rangeScan.next(stream) == NextRawEntry.Next.more) {
+                Scanner rangeScan = new InterleaveStream(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),
+                    rawhide);
+                try {
+                    while (rangeScan.next(stream) == Scanner.Next.more) {
+                    }
+                } finally {
+                    rangeScan.close();
                 }
                 Assert.assertEquals(2, streamed[0]);
 

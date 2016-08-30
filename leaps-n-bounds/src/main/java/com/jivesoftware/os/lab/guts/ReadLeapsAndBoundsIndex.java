@@ -4,9 +4,10 @@ import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry;
-import com.jivesoftware.os.lab.guts.api.NextRawEntry.Next;
+import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.guts.api.Scanner.Next;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Callable;
@@ -72,8 +73,19 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         return new Gets(activeScan);
     }
 
+    private static final Scanner eos = new Scanner() {
+        @Override
+        public Next next(RawEntryStream stream) throws Exception {
+            return Next.eos;
+        }
+
+        @Override
+        public void close() {
+        }
+    };
+
     @Override
-    public NextRawEntry rangeScan(byte[] from, byte[] to) throws Exception {
+    public Scanner rangeScan(byte[] from, byte[] to) throws Exception {
         ActiveScan activeScan = new ActiveScan(rawhide,
             readKeyFormatTransormer,
             readValueFormatTransormer,
@@ -86,33 +98,41 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         activeScan.reset();
         long fp = activeScan.getInclusiveStartOfRow(from, false);
         if (fp < 0) {
-            return (stream) -> Next.eos;
+            return eos;
         }
-        return (stream) -> {
-            boolean[] once = new boolean[]{false};
-            boolean more = true;
-            while (!once[0] && more) {
-                more = activeScan.next(fp,
-                    (readKeyFormatTransormer, readValueFormatTransormer, rawEntry) -> {
-                        int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(from));
-                        if (c >= 0) {
-                            c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(to));
-                            if (c < 0) {
-                                once[0] = true;
+        return new Scanner() {
+            @Override
+            public Next next(RawEntryStream stream) throws Exception {
+                boolean[] once = new boolean[]{false};
+                boolean more = true;
+                while (!once[0] && more) {
+                    more = activeScan.next(fp,
+                        (readKeyFormatTransormer, readValueFormatTransormer, rawEntry) -> {
+                            int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(from));
+                            if (c >= 0) {
+                                c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(to));
+                                if (c < 0) {
+                                    once[0] = true;
+                                }
+                                return c < 0 && stream.stream(readKeyFormatTransormer, readValueFormatTransormer, rawEntry);
+                            } else {
+                                return true;
                             }
-                            return c < 0 && stream.stream(readKeyFormatTransormer, readValueFormatTransormer, rawEntry);
-                        } else {
-                            return true;
-                        }
-                    });
+                        });
+                }
+                more = activeScan.result();
+                return more ? Next.more : Next.stopped;
             }
-            more = activeScan.result();
-            return more ? Next.more : Next.stopped;
+
+            @Override
+            public void close() {
+            }
         };
+
     }
 
     @Override
-    public NextRawEntry rowScan() throws Exception {
+    public Scanner rowScan() throws Exception {
         ActiveScan activeScan = new ActiveScan(rawhide,
             readKeyFormatTransormer,
             readValueFormatTransormer,
@@ -123,11 +143,20 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             readable.call(),
             new byte[16]);
         activeScan.reset();
-        return (stream) -> {
-            activeScan.next(0, stream);
-            boolean more = activeScan.result();
-            return more ? Next.more : Next.stopped;
+
+        return new Scanner() {
+            @Override
+            public Next next(RawEntryStream stream) throws Exception {
+                activeScan.next(0, stream);
+                boolean more = activeScan.result();
+                return more ? Next.more : Next.stopped;
+            }
+
+            @Override
+            public void close() {
+            }
         };
+
     }
 
     @Override

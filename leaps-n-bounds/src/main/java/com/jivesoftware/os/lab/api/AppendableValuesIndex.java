@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.api;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import java.util.List;
 import java.util.concurrent.Future;
 
@@ -9,9 +10,9 @@ import java.util.concurrent.Future;
  */
 public interface AppendableValuesIndex {
 
-    boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend) throws Exception;
+    boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend, BolBuffer rawEntryBuffer) throws Exception;
 
-    boolean append(AppendValues values, boolean fsyncOnFlush) throws Exception;
+    boolean append(AppendValues values, boolean fsyncOnFlush, BolBuffer rawEntryBuffer) throws Exception;
 
     List<Future<Object>> commit(boolean fsync, boolean waitIfToFarBehind) throws Exception;
 

@@ -1,8 +1,14 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.TestUtils;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.LABRawhide;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
@@ -109,9 +115,9 @@ public class RangeStripedCompactableIndexesStressNGTest {
                     continue;
                 }
                 int longKey = rand.nextInt(i);
-                byte[] longAsBytes = UIO.longBytes(longKey);
+                byte[] longAsBytes = UIO.longBytes(longKey, new byte[8], 0);
                 indexs.rangeTx(-1, longAsBytes, longAsBytes, -1, -1, (index, fromKey, toKey, acquire, hydrateValues) -> {
-                    GetRaw getRaw = IndexUtil.get(acquire);
+                    GetRaw getRaw = new PointGetRaw(acquire);
 
                     try {
 
@@ -152,14 +158,26 @@ public class RangeStripedCompactableIndexesStressNGTest {
         AtomicLong ongoingCompactions = new AtomicLong();
         Object compactLock = new Object();
         ExecutorService compact = Executors.newCachedThreadPool();
-
+        BolBuffer rawEntryBuffer = new BolBuffer();
         for (int b = 0; b < numBatches; b++) {
+            LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
+                new AtomicLong());
 
-            RawMemoryIndex index = new RawMemoryIndex(destroy, new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
-                new AtomicLong()),
-                LABRawhide.SINGLETON,false);
-            long lastKey = IndexTestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
-            indexs.append("test", index, fsync);
+            RawMemoryIndex index = new RawMemoryIndex(destroy,
+                labHeapPressure,
+                LABRawhide.SINGLETON,
+                new LABConcurrentSkipListMap(
+                    new LABConcurrentSkipListMemory(LABRawhide.SINGLETON,
+                        new LABIndexableMemory("memory",
+                            new LABAppendOnlyAllocator(() -> {
+                                labHeapPressure.freeHeap();
+                                return null;
+                            })
+                        )
+                    )
+                ));
+            long lastKey = TestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
+            indexs.append("test", index, fsync, rawEntryBuffer);
 
             int debt = indexs.debt();
             if (debt < minMergeDebt) {

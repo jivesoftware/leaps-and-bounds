@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.api;
 
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABUtils;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
@@ -21,12 +22,12 @@ public class KeyValueRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] merge(FormatTransformer currentReadKeyFormatTransormer,
+    public BolBuffer merge(FormatTransformer currentReadKeyFormatTransormer,
         FormatTransformer currentReadValueFormatTransormer,
-        byte[] currentRawEntry,
+        BolBuffer currentRawEntry,
         FormatTransformer addingReadKeyFormatTransormer,
         FormatTransformer addingReadValueFormatTransormer,
-        byte[] addingRawEntry,
+        BolBuffer addingRawEntry,
         FormatTransformer mergedReadKeyFormatTransormer,
         FormatTransformer mergedReadValueFormatTransormer) {
         return addingRawEntry;
@@ -61,12 +62,12 @@ public class KeyValueRawhide implements Rawhide {
     }
 
     @Override
-    public byte[] toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload) throws Exception {
-        byte[] rawEntry = new byte[LABUtils.rawArrayLength(key) + LABUtils.rawArrayLength(payload)];
+    public BolBuffer toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload, BolBuffer rawEntryBuffer) throws Exception {
+        rawEntryBuffer.allocate(LABUtils.rawArrayLength(key) + LABUtils.rawArrayLength(payload));
         int o = 0;
-        o += LABUtils.writeByteArray(key, rawEntry, o);
-        LABUtils.writeByteArray(payload, rawEntry, o);
-        return rawEntry;
+        o += LABUtils.writeByteArray(key, rawEntryBuffer.bytes, o);
+        LABUtils.writeByteArray(payload, rawEntryBuffer.bytes, o);
+        return rawEntryBuffer;
     }
 
     @Override
@@ -77,22 +78,19 @@ public class KeyValueRawhide implements Rawhide {
     @Override
     public void writeRawEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length,
+        BolBuffer rawEntryBuffer,
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
         IAppendOnly appendOnly) throws Exception {
-        UIO.writeByteArray(appendOnly, rawEntry, offset, length, "entry");
+        UIO.writeByteArray(appendOnly, rawEntryBuffer.bytes, rawEntryBuffer.offset, rawEntryBuffer.length, "entry");
     }
 
     @Override
-    public byte[] key(FormatTransformer readKeyFormatTransormer,
+    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        byte[] rawEntry,
-        int offset,
-        int length) {
-        return LABUtils.readByteArray(rawEntry, offset);
+        BolBuffer rawEntry) {
+        int keyLength = rawEntry.getInt(0);
+        return rawEntry.slice(4, keyLength);
     }
 
     @Override
@@ -148,12 +146,12 @@ public class KeyValueRawhide implements Rawhide {
     }
 
     @Override
-    public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, ByteBuffer rawEntry) {
+    public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {
         return 0;
     }
 
     @Override
-    public long version(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, ByteBuffer rawEntry) {
+    public long version(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {
         return 0;
     }
 

@@ -1,5 +1,5 @@
 /*
- * UIO.java.java
+ * UIO.java
  *
  * Created on 03-12-2010 11:24:38 PM
  *
@@ -35,13 +35,6 @@ public class UIO {
     private UIO() {
     }
 
-    /**
-     *
-     * @param _filer
-     * @param bytes
-     * @param fieldName
-     * @throws IOException
-     */
     public static void write(IAppendOnly _filer, byte[] bytes, String fieldName) throws IOException {
         _filer.append(bytes, 0, bytes.length);
     }
@@ -50,7 +43,6 @@ public class UIO {
         bytes.clear();
         byte[] array = new byte[bytes.capacity()];
         bytes.get(array);
-
         _filer.append(array, 0, array.length);
     }
 
@@ -118,15 +110,6 @@ public class UIO {
         writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName);
     }
 
-    /**
-     *
-     * @param _filer
-     * @param array
-     * @param _start
-     * @param _len
-     * @param fieldName
-     * @throws IOException
-     */
     public static void writeByteArray(IAppendOnly _filer, byte[] array,
         int _start, int _len, String fieldName) throws IOException {
         int len;
@@ -142,68 +125,6 @@ public class UIO {
         _filer.append(array, _start, len);
     }
 
-    public static void writeLongArray(IAppendOnly _filer, long[] array,
-        String fieldName) throws IOException {
-        int len;
-        if (array == null) {
-            len = -1;
-        } else {
-            len = array.length;
-        }
-        writeLength(_filer, len);
-        if (len < 0) {
-            return;
-        }
-        byte[] bytes = new byte[8 * len];
-        for (int i = 0; i < len; i++) {
-            long v = array[i];
-            UIO.longBytes(v, bytes, i * 8);
-        }
-        _filer.append(bytes, 0, bytes.length);
-
-    }
-
-    public static long[] readLongArray(IReadable _filer, String fieldName) throws IOException {
-        int len = readLength(_filer);
-        if (len < 0) {
-            return null;
-        }
-        if (len == 0) {
-            return new long[0];
-        }
-        long[] array = new long[len];
-        byte[] bytes = new byte[8 * len];
-        _filer.read(bytes);
-        int j;
-        for (int i = 0; i < len; i++) {
-            j = i * 8;
-            long v = 0;
-            v |= (bytes[j + 0] & 0xFF);
-            v <<= 8;
-            v |= (bytes[j + 1] & 0xFF);
-            v <<= 8;
-            v |= (bytes[j + 2] & 0xFF);
-            v <<= 8;
-            v |= (bytes[j + 3] & 0xFF);
-            v <<= 8;
-            v |= (bytes[j + 4] & 0xFF);
-            v <<= 8;
-            v |= (bytes[j + 5] & 0xFF);
-            v <<= 8;
-            v |= (bytes[j + 6] & 0xFF);
-            v <<= 8;
-            v |= (bytes[j + 7] & 0xFF);
-            array[i] = v;
-        }
-        return array;
-    }
-
-    /**
-     *
-     * @param _filer
-     * @return
-     * @throws IOException
-     */
     public static int readLength(IReadable _filer) throws IOException {
         return _filer.readInt();
     }
@@ -212,30 +133,19 @@ public class UIO {
         return UIO.bytesInt(array, _offset);
     }
 
-    /**
-     *
-     * @param _filer
-     * @param array
-     * @throws IOException
-     */
     public static void read(IReadable _filer, byte[] array) throws IOException {
         readFully(_filer, array, array.length);
     }
 
-    /**
-     *
-     * @param _filer
-     * @param fieldName
-     * @return
-     * @throws IOException
-     */
+
+    private static final byte[] EMPTY = new byte[0];
     public static byte[] readByteArray(IReadable _filer, String fieldName) throws IOException {
         int len = readLength(_filer);
         if (len < 0) {
             return null;
         }
         if (len == 0) {
-            return new byte[0];
+            return EMPTY;
         }
         byte[] array = new byte[len];
         readFully(_filer, array, len);
@@ -248,21 +158,13 @@ public class UIO {
             return null;
         }
         if (len == 0) {
-            return new byte[0];
+            return EMPTY;
         }
         byte[] array = new byte[len];
         readFully(bytes, _offset + 4, array, len);
         return array;
     }
 
-    // Reading
-    /**
-     *
-     * @param _filer
-     * @param fieldName
-     * @return
-     * @throws IOException
-     */
     public static boolean readBoolean(IReadable _filer, String fieldName) throws IOException {
         int v = _filer.read();
         if (v < 0) {
@@ -271,13 +173,6 @@ public class UIO {
         return (v != 0);
     }
 
-    /**
-     *
-     * @param _filer
-     * @param fieldName
-     * @return
-     * @throws IOException
-     */
     public static byte readByte(IReadable _filer, String fieldName) throws IOException {
         int v = _filer.read();
         if (v < 0) {
@@ -286,24 +181,10 @@ public class UIO {
         return (byte) v;
     }
 
-    /**
-     *
-     * @param _filer
-     * @param fieldName
-     * @return
-     * @throws IOException
-     */
     public static int readInt(IReadable _filer, String fieldName) throws IOException {
         return _filer.readInt();
     }
 
-    /**
-     *
-     * @param _filer
-     * @param fieldName
-     * @return
-     * @throws IOException
-     */
     public static long readLong(IReadable _filer, String fieldName) throws IOException {
         return _filer.readLong();
     }
@@ -315,22 +196,6 @@ public class UIO {
         return bytes[_offset] != 0;
     }
 
-    /**
-     *
-     * @param v
-     * @return
-     */
-    public static byte[] intBytes(int v) {
-        return intBytes(v, new byte[4], 0);
-    }
-
-    /**
-     *
-     * @param v
-     * @param _bytes
-     * @param _offset
-     * @return
-     */
     public static byte[] intBytes(int v, byte[] _bytes, int _offset) {
         _bytes[_offset + 0] = (byte) (v >>> 24);
         _bytes[_offset + 1] = (byte) (v >>> 16);
@@ -339,42 +204,20 @@ public class UIO {
         return _bytes;
     }
 
-    /**
-     *
-     * @param _bytes
-     * @return
-     */
     public static int bytesInt(byte[] _bytes) {
         return bytesInt(_bytes, 0);
     }
 
-    /**
-     *
-     * @param v
-     * @param _bytes
-     * @param _offset
-     * @return
-     */
     public static byte[] shortBytes(short v, byte[] _bytes, int _offset) {
         _bytes[_offset + 0] = (byte) (v >>> 8);
         _bytes[_offset + 1] = (byte) v;
         return _bytes;
     }
 
-    /**
-     *
-     * @param _bytes
-     * @return
-     */
     public static short bytesShort(byte[] _bytes) {
         return bytesShort(_bytes, 0);
     }
 
-    /**
-     *
-     * @param _bytes
-     * @return
-     */
     public static int[] bytesInts(byte[] _bytes) {
         if (_bytes == null || _bytes.length == 0) {
             return null;
@@ -387,12 +230,6 @@ public class UIO {
         return ints;
     }
 
-    /**
-     *
-     * @param bytes
-     * @param _offset
-     * @return
-     */
     public static int bytesInt(byte[] bytes, int _offset) {
         int v = 0;
         v |= (bytes[_offset + 0] & 0xFF);
@@ -461,20 +298,10 @@ public class UIO {
         return _bytes;
     }
 
-    /**
-     *
-     * @param _bytes
-     * @return
-     */
     public static long bytesLong(byte[] _bytes) {
         return bytesLong(_bytes, 0);
     }
 
-    /**
-     *
-     * @param _bytes
-     * @return
-     */
     public static long[] bytesLongs(byte[] _bytes) {
         if (_bytes == null || _bytes.length == 0) {
             return null;
@@ -487,12 +314,6 @@ public class UIO {
         return longs;
     }
 
-    /**
-     *
-     * @param bytes
-     * @param _offset
-     * @return
-     */
     public static long bytesLong(byte[] bytes, int _offset) {
         if (bytes == null) {
             return 0;
@@ -516,12 +337,6 @@ public class UIO {
         return v;
     }
 
-    /**
-     *
-     * @param length
-     * @param _minPower
-     * @return
-     */
     public static int chunkPower(long length, int _minPower) {
         if (length == 0) {
             return 0;
@@ -530,11 +345,6 @@ public class UIO {
         return Math.max(_minPower, 64 - numberOfTrailingZeros);
     }
 
-    /**
-     *
-     * @param _chunkPower
-     * @return
-     */
     public static long chunkLength(int _chunkPower) {
         return 1L << _chunkPower;
     }
@@ -654,7 +464,7 @@ public class UIO {
      * @param length new array size
      * @return Value in <code>a</code> plus <code>length</code> appended 0 bytes
      */
-    public static byte[] padTail(byte[] a, int length) {
+    private static byte[] padTail(byte[] a, int length) {
         byte[] padding = new byte[length];
         for (int i = 0; i < length; i++) {
             padding[i] = 0;
@@ -667,7 +477,7 @@ public class UIO {
      * @param b upper half
      * @return New array that has a in lower half and b in upper half.
      */
-    public static byte[] add(byte[] a, byte[] b) {
+    private static byte[] add(byte[] a, byte[] b) {
         byte[] result = new byte[a.length + b.length];
         System.arraycopy(a, 0, result, 0, a.length);
         System.arraycopy(b, 0, result, a.length, b.length);
@@ -679,7 +489,7 @@ public class UIO {
      * @param length amount of bytes to snarf
      * @return Last <code>length</code> bytes from <code>a</code>
      */
-    public static byte[] tail(final byte[] a, final int length) {
+    private static byte[] tail(final byte[] a, final int length) {
         if (a.length < length) {
             return null;
         }
