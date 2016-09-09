@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Keys;
@@ -43,11 +41,7 @@ public class LABNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure.freeHeap();
-                return null;
-            })));
+            true);
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
 
@@ -157,11 +151,7 @@ public class LABNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator( () -> {
-                labHeapPressure.freeHeap();
-                return null;
-            })));
+            true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);

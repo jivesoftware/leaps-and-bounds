@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
@@ -49,11 +47,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure1, 4, 8, leapsCache,
-                true,
-                new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                    labHeapPressure1.freeHeap();
-                    return null;
-                })));
+                true);
             assertEquals(env.list(), Collections.emptyList());
 
             ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
@@ -76,11 +70,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure2, 4, 8, leapsCache,
-                true,
-                new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                    labHeapPressure2.freeHeap();
-                    return null;
-                })));
+                true);
 
             index = env.open(valueIndexConfig);
             assertEquals(env.list(), Collections.singletonList("foo"));
@@ -102,11 +92,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure3, 4, 8, leapsCache,
-                true,
-                new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                    labHeapPressure3.freeHeap();
-                    return null;
-                })));
+                true);
             assertEquals(env.list(), Collections.singletonList("foo"));
             env.rename("foo", "bar");
 
@@ -132,11 +118,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure4, 4, 8, leapsCache,
-                true,
-                new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                    labHeapPressure4.freeHeap();
-                    return null;
-                })));
+                true);
             assertEquals(env.list(), Collections.singletonList("bar"));
             env.remove("bar");
             assertEquals(env.list(), Collections.emptyList());
@@ -209,11 +191,7 @@ public class LABEnvironmentNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure1, 4, 8, leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure1.freeHeap();
-                return null;
-            })));
+            true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
@@ -237,11 +215,7 @@ public class LABEnvironmentNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure2, 4, 8, leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure2.freeHeap();
-                return null;
-            })));
+            true);
         System.out.println("Recreate env");
 
         index = env.open(valueIndexConfig);
@@ -273,11 +247,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure1, 4, 8, leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure1.freeHeap();
-                return null;
-            })));
+            true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
@@ -302,11 +272,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure2, 4, 8, leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure2.freeHeap();
-                return null;
-            })));
+            true);
         System.out.println("Recreate env");
         env.open();
         System.out.println("Re-open index");
@@ -327,11 +293,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure3, 4, 8, leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure3.freeHeap();
-                return null;
-            })));
+            true);
         System.out.println("Re-Recreate env");
         env.open();
         System.out.println("Re-Re-open index");

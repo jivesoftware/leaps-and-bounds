@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
@@ -47,11 +45,7 @@ public class LABEnvironmentConcurrenyNGTest {
             4,
             10,
             leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure.freeHeap();
-                return null;
-            })));
+            true);
 
         concurentTest(env);
     }
@@ -76,11 +70,7 @@ public class LABEnvironmentConcurrenyNGTest {
             4,
             10,
             leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator(() -> {
-                labHeapPressure.freeHeap();
-                return null;
-            })));
+            true);
 
         concurentTest(env);
     }

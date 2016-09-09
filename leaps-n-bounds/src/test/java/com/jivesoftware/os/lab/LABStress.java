@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FixedWidthRawhide;
@@ -153,11 +151,7 @@ public class LABStress {
             4, // minMergeDebt
             8, // maxMergeDebt
             leapsCache,
-            true,
-            new LABIndexableMemory("memory", new LABAppendOnlyAllocator( () -> {
-                labHeapPressure.freeHeap();
-                return null;
-            })));
+            true);
 
         env.register("8x8fixedWidthRawhide", new FixedWidthRawhide(8, 8));
 
