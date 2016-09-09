@@ -59,7 +59,7 @@ public class LABCSLMIndex implements LABIndex {
 
     @Override
     public BolBuffer get(BolBuffer key, BolBuffer valueBuffer) {
-        byte[] got = map.get(key);
+        byte[] got = map.get(key.copy()); // Grrr
         if (got == null) {
             return null;
         }
