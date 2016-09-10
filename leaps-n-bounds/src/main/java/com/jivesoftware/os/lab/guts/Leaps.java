@@ -49,16 +49,21 @@ public class Leaps {
         UIO.writeInt(writeable, entryLength, "entryLength");
         UIO.writeInt(writeable, index, "index");
         UIO.writeInt(writeable, writeLastKey.capacity(), "lastKeyLength");
-        UIO.write(writeable, writeLastKey, "lastKey");
+
+        writeLastKey.clear();
+        byte[] array = new byte[writeLastKey.capacity()];
+        writeLastKey.get(array);
+        writeable.append(array, 0, array.length);
+
         UIO.writeInt(writeable, fps.length, "fpIndexLength");
         for (int i = 0; i < fps.length; i++) {
-            UIO.writeLong(writeable, fps[i], "fpIndex");
+            writeable.appendLong(fps[i]);
             UIO.writeByteArray(writeable, writeKeys[i], "key");
         }
         int startOfEntryLength = startOfEntryBuffer.limit();
         UIO.writeInt(writeable, startOfEntryLength, "startOfEntryLength");
         for (int i = 0; i < startOfEntryLength; i++) {
-            UIO.writeLong(writeable, startOfEntryBuffer.get(i), "entry");
+            writeable.appendLong(startOfEntryBuffer.get(i));
         }
         UIO.writeInt(writeable, entryLength, "entryLength");
     }
