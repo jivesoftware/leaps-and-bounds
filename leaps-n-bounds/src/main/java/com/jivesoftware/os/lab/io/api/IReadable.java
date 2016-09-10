@@ -28,60 +28,17 @@ import java.nio.ByteBuffer;
  */
 public interface IReadable extends ICloseable, ISeekable {
 
-    /**
-     *
-     * @return @throws IOException
-     */
     int read() throws IOException;
 
-     /**
-     *
-     * @return @throws IOException
-     */
-    short readShort() throws IOException;
-
-     /**
-     *
-     * @return @throws IOException
-     */
     int readInt() throws IOException;
 
-     /**
-     *
-     * @return @throws IOException
-     */
     long readLong() throws IOException;
 
-    /**
-     *
-     * @param b
-     * @return
-     * @throws IOException
-     */
     int read(byte b[]) throws IOException;
 
-    /**
-     *
-     * @param b
-     * @param _offset
-     * @param _len
-     * @return
-     * @throws IOException
-     */
     int read(byte b[], int _offset, int _len) throws IOException;
 
-    /**
-     *
-     * @param length
-     * @return
-     */
     ByteBuffer slice(int length) throws IOException;
 
-    /**
-     *
-     * @param length
-     * @return
-     * @throws IOException
-     */
     boolean canSlice(int length) throws IOException;
 }

@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 /**
  *
  */
-public class AutoGrowingByteBufferBackedFiler implements IReadable {
+public class ByteBufferBackedReadable implements IReadable {
 
     public static final long MAX_BUFFER_SEGMENT_SIZE = UIO.chunkLength(30);
     public static final long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
@@ -26,7 +26,7 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
     private final int fShift;
     private final long fseekMask;
 
-    public AutoGrowingByteBufferBackedFiler(long initialBufferSegmentSize,
+    public ByteBufferBackedReadable(long initialBufferSegmentSize,
         long maxBufferSegmentSize,
         ByteBufferFactory byteBufferFactory) throws IOException {
 
@@ -46,7 +46,7 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
         }
     }
 
-    private AutoGrowingByteBufferBackedFiler(long maxBufferSegmentSize,
+    private ByteBufferBackedReadable(long maxBufferSegmentSize,
         ByteBufferFactory byteBufferFactory,
         ByteBufferBackedFiler[] filers,
         long length,
@@ -62,32 +62,12 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
         this.fseekMask = fseekMask;
     }
 
-    public AutoGrowingByteBufferBackedFiler duplicate(long startFP, long endFp) {
-        ByteBufferBackedFiler[] duplicate = new ByteBufferBackedFiler[filers.length];
-        for (int i = 0; i < duplicate.length; i++) {
-            if ((i + 1) * maxBufferSegmentSize < startFP || (i - 1) * maxBufferSegmentSize > endFp) {
-                continue;
-            }
-            duplicate[i] = new ByteBufferBackedFiler(filers[i].buffer.duplicate());
-        }
-        return new AutoGrowingByteBufferBackedFiler(maxBufferSegmentSize, byteBufferFactory, duplicate, length, fShift, fseekMask);
-    }
-
-    public AutoGrowingByteBufferBackedFiler duplicateNew(AutoGrowingByteBufferBackedFiler current) {
-        ByteBufferBackedFiler[] duplicate = new ByteBufferBackedFiler[filers.length];
-        System.arraycopy(current.filers, 0, duplicate, 0, current.filers.length - 1);
-        for (int i = current.filers.length - 1; i < duplicate.length; i++) {
-            duplicate[i] = new ByteBufferBackedFiler(filers[i].buffer.duplicate());
-        }
-        return new AutoGrowingByteBufferBackedFiler(maxBufferSegmentSize, byteBufferFactory, duplicate, length, fShift, fseekMask);
-    }
-
-    public AutoGrowingByteBufferBackedFiler duplicateAll() {
+    public ByteBufferBackedReadable duplicateAll() {
         ByteBufferBackedFiler[] duplicate = new ByteBufferBackedFiler[filers.length];
         for (int i = 0; i < duplicate.length; i++) {
             duplicate[i] = new ByteBufferBackedFiler(filers[i].buffer.duplicate());
         }
-        return new AutoGrowingByteBufferBackedFiler(maxBufferSegmentSize, byteBufferFactory, duplicate, length, fShift, fseekMask);
+        return new ByteBufferBackedReadable(maxBufferSegmentSize, byteBufferFactory, duplicate, length, fShift, fseekMask);
     }
 
     final long ensure(long bytesToWrite) throws IOException {
@@ -101,7 +81,7 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
         return 0;
     }
 
-    final void position(long position) throws IOException {
+    private void position(long position) throws IOException {
         if (position > MAX_POSITION) {
             throw new IllegalStateException("Encountered a likely runaway file position! position=" + position);
         }
@@ -189,22 +169,6 @@ public class AutoGrowingByteBufferBackedFiler implements IReadable {
             throw new EOFException("Failed to fully read 1 byte");
         }
         return r;
-    }
-
-    @Override
-    public short readShort() throws IOException {
-        if (filers[fpFilerIndex].hasRemaining(2)) {
-            return filers[fpFilerIndex].readShort();
-        } else {
-            int b0 = readAtleastOne();
-            int b1 = readAtleastOne();
-
-            short v = 0;
-            v |= (b0 & 0xFF);
-            v <<= 8;
-            v |= (b1 & 0xFF);
-            return v;
-        }
     }
 
     @Override

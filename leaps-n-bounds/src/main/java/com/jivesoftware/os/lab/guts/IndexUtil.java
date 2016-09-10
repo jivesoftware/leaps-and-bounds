@@ -170,6 +170,8 @@ public class IndexUtil {
 //            }
 //        }
 //        return leftLength - rightLength;
+
+
         int minLength = Math.min(leftLength, rightLength);
         int minWords = minLength / 8;
 

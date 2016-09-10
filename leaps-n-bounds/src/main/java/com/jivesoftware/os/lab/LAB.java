@@ -49,6 +49,8 @@ public class LAB implements ValueIndex {
     }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+    
+    private final static byte[] SMALLEST_POSSIBLE_KEY = new byte[0];
 
     private final ExecutorService schedule;
     private final ExecutorService compact;
@@ -187,11 +189,10 @@ public class LAB implements ValueIndex {
 
     }
 
-    private final static byte[] smallestPossibleKey = new byte[0];
 
     @Override
     public boolean rowScan(ValueStream stream, boolean hydrateValues) throws Exception {
-        return rangeTx(true, -1, smallestPossibleKey, null, -1, -1,
+        return rangeTx(true, -1, SMALLEST_POSSIBLE_KEY, null, -1, -1,
             (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
                 InterleaveStream interleaveStream = new InterleaveStream(readIndexes, fromKey, toKey, rawhide);
                 try {

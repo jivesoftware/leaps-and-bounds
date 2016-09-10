@@ -8,16 +8,15 @@
  */
 package com.jivesoftware.os.lab.io;
 
-import com.jivesoftware.os.lab.io.api.IFiler;
+import com.jivesoftware.os.lab.io.api.IReadable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 
 /**
  *
  * @author jonathan.colt
  */
-public class ByteBufferBackedFiler implements IFiler {
+public class ByteBufferBackedFiler implements IReadable {
 
     final ByteBuffer buffer;
 
@@ -34,14 +33,6 @@ public class ByteBufferBackedFiler implements IFiler {
         buffer.position((int) position); // what a pain! limited to an int!
     }
 
-    @Override
-    public long skip(long position) throws IOException {
-        int p = buffer.position();
-        p += position;
-        buffer.position(p);
-        return p;
-    }
-
     public boolean hasRemaining(int len) {
         return buffer.remaining() >= len;
     }
@@ -52,25 +43,8 @@ public class ByteBufferBackedFiler implements IFiler {
     }
 
     @Override
-    public void setLength(long len) throws IOException {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
     public long getFilePointer() throws IOException {
         return buffer.position();
-    }
-
-    @Override
-    public void eof() throws IOException {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
-    public void flush(boolean fsync) throws IOException {
-        if (fsync && buffer instanceof MappedByteBuffer) {
-            ((MappedByteBuffer) buffer).force();
-        }
     }
 
     @Override
@@ -81,11 +55,6 @@ public class ByteBufferBackedFiler implements IFiler {
         }
         byte b = buffer.get();
         return b & 0xFF;
-    }
-
-    @Override
-    public short readShort() throws IOException {
-        return buffer.getShort();
     }
 
     @Override
@@ -133,30 +102,4 @@ public class ByteBufferBackedFiler implements IFiler {
     public void close() throws IOException {
 
     }
-
-    @Override
-    public void writeByte(byte b) throws IOException {
-        buffer.put(b);
-    }
-
-    @Override
-    public void writeShort(short s) throws IOException {
-        buffer.putShort(s);
-    }
-
-    @Override
-    public void writeInt(int i) throws IOException {
-        buffer.putInt(i);
-    }
-
-    @Override
-    public void writeLong(long l) throws IOException {
-        buffer.putLong(l);
-    }
-
-    @Override
-    public void write(byte[] b, int _offset, int _len) throws IOException {
-        buffer.put(b, _offset, _len);
-    }
-
 }

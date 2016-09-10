@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
-import com.jivesoftware.os.lab.io.AutoGrowingByteBufferBackedFiler;
+import com.jivesoftware.os.lab.io.ByteBufferBackedReadable;
 import com.jivesoftware.os.lab.io.FileBackedMemMappedByteBufferFactory;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.ICloseable;
@@ -38,7 +38,7 @@ public class IndexFile implements ICloseable {
     private FileChannel channel;
     private final AtomicLong size;
 
-    private final AutoGrowingByteBufferBackedFiler memMapFiler;
+    private final ByteBufferBackedReadable memMapFiler;
     private final AtomicLong memMapFilerLength = new AtomicLong(-1);
 
     private final OpenFileLock openFileLock = new OpenFileLock();
@@ -151,9 +151,9 @@ public class IndexFile implements ICloseable {
         };
     }
 
-    private AutoGrowingByteBufferBackedFiler createMemMap() throws IOException {
+    private ByteBufferBackedReadable createMemMap() throws IOException {
         FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(file, BUFFER_SEGMENT_SIZE);
-        return new AutoGrowingByteBufferBackedFiler(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
+        return new ByteBufferBackedReadable(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
     }
 
     @Override

@@ -177,6 +177,7 @@ public class LabWAL {
                                 FormatTransformer readValue = formatTransformerProvider.read(rawEntryFormat.getValueFormat());
 
                                 appendToValueIndex.append((stream) -> {
+
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
                                         return stream.stream(index, IndexUtil.toByteArray(key), timestamp, tombstoned, version, IndexUtil.toByteArray(payload));
                                     };

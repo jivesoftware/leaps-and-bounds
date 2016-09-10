@@ -58,9 +58,12 @@ public class FixedWidthRawhide implements Rawhide {
     @Override
     public BolBuffer toRawEntry(byte[] key, long timestamp, boolean tombstoned, long version, byte[] payload, BolBuffer rawEntryBuffer) throws
         Exception {
-        rawEntryBuffer.allocate(key.length + payload.length);
-        System.arraycopy(key, 0, rawEntryBuffer.bytes, 0, key.length);
-        System.arraycopy(payload, 0, rawEntryBuffer.bytes, key.length, payload.length);
+
+        rawEntryBuffer.allocate(keyLength + payloadLength);
+        System.arraycopy(key, 0, rawEntryBuffer.bytes, 0, keyLength);
+        if (payloadLength > 0) {
+            System.arraycopy(payload, 0, rawEntryBuffer.bytes, keyLength, payloadLength);
+        }
         return rawEntryBuffer;
     }
 

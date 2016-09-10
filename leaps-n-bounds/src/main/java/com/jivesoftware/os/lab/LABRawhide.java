@@ -144,8 +144,7 @@ public class LABRawhide implements Rawhide {
     public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntry) {
-        int length = rawEntry.getInt(0);
-        return rawEntry.slice(4, length);
+        return rawEntry.slice(4, rawEntry.getInt(0));
     }
 
     @Override

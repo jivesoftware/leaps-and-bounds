@@ -38,6 +38,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
     private final FormatTransformer readValueFormatTransformer;
     private final Rawhide rawhide;
     private Leaps leaps; // loaded when reading
+    private ReadLeapsAndBoundsIndex readLeapsAndBoundsIndex; // allocated when reading
 
     private final long cacheKey = CACHE_KEYS.incrementAndGet();
 
@@ -111,7 +112,7 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
             if (leaps == null) {
                 IReadable readableIndex = index.reader(null, index.length());
                 long indexLength = readableIndex.length();
-                
+
                 long seekTo = indexLength - 4;
                 if (seekTo < 0 || seekTo > indexLength) {
                     throw new LABIndexCorruptedException(
@@ -146,20 +147,22 @@ public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
                 leaps = Leaps.read(readKeyFormatTransformer, readableIndex);
             }
 
-            ReadLeapsAndBoundsIndex i = new ReadLeapsAndBoundsIndex(hideABone,
-                rawhide,
-                readKeyFormatTransformer,
-                readValueFormatTransformer,
-                leaps,
-                cacheKey,
-                leapsCache,
-                footer,
-                () -> {
-                    return index.reader(null, index.length());
-                }
-            );
+            if (readLeapsAndBoundsIndex == null) {
+                readLeapsAndBoundsIndex = new ReadLeapsAndBoundsIndex(hideABone,
+                    rawhide,
+                    readKeyFormatTransformer,
+                    readValueFormatTransformer,
+                    leaps,
+                    cacheKey,
+                    leapsCache,
+                    footer,
+                    () -> {
+                        return index.reader(null, index.length());
+                    }
+                );
+            }
 
-            return i;
+            return readLeapsAndBoundsIndex;
         } catch (IOException | RuntimeException x) {
             hideABone.release();
             throw x;
