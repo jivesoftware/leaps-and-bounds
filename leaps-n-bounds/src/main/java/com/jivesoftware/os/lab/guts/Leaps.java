@@ -93,7 +93,7 @@ public class Leaps {
             };
         } else {
             byte[] startOfEntryBytes = new byte[startOfEntryNumBytes];
-            readable.read(startOfEntryBytes);
+            readable.read(startOfEntryBytes, 0, startOfEntryBytes.length);
             LongBuffer startOfEntryBuffer = ByteBuffer.wrap(startOfEntryBytes).asLongBuffer();
             startOfEntry = readable1 -> startOfEntryBuffer;
         }

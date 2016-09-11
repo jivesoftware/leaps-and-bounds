@@ -143,9 +143,9 @@ public class LabWAL {
                         if (valueIndexIdLength >= maxEntrySizeInBytes) {
                             throw new CorruptionDetectedException("valueIndexId length corruption" + valueIndexIdLength + ">=" + maxEntrySizeInBytes);
                         }
-                        
+
                         byte[] valueIndexId = new byte[valueIndexIdLength];
-                        reader.read(valueIndexId);
+                        reader.read(valueIndexId, 0, valueIndexIdLength);
 
                         String valueIndexKey = new String(valueIndexId, StandardCharsets.UTF_8);
                         long appendVersion = reader.readLong();
@@ -157,7 +157,7 @@ public class LabWAL {
                             }
 
                             byte[] entry = new byte[entryLength];
-                            reader.read(entry);
+                            reader.read(entry, 0, entryLength);
 
                             ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.computeIfAbsent(valueIndexKey,
                                 (k) -> ArrayListMultimap.create());

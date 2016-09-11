@@ -74,7 +74,7 @@ public class ActiveScan implements ScanFromFp {
                     activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, entry);
                 } else {
                     byte[] rawEntry = new byte[entryLength]; // very rare only on bb boundaries
-                    readable.read(rawEntry);
+                    readable.read(rawEntry, 0, entryLength);
                     activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, ByteBuffer.wrap(rawEntry));
                 }
                 return false;
