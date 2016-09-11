@@ -3,8 +3,10 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.io.ByteBufferBackedReadable;
 import com.jivesoftware.os.lab.io.FileBackedMemMappedByteBufferFactory;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.ICloseable;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -149,6 +151,11 @@ public class IndexFile implements ICloseable {
             }
 
         };
+    }
+
+    private IPointerReadable createPointerReadable() throws IOException {
+        FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(file, BUFFER_SEGMENT_SIZE);
+        return new PointerReadableByteBufferFile(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
     }
 
     private ByteBufferBackedReadable createMemMap() throws IOException {

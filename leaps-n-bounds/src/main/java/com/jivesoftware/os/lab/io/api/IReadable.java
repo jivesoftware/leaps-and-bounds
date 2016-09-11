@@ -34,8 +34,6 @@ public interface IReadable extends ICloseable, ISeekable {
 
     long readLong() throws IOException;
 
-    int read(byte b[]) throws IOException;
-
     int read(byte b[], int _offset, int _len) throws IOException;
 
     ByteBuffer slice(int length) throws IOException;

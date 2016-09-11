@@ -68,11 +68,6 @@ public class ByteBufferBackedFiler implements IReadable {
     }
 
     @Override
-    public int read(byte[] b) throws IOException {
-        return read(b, 0, b.length);
-    }
-
-    @Override
     public int read(byte[] b, int _offset, int _len) throws IOException {
         int remaining = buffer.remaining();
         if (remaining == 0) {
