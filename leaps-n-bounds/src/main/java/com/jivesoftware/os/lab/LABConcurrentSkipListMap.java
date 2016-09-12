@@ -912,6 +912,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
         }
     }
 
+    private final Random random = new Random();
     private boolean doPut(BolBuffer keyBytes, BolBuffer valueBytes, boolean onlyIfAbsent) throws Exception {
 
         int z;             // added node
@@ -1002,7 +1003,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
             memory.release(vid);
         }
 
-        int rnd = new Random().nextInt(); // BARF
+        int rnd = random.nextInt(); // BARF
         if ((rnd & 0x80000001) == 0) { // test highest and lowest bits
             int level = 1, max;
             while (((rnd >>>= 1) & 1) != 0) {
@@ -1186,7 +1187,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
         }
 
         @Override
-        public boolean next(RawEntryStream entryStream, BolBuffer valueBuffer) throws Exception {
+        public boolean next(RawEntryStream entryStream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception {
             memory.acquireBytes(nextValue, valueBuffer);
             memory.release(nextValue);
 
@@ -1318,12 +1319,12 @@ public class LABConcurrentSkipListMap implements LABIndex {
         }
 
         @Override
-        public boolean next(RawEntryStream stream, BolBuffer valueBuffer) throws Exception {
+        public boolean next(RawEntryStream stream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception {
             m.memory.acquireBytes(nextValue, valueBuffer);
             m.memory.release(nextValue);
             m.growNodesArray.acquire();
             try {
-                advance(new BolBuffer()); // Grr
+                advance(keyBuffer); // Grr
             } finally {
                 m.growNodesArray.release();
             }
@@ -1533,12 +1534,13 @@ public class LABConcurrentSkipListMap implements LABIndex {
         } finally {
             growNodesArray.release();
         }
+        BolBuffer keyBuffer = new BolBuffer();
         BolBuffer valueBuffer = new BolBuffer();
         return new Scanner() {
             @Override
             public Scanner.Next next(RawEntryStream stream) throws Exception {
                 if (entryStream.hasNext()) {
-                    boolean more = entryStream.next(stream, valueBuffer);
+                    boolean more = entryStream.next(stream, keyBuffer, valueBuffer);
                     return more ? Scanner.Next.more : Scanner.Next.stopped;
                 }
                 return Scanner.Next.eos;
@@ -1555,7 +1557,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
 
         boolean hasNext();
 
-        boolean next(RawEntryStream stream, BolBuffer valueBuffer) throws Exception;
+        boolean next(RawEntryStream stream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception;
 
         void close() throws Exception;
     }

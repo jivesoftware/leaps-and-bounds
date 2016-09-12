@@ -1,11 +1,12 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
-import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
@@ -151,6 +152,7 @@ public class InterleaveStreamNGTest {
         RawMemoryIndex[] memoryIndexes = new RawMemoryIndex[indexes];
         ReadIndex[] reorderIndexReaders = new ReadIndex[indexes];
         ReadIndex[] readerIndexs = new ReadIndex[indexes];
+        BolBuffer keyBuffer = new BolBuffer();
         try {
             for (int wi = 0; wi < indexes; wi++) {
 
@@ -168,7 +170,7 @@ public class InterleaveStreamNGTest {
                             )
                         )
                     ));
-                TestUtils.append(rand, memoryIndexes[i], 0, step, count, desired);
+                TestUtils.append(rand, memoryIndexes[i], 0, step, count, desired, keyBuffer);
                 System.out.println("Index " + i);
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();

@@ -1,8 +1,5 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
-import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
@@ -11,6 +8,9 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.LABCSLMIndex;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.Leaps;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.nio.file.Files;
@@ -110,6 +110,7 @@ public class LABValidationNGTest {
             writerFutures.add(writers.submit(() -> {
                 try {
                     BolBuffer rawEntryBuffer = new BolBuffer();
+                    BolBuffer keyBuffer = new BolBuffer();
                     for (int c = 0; c < commitCount; c++) {
 
                         if (version.get() > (writerCount * commitCount * batchSize) / 2) {
@@ -138,7 +139,7 @@ public class LABValidationNGTest {
                                     UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
                             }
                             return true;
-                        }, fsync, rawEntryBuffer);
+                        }, fsync, rawEntryBuffer, keyBuffer);
 
                         lab.commit(fsync, true);
                     }
@@ -255,6 +256,7 @@ public class LABValidationNGTest {
             writerFutures.add(writers.submit(() -> {
                 try {
                     BolBuffer rawEntryBuffer = new BolBuffer();
+                    BolBuffer keyBuffer = new BolBuffer();
                     for (int c = 0; c < commitCount; c++) {
                         lab.append((stream) -> {
                             for (int b = 0; b < batchSize; b++) {
@@ -267,7 +269,7 @@ public class LABValidationNGTest {
                                     UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
                             }
                             return true;
-                        }, fsync, rawEntryBuffer);
+                        }, fsync, rawEntryBuffer, keyBuffer);
                         lab.commit(fsync, true);
                         System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + lab.debt());
                     }

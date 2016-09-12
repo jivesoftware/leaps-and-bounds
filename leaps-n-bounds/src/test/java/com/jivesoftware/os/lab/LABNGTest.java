@@ -9,7 +9,6 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
-import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -54,7 +53,7 @@ public class LABNGTest {
         AtomicLong fails = new AtomicLong();
 
         BolBuffer rawEntryBuffer = new BolBuffer();
-        AppendableHeap appendableHeap = new AppendableHeap(8192);
+        BolBuffer keyBuffer = new BolBuffer();
         while (count.get() < 100) {
             index.append((stream) -> {
                 for (int i = 0; i < 10; i++) {
@@ -63,7 +62,7 @@ public class LABNGTest {
                     count.incrementAndGet();
                 }
                 return true;
-            }, fsync, rawEntryBuffer);
+            }, fsync, rawEntryBuffer, keyBuffer);
 
             long c = count.get();
             AtomicLong f;
@@ -158,13 +157,13 @@ public class LABNGTest {
 
         ValueIndex index = env.open(valueIndexConfig);
         BolBuffer rawEntryBuffer = new BolBuffer();
-        AppendableHeap appendableHeap = new AppendableHeap(8192);
+        BolBuffer keyBuffer = new BolBuffer();
         index.append((stream) -> {
             stream.stream(-1, UIO.longBytes(1, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(1, new byte[8], 0));
             stream.stream(-1, UIO.longBytes(2, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(2, new byte[8], 0));
             stream.stream(-1, UIO.longBytes(3, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(3, new byte[8], 0));
             return true;
-        }, fsync, rawEntryBuffer);
+        }, fsync, rawEntryBuffer, keyBuffer);
         List<Future<Object>> awaitable = index.commit(fsync, true);
         for (Future<Object> future : awaitable) {
             future.get();
@@ -175,7 +174,7 @@ public class LABNGTest {
             stream.stream(-1, UIO.longBytes(8, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(8, new byte[8], 0));
             stream.stream(-1, UIO.longBytes(9, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(9, new byte[8], 0));
             return true;
-        }, fsync, rawEntryBuffer);
+        }, fsync, rawEntryBuffer, keyBuffer);
         awaitable = index.commit(fsync, true);
         for (Future<Object> future : awaitable) {
             future.get();
@@ -205,7 +204,7 @@ public class LABNGTest {
             stream.stream(-1, UIO.longBytes(2, new byte[8], 0), System.currentTimeMillis(), true, 1, UIO.longBytes(2, new byte[8], 0));
             stream.stream(-1, UIO.longBytes(3, new byte[8], 0), System.currentTimeMillis(), true, 1, UIO.longBytes(3, new byte[8], 0));
             return true;
-        }, fsync, rawEntryBuffer);
+        }, fsync, rawEntryBuffer, keyBuffer);
 
         expected = new long[]{7, 8, 9};
         testExpected(index, expected);

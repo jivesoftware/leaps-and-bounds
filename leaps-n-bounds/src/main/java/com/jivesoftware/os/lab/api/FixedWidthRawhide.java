@@ -85,8 +85,10 @@ public class FixedWidthRawhide implements Rawhide {
     @Override
     public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry) {
-        return rawEntry.slice(0, keyLength);
+        BolBuffer rawEntry,
+        BolBuffer keyBuffer) {
+        rawEntry.sliceInto(0, keyLength, keyBuffer);
+        return keyBuffer;
     }
 
     @Override

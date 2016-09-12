@@ -287,10 +287,10 @@ public class RangeStripedCompactableIndexes {
         }
 
         void append(String rawhideName, RawConcurrentReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync,
-            BolBuffer rawEntryBuffer) throws Exception {
+            BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
 
             LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawhideName,
-                rawConcurrentReadableIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync, rawEntryBuffer);
+                rawConcurrentReadableIndex, minKey, maxKey, largestIndexId.incrementAndGet(), 0, fsync, rawEntryBuffer, keyBuffer);
             compactableIndexes.append(lab);
         }
 
@@ -300,7 +300,8 @@ public class RangeStripedCompactableIndexes {
             long nextIndexId,
             int generation,
             boolean fsync,
-            BolBuffer rawEntryBuffer) throws Exception {
+            BolBuffer rawEntryBuffer,
+            BolBuffer keyBuffer) throws Exception {
 
             File indexRoot = new File(root, indexName);
             File stripeRoot = new File(indexRoot, String.valueOf(stripeId));
@@ -348,7 +349,7 @@ public class RangeStripedCompactableIndexes {
                     } finally {
                         reader.release();
                     }
-                });
+                }, keyBuffer);
                 appendableIndex.closeAppendable(fsync);
             } catch (Exception x) {
                 try {
@@ -592,7 +593,7 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public void append(String rawhideName, RawConcurrentReadableIndex rawMemoryIndex, boolean fsync, BolBuffer rawEntryBuffer) throws Exception {
+    public void append(String rawhideName, RawConcurrentReadableIndex rawMemoryIndex, boolean fsync, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
         
         appendSemaphore.acquire();
         try {
@@ -608,7 +609,7 @@ public class RangeStripedCompactableIndexes {
                     indexName,
                     stripeId,
                     new CompactableIndexes(rawhide));
-                index.append(rawhideName, rawMemoryIndex, null, null, fsync, rawEntryBuffer);
+                index.append(rawhideName, rawMemoryIndex, null, null, fsync, rawEntryBuffer, keyBuffer);
 
                 synchronized (copyIndexOnWrite) {
                     ConcurrentSkipListMap<byte[], FileBackMergableIndexs> copyOfIndexes = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
@@ -646,7 +647,7 @@ public class RangeStripedCompactableIndexes {
                     priorEntry = currentEntry;
                 } else {
                     if (rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), currentEntry.getKey())) {
-                        priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync, rawEntryBuffer);
+                        priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), currentEntry.getKey(), fsync, rawEntryBuffer, keyBuffer);
                     }
                     priorEntry = currentEntry;
                     if (keyComparator.compare(maxKey, currentEntry.getKey()) < 0) {
@@ -656,7 +657,7 @@ public class RangeStripedCompactableIndexes {
                 }
             }
             if (priorEntry != null && rawMemoryIndex.containsKeyInRange(priorEntry.getKey(), null)) {
-                priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), null, fsync, rawEntryBuffer);
+                priorEntry.getValue().append(rawhideName, rawMemoryIndex, priorEntry.getKey(), null, fsync, rawEntryBuffer, keyBuffer);
             }
 
         } finally {

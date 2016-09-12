@@ -49,7 +49,7 @@ public class LAB implements ValueIndex {
     }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
-    
+
     private final static byte[] SMALLEST_POSSIBLE_KEY = new byte[0];
 
     private final ExecutorService schedule;
@@ -188,7 +188,6 @@ public class LAB implements ValueIndex {
         });
 
     }
-
 
     @Override
     public boolean rowScan(ValueStream stream, boolean hydrateValues) throws Exception {
@@ -421,26 +420,27 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend,
-        BolBuffer rawEntryBuffer) throws Exception {
-        return internalAppend(true, values, fsyncAfterAppend, -1, rawEntryBuffer);
+        BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
+        return internalAppend(true, values, fsyncAfterAppend, -1, rawEntryBuffer, keyBuffer);
     }
 
     @Override
     public boolean append(AppendValues values, boolean fsyncOnFlush,
-        BolBuffer rawEntryBuffer) throws Exception {
-        return internalAppend(false, values, fsyncOnFlush, -1, rawEntryBuffer);
+        BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
+        return internalAppend(false, values, fsyncOnFlush, -1, rawEntryBuffer, keyBuffer);
     }
 
     public boolean append(AppendValues values, boolean fsyncOnFlush, long overrideMaxHeapPressureInBytes,
-        BolBuffer rawEntryBuffer) throws Exception {
-        return internalAppend(false, values, fsyncOnFlush, overrideMaxHeapPressureInBytes, rawEntryBuffer);
+        BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
+        return internalAppend(false, values, fsyncOnFlush, overrideMaxHeapPressureInBytes, rawEntryBuffer, keyBuffer);
     }
 
     private boolean internalAppend(boolean appendToWal,
         AppendValues values,
         boolean fsyncOnFlush,
         long overrideMaxHeapPressureInBytes,
-        BolBuffer rawEntryBuffer) throws Exception, InterruptedException {
+        BolBuffer rawEntryBuffer,
+        BolBuffer keyBuffer) throws Exception, InterruptedException {
 
         if (values == null) {
             return false;
@@ -509,7 +509,7 @@ public class LAB implements ValueIndex {
                             }*/
                         }
                     );
-                }
+                }, keyBuffer
             );
             LOG.inc("append>count", count[0]);
 
@@ -537,7 +537,7 @@ public class LAB implements ValueIndex {
             throw new LABIndexClosedException();
         }
 
-        if (!internalCommit(fsync, new BolBuffer())) {
+        if (!internalCommit(fsync, new BolBuffer(), new BolBuffer())) {
             return Collections.emptyList();
         }
         if (waitIfToFarBehind) {
@@ -547,7 +547,7 @@ public class LAB implements ValueIndex {
         }
     }
 
-    private boolean internalCommit(boolean fsync, BolBuffer rawEntryBuffer) throws Exception, InterruptedException {
+    private boolean internalCommit(boolean fsync, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception, InterruptedException {
         commitSemaphore.acquire(Short.MAX_VALUE);
         try {
             RawMemoryIndex stackCopy = memoryIndex;
@@ -557,7 +557,7 @@ public class LAB implements ValueIndex {
             LOG.inc("commit>count", stackCopy.count());
             flushingMemoryIndex = stackCopy;
             memoryIndex = new RawMemoryIndex(destroy, labHeapFlusher, rawhide, indexProvider.create(rawhide));
-                rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, rawEntryBuffer);
+            rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, rawEntryBuffer, keyBuffer);
             flushingMemoryIndex = null;
             stackCopy.destroy();
             wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
@@ -638,7 +638,7 @@ public class LAB implements ValueIndex {
         }
 
         if (flushUncommited) {
-            internalCommit(fsync, new BolBuffer());
+            internalCommit(fsync, new BolBuffer(), new BolBuffer());
         }
 
         synchronized (compactLock) {

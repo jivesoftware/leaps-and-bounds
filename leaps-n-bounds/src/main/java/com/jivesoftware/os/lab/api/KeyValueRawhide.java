@@ -88,9 +88,11 @@ public class KeyValueRawhide implements Rawhide {
     @Override
     public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry) {
+        BolBuffer rawEntry,
+        BolBuffer keyBuffer) {
         int keyLength = rawEntry.getInt(0);
-        return rawEntry.slice(4, keyLength);
+        rawEntry.sliceInto(4, keyLength, keyBuffer);
+        return keyBuffer;
     }
 
     @Override

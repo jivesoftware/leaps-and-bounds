@@ -19,9 +19,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.testng.Assert;
 
-import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.rawEntry;
-import static com.jivesoftware.os.lab.guts.SimpleRawhide.value;
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.value;
 
@@ -37,7 +35,8 @@ public class TestUtils {
         long start,
         int step,
         int count,
-        ConcurrentSkipListMap<byte[], byte[]> desired) throws Exception {
+        ConcurrentSkipListMap<byte[], byte[]> desired,
+        BolBuffer keyBuffer) throws Exception {
 
         long[] lastKey = new long[1];
         index.append((stream) -> {
@@ -65,7 +64,7 @@ public class TestUtils {
             }
             lastKey[0] = k;
             return true;
-        });
+        }, keyBuffer);
         return lastKey[0];
     }
 

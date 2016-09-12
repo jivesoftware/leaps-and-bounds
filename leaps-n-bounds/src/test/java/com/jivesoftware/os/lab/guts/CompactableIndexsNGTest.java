@@ -1,12 +1,12 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
 import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
@@ -16,7 +16,6 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
-import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -47,7 +46,7 @@ public class CompactableIndexsNGTest {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         CompactableIndexes indexs = new CompactableIndexes(new SimpleRawhide());
         AtomicLong id = new AtomicLong();
-        AppendableHeap appendableHeap = new AppendableHeap(8192);
+        BolBuffer keyBuffer = new BolBuffer();
 
         int[] counts = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
         for (int wi = 0; wi < counts.length; wi++) {
@@ -71,7 +70,7 @@ public class CompactableIndexsNGTest {
                     }
                 }
                 return true;
-            });
+            }, keyBuffer);
             write.closeAppendable(true);
 
             indexFile = new IndexFile(file, "r");
@@ -122,7 +121,7 @@ public class CompactableIndexsNGTest {
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
-
+        BolBuffer keyBuffer = new BolBuffer();
         Executors.newSingleThreadExecutor().submit(() -> {
             for (int wi = 0; wi < indexes; wi++) {
 
@@ -132,7 +131,7 @@ public class CompactableIndexsNGTest {
 
                 LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry, FormatTransformer.NO_OP,
                     FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
-                TestUtils.append(rand, write, 0, step, count, desired);
+                TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
                 write.closeAppendable(fsync);
 
                 indexFile = new IndexFile(file, "r");
@@ -192,6 +191,7 @@ public class CompactableIndexsNGTest {
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
+        BolBuffer keyBuffer = new BolBuffer();
         for (int wi = 0; wi < indexes; wi++) {
 
             File indexFiler = File.createTempFile("MergableIndexsNGTest" + File.separator + "MergableIndexsNGTest-testTx" + File.separator + "a-index-" + wi,
@@ -201,7 +201,7 @@ public class CompactableIndexsNGTest {
 
             LABAppendableIndex write = new LABAppendableIndex(indexRangeId, indexFile, 64, 2, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
                 new RawEntryFormat(0, 0));
-            TestUtils.append(rand, write, 0, step, count, desired);
+            TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
             write.closeAppendable(fsync);
 
             indexFile = new IndexFile(indexFiler, "r");

@@ -106,6 +106,7 @@ public class LABEnvironmentConcurrenyNGTest {
                 writerFutures.add(writers.submit(() -> {
                     try {
                         BolBuffer rawEntryBuffer = new BolBuffer();
+                        BolBuffer keyBuffer = new BolBuffer();
                         for (int c = 0; c < commitCount; c++) {
                             index.append((stream) -> {
                                 for (int b = 0; b < batchSize; b++) {
@@ -118,7 +119,7 @@ public class LABEnvironmentConcurrenyNGTest {
                                         UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
                                 }
                                 return true;
-                            }, fsync, rawEntryBuffer);
+                            }, fsync, rawEntryBuffer, keyBuffer);
                             index.commit(fsync, true);
                             System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt());
                         }

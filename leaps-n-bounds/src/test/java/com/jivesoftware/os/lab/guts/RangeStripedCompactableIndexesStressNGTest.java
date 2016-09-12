@@ -1,18 +1,18 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.TestUtils;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
-import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.LABEnvironment;
-import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.LABRawhide;
 import com.jivesoftware.os.lab.LabHeapPressure;
+import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -159,6 +159,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
         Object compactLock = new Object();
         ExecutorService compact = Executors.newCachedThreadPool();
         BolBuffer rawEntryBuffer = new BolBuffer();
+        BolBuffer keyBuffer = new BolBuffer();
         for (int b = 0; b < numBatches; b++) {
             LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
                 new AtomicLong());
@@ -176,8 +177,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
                         )
                     )
                 ));
-            long lastKey = TestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null);
-            indexs.append("test", index, fsync, rawEntryBuffer);
+            long lastKey = TestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null, keyBuffer);
+            indexs.append("test", index, fsync, rawEntryBuffer, keyBuffer);
 
             int debt = indexs.debt();
             if (debt < minMergeDebt) {

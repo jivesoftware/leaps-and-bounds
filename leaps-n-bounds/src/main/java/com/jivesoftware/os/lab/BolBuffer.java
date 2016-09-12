@@ -46,6 +46,12 @@ public class BolBuffer {
         return new BolBuffer(bytes, this.offset + offset, length);
     }
 
+    public void sliceInto(int offset, int length, BolBuffer bolBuffer) {
+        bolBuffer.bytes = bytes;
+        bolBuffer.offset = this.offset + offset;
+        bolBuffer.length = length;
+    }
+
     public void allocate(int length) {
         if (bytes == null || bytes.length < length) {
             bytes = new byte[length];

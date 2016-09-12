@@ -162,9 +162,11 @@ public class SimpleRawhide implements Rawhide {
     @Override
     public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry) {
+        BolBuffer rawEntry,
+        BolBuffer keyBuffer) {
         int length = rawEntry.getInt(0);
-        return rawEntry.slice(4, length);
+        rawEntry.sliceInto(4, length,keyBuffer);
+        return keyBuffer;
     }
 
     @Override

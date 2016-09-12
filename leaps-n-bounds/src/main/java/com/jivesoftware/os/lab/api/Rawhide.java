@@ -47,7 +47,8 @@ public interface Rawhide {
 
     BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry) throws Exception;
+        BolBuffer rawEntry,
+        BolBuffer keyBuffer) throws Exception;
 
     ByteBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,

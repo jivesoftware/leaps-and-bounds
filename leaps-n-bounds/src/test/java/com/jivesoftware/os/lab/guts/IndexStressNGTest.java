@@ -1,9 +1,10 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.TestUtils;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
@@ -177,7 +178,8 @@ public class IndexStressNGTest {
             LABAppendableIndex write = new LABAppendableIndex(id,
                 new IndexFile(indexFiler, "rw"), maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
                 new RawEntryFormat(0, 0));
-            long lastKey = TestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null);
+            BolBuffer keyBuffer = new BolBuffer();
+            long lastKey = TestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null, keyBuffer);
             write.closeAppendable(fsync);
 
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));

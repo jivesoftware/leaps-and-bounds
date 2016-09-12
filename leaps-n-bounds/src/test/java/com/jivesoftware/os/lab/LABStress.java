@@ -198,7 +198,7 @@ public class LABStress {
         byte[] keyBytes = new byte[8];
         byte[] valuesBytes = new byte[8];
         BolBuffer rawEntryBuffer = new BolBuffer();
-   
+        BolBuffer keyBuffer = new BolBuffer();
         while ((writeCount > 0 && totalWrites < writeCount) || (readCount > 0 && totalReads < readCount)) {
             long start = System.currentTimeMillis();
             long writeElapse = 0;
@@ -220,7 +220,7 @@ public class LABStress {
                             UIO.longBytes(value.incrementAndGet(), valuesBytes, 0));
                     }
                     return true;
-                }, true, rawEntryBuffer);
+                }, true, rawEntryBuffer, keyBuffer);
 
                 //index.commit(true);
                 long wrote = count.get() - preWriteCount;

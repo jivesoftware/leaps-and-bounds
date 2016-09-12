@@ -1,17 +1,17 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
-import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.LABEnvironment;
-import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.LabHeapPressure;
+import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -52,7 +52,8 @@ public class IndexNGTest {
         LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
             64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
 
-        TestUtils.append(new Random(), write, 0, step, count, desired);
+        BolBuffer keyBuffer = new BolBuffer();
+        TestUtils.append(new Random(), write, 0, step, count, desired, keyBuffer);
         write.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
@@ -90,8 +91,8 @@ public class IndexNGTest {
                     )
                 )
             ));
-
-        TestUtils.append(new Random(), walIndex, 0, step, count, desired);
+        BolBuffer keyBuffer = new BolBuffer();
+        TestUtils.append(new Random(), walIndex, 0, step, count, desired, keyBuffer);
         assertions(walIndex, count, step, desired);
     }
 
@@ -119,14 +120,14 @@ public class IndexNGTest {
                 )
             ));
 
-        TestUtils.append(new Random(), memoryIndex, 0, step, count, desired);
+        BolBuffer keyBuffer = new BolBuffer();
+        TestUtils.append(new Random(), memoryIndex, 0, step, count, desired, keyBuffer);
         assertions(memoryIndex, count, step, desired);
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
         LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
             64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
-
         disIndex.append((stream) -> {
             ReadIndex reader = memoryIndex.acquireReader();
             try {
@@ -142,7 +143,7 @@ public class IndexNGTest {
                 reader = null;
             }
             return true;
-        });
+        }, keyBuffer);
         disIndex.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);

@@ -117,6 +117,7 @@ public class LabWAL {
 
         BAHash<ValueIndex> valueIndexes = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
         BolBuffer rawEntryBuffer = new BolBuffer();
+        BolBuffer keyBuffer = new BolBuffer();
         for (File walFile : listWALFiles) {
 
             IndexFile indexFile = null;
@@ -189,7 +190,7 @@ public class LabWAL {
                                         }
                                     }
                                     return true;
-                                }, true, maxValueIndexHeapPressureOverride, rawEntryBuffer);
+                                }, true, maxValueIndexHeapPressureOverride, rawEntryBuffer, keyBuffer);
 
                                 valueIndexVersionedEntries.removeAll(appendVersion);
                             }

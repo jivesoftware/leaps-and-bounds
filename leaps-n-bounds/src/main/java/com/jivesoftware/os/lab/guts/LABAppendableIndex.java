@@ -66,11 +66,10 @@ public class LABAppendableIndex implements RawAppendableIndex {
     }
 
     @Override
-    public boolean append(AppendEntries appendEntries) throws Exception {
+    public boolean append(AppendEntries appendEntries, BolBuffer keyBuffer) throws Exception {
         if (appendOnly == null) {
             appendOnly = index.appender();
         }
-
         AppendableHeap appendableHeap = new AppendableHeap(1024);
         appendEntries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer) -> {
 
@@ -82,7 +81,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
             rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer,
                 writeKeyFormatTransormer, writeValueFormatTransormer, appendableHeap);
 
-            BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
+            BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, keyBuffer);
             int keyLength = key.length;
             keysSizeInBytes += keyLength;
             valuesSizeInBytes += rawEntryBuffer.length - keyLength;

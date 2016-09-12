@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
-import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.Collections;
@@ -319,7 +318,7 @@ public class LABEnvironmentNGTest {
         AtomicLong value = new AtomicLong();
         AtomicLong count = new AtomicLong();
         BolBuffer rawEntryBuffer = new BolBuffer();
-        AppendableHeap appendableHeap = new AppendableHeap(8192);
+        BolBuffer keyBuffer = new BolBuffer();
         for (int c = 0; c < commitCount; c++) {
             long start = System.currentTimeMillis();
             if (useWAL) {
@@ -336,7 +335,7 @@ public class LABEnvironmentNGTest {
                             UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
                     }
                     return true;
-                }, true, rawEntryBuffer);
+                }, true, rawEntryBuffer, keyBuffer);
             } else {
                 index.append((stream) -> {
                     for (int i = 0; i < batchCount; i++) {
@@ -351,7 +350,7 @@ public class LABEnvironmentNGTest {
                             UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
                     }
                     return true;
-                }, true, rawEntryBuffer);
+                }, true, rawEntryBuffer, keyBuffer);
             }
 
             System.out.println("Append Elapse:" + (System.currentTimeMillis() - start));

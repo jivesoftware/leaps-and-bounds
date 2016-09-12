@@ -10,9 +10,9 @@ import java.util.concurrent.Future;
  */
 public interface AppendableValuesIndex {
 
-    boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend, BolBuffer rawEntryBuffer) throws Exception;
+    boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception;
 
-    boolean append(AppendValues values, boolean fsyncOnFlush, BolBuffer rawEntryBuffer) throws Exception;
+    boolean append(AppendValues values, boolean fsyncOnFlush, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception;
 
     List<Future<Object>> commit(boolean fsync, boolean waitIfToFarBehind) throws Exception;
 

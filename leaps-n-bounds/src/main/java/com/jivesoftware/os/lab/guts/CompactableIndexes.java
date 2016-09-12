@@ -253,6 +253,8 @@ public class CompactableIndexes {
         @Override
         public Void call() throws Exception {
             BolBuffer rawEntryBuffer = new BolBuffer();
+            BolBuffer leftKeyBuffer = new BolBuffer();
+            BolBuffer rightKeyBuffer = new BolBuffer();
             AppendableHeap appendableHeap = new AppendableHeap(8192);
             Comparator<byte[]> comparator = rawhide.getKeyComparator();
             while (true) {
@@ -318,8 +320,8 @@ public class CompactableIndexes {
                                             }
                                             return true;
                                         });
-                                    });
-                                });
+                                    }, rightKeyBuffer);
+                                }, leftKeyBuffer);
                             } finally {
                                 feedInterleaver.close();
                             }
@@ -417,8 +419,8 @@ public class CompactableIndexes {
                                                             }
                                                             return true;
                                                         });
-                                                });
-                                            });
+                                                }, rightKeyBuffer);
+                                            }, leftKeyBuffer);
                                         } finally {
                                             catchupFeedInterleaver.close();
                                         }
@@ -558,6 +560,7 @@ public class CompactableIndexes {
         @Override
         public Void call() throws Exception {
             BolBuffer rawEntryBuffer = new BolBuffer();
+            BolBuffer keyBuffer = new BolBuffer();
             LeapsAndBoundsIndex index = null;
             ReadIndex[] readers = new ReadIndex[mergeSet.length];
             try {
@@ -580,7 +583,7 @@ public class CompactableIndexes {
                                 IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
                                 return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
                             });
-                        });
+                        }, keyBuffer);
                     } finally {
                         feedInterleaver.close();
                     }

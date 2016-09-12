@@ -146,11 +146,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public boolean append(AppendEntries entries) throws Exception {
+    public boolean append(AppendEntries entries, BolBuffer keyBuffer) throws Exception {
         BolBuffer valueBuffer = new BolBuffer(); // Grrrr
         return entries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer) -> {
 
-            BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
+            BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, keyBuffer);
             int keyLength = key.length;
             index.compute(key, valueBuffer,
                 (value) -> {
