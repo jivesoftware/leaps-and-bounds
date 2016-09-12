@@ -84,4 +84,26 @@ public class BolBuffer {
         bb.limit(offset + length);
         return bb.slice();
     }
+
+    @Override
+    public int hashCode() {
+        if ((bytes == null) || (length == 0)) {
+            return 0;
+        }
+
+        int hash = 0;
+        long randMult = 0x5DEECE66DL;
+        long randAdd = 0xBL;
+        long randMask = (1L << 48) - 1;
+        long seed = bytes.length;
+
+        for (int i = 0; i < length; i++) {
+            long x = (seed * randMult + randAdd) & randMask;
+
+            seed = x;
+            hash += (bytes[offset + i] + 128) * x;
+        }
+
+        return hash;
+    }
 }

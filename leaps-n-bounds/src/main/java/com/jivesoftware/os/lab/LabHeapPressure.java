@@ -76,7 +76,7 @@ public class LabHeapPressure {
             freeHeap();
 
             while (globalHeap > blockOnHeapPressureInBytes) {
-                System.out.println(Thread.currentThread() + " BLOCKING for heap to go down..." + globalHeap + " > " + blockOnHeapPressureInBytes);
+                LOG.info("BLOCKING for heap to go down...{} > {}", globalHeap, blockOnHeapPressureInBytes);
                 try {
                     LOG.incAtomic("lab>heap>blocking>" + name);
                     synchronized (globalHeapCostInBytes) {

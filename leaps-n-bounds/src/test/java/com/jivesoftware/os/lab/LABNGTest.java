@@ -7,14 +7,17 @@ import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
@@ -164,10 +167,7 @@ public class LABNGTest {
             stream.stream(-1, UIO.longBytes(3, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(3, new byte[8], 0));
             return true;
         }, fsync, rawEntryBuffer, keyBuffer);
-        List<Future<Object>> awaitable = index.commit(fsync, true);
-        for (Future<Object> future : awaitable) {
-            future.get();
-        }
+        commitAndWait(index, fsync);
 
         index.append((stream) -> {
             stream.stream(-1, UIO.longBytes(7, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(7, new byte[8], 0));
@@ -175,10 +175,7 @@ public class LABNGTest {
             stream.stream(-1, UIO.longBytes(9, new byte[8], 0), System.currentTimeMillis(), false, 0, UIO.longBytes(9, new byte[8], 0));
             return true;
         }, fsync, rawEntryBuffer, keyBuffer);
-        awaitable = index.commit(fsync, true);
-        for (Future<Object> future : awaitable) {
-            future.get();
-        }
+        commitAndWait(index, fsync);
 
         Assert.assertFalse(index.isEmpty());
 
@@ -216,6 +213,84 @@ public class LABNGTest {
 
         env.shutdown();
 
+    }
+
+    @Test
+    public void testClobber() throws Exception {
+
+        boolean fsync = true;
+        File root = Files.createTempDir();
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", 1024 * 1024 * 10, 1024 * 1024 * 10,
+            new AtomicLong());
+        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            "wal", 1024 * 1024 * 10,
+            1000, 1024 * 1024 * 10,
+            1024 * 1024 * 10, root,
+            labHeapPressure, 1, 2, leapsCache,
+            true);
+
+        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+
+        ValueIndex index = env.open(valueIndexConfig);
+        BolBuffer rawEntryBuffer = new BolBuffer();
+        BolBuffer keyBuffer = new BolBuffer();
+
+        index.append((stream) -> {
+            stream.stream(-1, UIO.longBytes(1, new byte[8], 0), 1, false, 0, UIO.longBytes(1, new byte[8], 0));
+            return true;
+        }, fsync, rawEntryBuffer, keyBuffer);
+
+        commitAndWait(index, fsync);
+
+        index.append((stream) -> {
+            stream.stream(-1, UIO.longBytes(1, new byte[8], 0), 4, false, 0, UIO.longBytes(7, new byte[8], 0));
+            return true;
+        }, fsync, rawEntryBuffer, keyBuffer);
+       commitAndWait(index, fsync);
+
+
+        index.append((stream) -> {
+            stream.stream(-1, UIO.longBytes(1, new byte[8], 0), 1, false, 0, UIO.longBytes(1, new byte[8], 0));
+            return true;
+        }, fsync, rawEntryBuffer, keyBuffer);
+
+        commitAndWait(index, fsync);
+
+        Assert.assertFalse(index.isEmpty());
+
+        long[] expectedValues = new long[]{-1, 7};
+
+        index.get(new Keys() {
+            @Override
+            public boolean keys(Keys.KeyStream keyStream) throws Exception {
+                for (int i = 1; i < 2; i++) {
+                    keyStream.key(i, UIO.longBytes(i), 0, 8);
+                }
+                return true;
+            }
+        }, new ValueStream() {
+            @Override
+            public boolean stream(int index, ByteBuffer key, long timestamp, boolean tombstoned, long version, ByteBuffer payload) throws Exception {
+                System.out.println(IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
+
+                Assert.assertEquals(UIO.bytesLong(IndexUtil.toByteArray(payload)), expectedValues[index]);
+                return true;
+            }
+        }, true);
+
+        env.shutdown();
+
+    }
+
+    private void commitAndWait(ValueIndex index, boolean fsync) throws Exception, ExecutionException, InterruptedException {
+        List<Future<Object>> awaitable = index.commit(fsync, true);
+        for (Future<Object> future : awaitable) {
+            future.get();
+        }
     }
 
     private void testExpectedMultiGet(ValueIndex index, long[] expected) throws Exception {

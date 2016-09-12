@@ -33,6 +33,14 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
+    public int mergeCompare(FormatTransformer aReadKeyFormatTransormer, FormatTransformer aReadValueFormatTransormer, ByteBuffer aRawEntry,
+        FormatTransformer bReadKeyFormatTransormer, FormatTransformer bReadValueFormatTransormer, ByteBuffer bRawEntry) {
+
+        return compareKey(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry);
+
+    }
+
+    @Override
     public boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,

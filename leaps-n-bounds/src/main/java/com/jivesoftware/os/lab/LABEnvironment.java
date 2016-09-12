@@ -61,6 +61,8 @@ public class LABEnvironment {
     private final Map<String, Rawhide> rawhideRegistry = Maps.newConcurrentMap();
     private final Map<String, RawEntryFormat> rawEntryFormatRegistry = Maps.newConcurrentMap();
 
+    private final StripingBolBufferLocks stripingBolBufferLocks;
+
     public static ExecutorService buildLABHeapSchedulerThreadPool(int count) {
         return Executors.newFixedThreadPool(count,
             new ThreadFactoryBuilder().setNameFormat("lab-heap-%d").build());
@@ -116,6 +118,7 @@ public class LABEnvironment {
         this.walName = walName;
         this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
         this.useIndexableMemory = useIndexableMemory;
+        this.stripingBolBufferLocks = new StripingBolBufferLocks(1024); // TODO expose 
 
     }
 
@@ -221,9 +224,9 @@ public class LABEnvironment {
 
                 LABIndexableMemory memory = new LABIndexableMemory(config.rawhideName, allocator);
                 LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
-                return new LABConcurrentSkipListMap(skipList);
+                return new LABConcurrentSkipListMap(skipList, stripingBolBufferLocks);
             } else {
-                return new LABCSLMIndex(rawhide1);
+                return new LABCSLMIndex(rawhide1, stripingBolBufferLocks);
             }
         };
 

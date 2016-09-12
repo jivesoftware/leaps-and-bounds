@@ -7,6 +7,7 @@ import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LABRawhide;
 import com.jivesoftware.os.lab.LabHeapPressure;
+import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
@@ -175,7 +176,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
                                 return null;
                             })
                         )
-                    )
+                    ),
+                    new StripingBolBufferLocks(1024)
                 ));
             long lastKey = TestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null, keyBuffer);
             indexs.append("test", index, fsync, rawEntryBuffer, keyBuffer);

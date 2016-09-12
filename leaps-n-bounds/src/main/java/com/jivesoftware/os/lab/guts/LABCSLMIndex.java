@@ -16,6 +16,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -32,29 +33,37 @@ import java.util.concurrent.ConcurrentSkipListMap;
 public class LABCSLMIndex implements LABIndex {
 
     private final ConcurrentSkipListMap<byte[], byte[]> map;
+    private final StripingBolBufferLocks bolBufferLocks;
+    private final int seed;
 
-    public LABCSLMIndex(Rawhide rawhide) {
+    public LABCSLMIndex(Rawhide rawhide, StripingBolBufferLocks bolBufferLocks) {
         this.map = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
+        this.bolBufferLocks = bolBufferLocks;
+        this.seed = System.identityHashCode(this);
     }
 
     @Override
     public void compute(BolBuffer keyBytes, BolBuffer valueBuffer, Compute remappingFunction) {
-        map.compute(keyBytes.copy(), // Grrr
-            (k, v) -> {
+        synchronized (bolBufferLocks.lock(keyBytes, seed)) {
+            map.compute(keyBytes.copy(), // Grrr
+                (k, v) -> {
 
-                BolBuffer vb = null;
-                if (v != null) {
-                    vb.bytes = v;
-                    vb.offset = 0;
-                    vb.length = v.length;
-                }
-                BolBuffer apply = remappingFunction.apply(vb);
-                if (apply != null && v == apply.bytes) {
-                    return v;
-                } else {
-                    return apply == null ? null : apply.copy();
-                }
-            });
+                    BolBuffer apply;
+                    if (v != null) {
+                        valueBuffer.bytes = v;
+                        valueBuffer.offset = 0;
+                        valueBuffer.length = v.length;
+                        apply = remappingFunction.apply(valueBuffer);
+                    } else {
+                        apply = remappingFunction.apply(null);
+                    }
+                    if (apply != null && v == apply.bytes) {
+                        return v;
+                    } else {
+                        return apply == null ? null : apply.copy();
+                    }
+                });
+        }
     }
 
     @Override

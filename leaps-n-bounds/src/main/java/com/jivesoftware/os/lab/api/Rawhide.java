@@ -22,6 +22,13 @@ public interface Rawhide {
         FormatTransformer mergedReadKeyFormatTransormer,
         FormatTransformer mergedReadValueFormatTransormer);
 
+     int mergeCompare(FormatTransformer aReadKeyFormatTransormer,
+        FormatTransformer aReadValueFormatTransormer,
+        ByteBuffer aRawEntry,
+        FormatTransformer bReadKeyFormatTransormer,
+        FormatTransformer bReadValueFormatTransormer,
+        ByteBuffer bRawEntry);
+
     boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,

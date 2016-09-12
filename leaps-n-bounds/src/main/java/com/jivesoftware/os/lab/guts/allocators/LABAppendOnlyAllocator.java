@@ -108,9 +108,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
                         System.arraycopy(memory, 0, bytes, 0, memory.length);
                     }
                     memory = bytes;
-
-//                    System.out.println("Allocated Count:" + (maxAllocationCount - allocated.availablePermits()) + " Bytes:" + memory.length + " Freed:" + freed
-//                        .get());
                 }
             }
         }

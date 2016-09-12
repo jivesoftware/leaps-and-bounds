@@ -22,6 +22,8 @@ import org.testng.Assert;
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.rawEntry;
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
 import static com.jivesoftware.os.lab.guts.SimpleRawhide.value;
+import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
+import static com.jivesoftware.os.lab.guts.SimpleRawhide.value;
 
 /**
  * @author jonathan.colt

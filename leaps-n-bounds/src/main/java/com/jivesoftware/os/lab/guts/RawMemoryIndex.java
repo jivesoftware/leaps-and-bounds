@@ -152,6 +152,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
             BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, keyBuffer);
             int keyLength = key.length;
+
             index.compute(key, valueBuffer,
                 (value) -> {
 

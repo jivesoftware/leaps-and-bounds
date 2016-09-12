@@ -5,6 +5,7 @@ import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LabHeapPressure;
+import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
@@ -89,7 +90,8 @@ public class IndexNGTest {
                             return null;
                         })
                     )
-                )
+                ),
+                new StripingBolBufferLocks(1024)
             ));
         BolBuffer keyBuffer = new BolBuffer();
         TestUtils.append(new Random(), walIndex, 0, step, count, desired, keyBuffer);
@@ -117,7 +119,8 @@ public class IndexNGTest {
                             return null;
                         })
                     )
-                )
+                ),
+                new StripingBolBufferLocks(1024)
             ));
 
         BolBuffer keyBuffer = new BolBuffer();

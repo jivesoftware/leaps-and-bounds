@@ -53,6 +53,8 @@ public class LABValidationNGTest {
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", 1024 * 1024 * 10, 1024 * 1024 * 10,
             new AtomicLong());
 
+        StripingBolBufferLocks stripingBolBufferLocks = new StripingBolBufferLocks(1024);
+
         LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
         LABIndexProvider indexProvider = (rawhide1) -> {
@@ -63,9 +65,9 @@ public class LABValidationNGTest {
                 });
                 LABIndexableMemory memory = new LABIndexableMemory("", allocator);
                 LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
-                return new LABConcurrentSkipListMap(skipList);
+                return new LABConcurrentSkipListMap(skipList, stripingBolBufferLocks);
             } else {
-                return new LABCSLMIndex(rawhide1);
+                return new LABCSLMIndex(rawhide1, stripingBolBufferLocks);
             }
         };
 
@@ -189,7 +191,8 @@ public class LABValidationNGTest {
 
         LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
-       
+        StripingBolBufferLocks stripingBolBufferLocks = new StripingBolBufferLocks(1024);
+
         LABRawhide rawhide = LABRawhide.SINGLETON;
 
         LABIndexProvider indexProvider = (rawhide1) -> {
@@ -200,9 +203,9 @@ public class LABValidationNGTest {
                 });
                 LABIndexableMemory memory = new LABIndexableMemory("", allocator);
                 LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
-                return new LABConcurrentSkipListMap(skipList);
+                return new LABConcurrentSkipListMap(skipList, stripingBolBufferLocks);
             } else {
-                return new LABCSLMIndex(rawhide1);
+                return new LABCSLMIndex(rawhide1, stripingBolBufferLocks);
             }
         };
 

@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.google.common.primitives.Longs;
 import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
@@ -32,6 +33,17 @@ public class SimpleRawhide implements Rawhide {
         return value(currentRawEntry) > value(addingRawEntry) ? currentRawEntry : addingRawEntry;
     }
 
+    @Override
+    public int mergeCompare(FormatTransformer aReadKeyFormatTransormer, FormatTransformer aReadValueFormatTransormer, ByteBuffer aRawEntry,
+        FormatTransformer bReadKeyFormatTransormer, FormatTransformer bReadValueFormatTransormer, ByteBuffer bRawEntry) {
+
+        int c = compareKey(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry);
+        if (c != 0) {
+            return c;
+        }
+        return -Longs.compare(value(aRawEntry), value(bRawEntry));
+    }
+
     public static long key(ByteBuffer rawEntry) {
         if (rawEntry == null) {
             return 0;
@@ -62,7 +74,7 @@ public class SimpleRawhide implements Rawhide {
     }
 
     public static long value(BolBuffer rawEntry) {
-        return rawEntry.getLong(4+8);
+        return rawEntry.getLong(4 + 8);
     }
 
     public static long value(ByteBuffer rawEntry) {
@@ -165,7 +177,7 @@ public class SimpleRawhide implements Rawhide {
         BolBuffer rawEntry,
         BolBuffer keyBuffer) {
         int length = rawEntry.getInt(0);
-        rawEntry.sliceInto(4, length,keyBuffer);
+        rawEntry.sliceInto(4, length, keyBuffer);
         return keyBuffer;
     }
 

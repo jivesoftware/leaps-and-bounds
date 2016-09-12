@@ -37,8 +37,11 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
 
     @Override
     public void close() throws Exception {
+        if (active != null) {
+            active.close();
+        }
         for (Feed feed : feeds) {
-            feed.scanner.close();
+            feed.close();
         }
     }
 
@@ -58,8 +61,7 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
         // 0.     3, 5, 7, 9
         // 1.     3, 4, 7, 10
         // 2.     3, 6, 8, 11
-        if (active == null
-            || until != null && compare(active, until) >= 0) {
+        if (active == null || until != null && compare(active, until) >= 0) {
 
             if (active != null) {
                 feeds.add(active);
@@ -81,6 +83,8 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
                 feeds.poll();
                 if (first.feedNext() != null) {
                     feeds.add(first);
+                } else {
+                    first.close();
                 }
             }
         }
@@ -94,6 +98,7 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
                 }
             }
             if (active.feedNext() == null) {
+                active.close();
                 active = null;
                 until = null;
             }
@@ -139,12 +144,17 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
 
         @Override
         public int compareTo(Feed o) {
-            int c = rawhide.compareKey(nextReadKeyFormatTransformer, nextReadValueFormatTransformer, nextRawEntry,
+            int c = rawhide.mergeCompare(nextReadKeyFormatTransformer, nextReadValueFormatTransformer, nextRawEntry,
                 o.nextReadKeyFormatTransformer, o.nextReadValueFormatTransformer, o.nextRawEntry);
-            if (c == 0) {
-                c = Integer.compare(index, o.index);
+
+            if (c != 0) {
+                return c;
             }
-            return c;
+            return Integer.compare(index, o.index);
+        }
+
+        private void close() throws Exception {
+            scanner.close();
         }
     }
 

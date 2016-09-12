@@ -33,7 +33,7 @@ public class LABRawhide implements Rawhide {
         FormatTransformer mergedReadValueFormatTransormer) {
 
         int currentKeyLength = currentRawEntry.getInt(0);
-        int addingKeyLength = addingRawEntry.get(0);
+        int addingKeyLength = addingRawEntry.getInt(0);
 
         long currentsTimestamp = currentRawEntry.getLong(4 + currentKeyLength);
         long currentsVersion = currentRawEntry.getLong(4 + currentKeyLength + 8 + 1);
@@ -45,6 +45,48 @@ public class LABRawhide implements Rawhide {
             return currentRawEntry;
         } else {
             return addingRawEntry;
+        }
+    }
+
+    @Override
+    public int mergeCompare(FormatTransformer aReadKeyFormatTransormer, FormatTransformer aReadValueFormatTransormer, ByteBuffer aRawEntry,
+        FormatTransformer bReadKeyFormatTransormer, FormatTransformer bReadValueFormatTransormer, ByteBuffer bRawEntry) {
+
+        int c = compareKey(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry,
+            bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry);
+        if (c != 0) {
+            return c;
+        }
+
+        if (aRawEntry == null && bRawEntry == null) {
+            return 0;
+        } else if (aRawEntry == null) {
+            bRawEntry.clear();
+            return -bRawEntry.capacity();
+        } else if (bRawEntry == null) {
+            aRawEntry.clear();
+            return aRawEntry.capacity();
+        } else {
+            aRawEntry.clear();
+            bRawEntry.clear();
+
+            int aKeyLength = aRawEntry.getInt(0);
+            int bKeyLength = bRawEntry.getInt(0);
+
+            long asTimestamp = aRawEntry.getLong(4 + aKeyLength);
+            long asVersion = aRawEntry.getLong(4 + aKeyLength + 8 + 1);
+
+            long bsTimestamp = bRawEntry.getLong(4 + bKeyLength);
+            long bsVersion = bRawEntry.getLong(4 + bKeyLength + 8 + 1);
+
+            if (asTimestamp == bsTimestamp && asVersion == bsVersion) {
+                return 0;
+            }
+            if ((asTimestamp > bsTimestamp) || (asTimestamp == bsTimestamp && asVersion > bsVersion)) {
+                return -1;
+            } else {
+                return 1;
+            }
         }
     }
 

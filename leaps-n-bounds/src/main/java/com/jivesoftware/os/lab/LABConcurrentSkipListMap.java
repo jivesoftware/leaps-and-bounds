@@ -77,14 +77,9 @@ public class LABConcurrentSkipListMap implements LABIndex {
                         int newSize = Math.max(nodesArray.length() + NODE_SIZE_IN_LONGS, nodesArray.length() * 2);
 //
                         long[] newNodesArray = null;
-                        try {
-                            newNodesArray = new long[newSize];
-                            for (int i = 0; i < nodesArray.length(); i++) { // LAME!!!
-                                newNodesArray[i] = nodesArray.get(i);
-                            }
-                        } catch (Throwable t) {
-                            System.out.println("WFT");
-                            Thread.sleep(Long.MAX_VALUE);
+                        newNodesArray = new long[newSize];
+                        for (int i = 0; i < nodesArray.length(); i++) { // LAME!!!
+                            newNodesArray[i] = nodesArray.get(i);
                         }
                         nodesArray = new AtomicLongArray(newNodesArray);
                     }
@@ -812,8 +807,13 @@ public class LABConcurrentSkipListMap implements LABIndex {
         }
     }
 
-    public LABConcurrentSkipListMap(LABConcurrentSkipListMemory comparator) throws Exception {
+    private final StripingBolBufferLocks bolBufferLocks;
+    private final int seed;
+
+    public LABConcurrentSkipListMap(LABConcurrentSkipListMemory comparator, StripingBolBufferLocks bolBufferLocks) throws Exception {
         this.memory = comparator;
+        this.bolBufferLocks = bolBufferLocks;
+        this.seed = System.identityHashCode(this);
         initialize();
     }
 
@@ -870,49 +870,53 @@ public class LABConcurrentSkipListMap implements LABIndex {
         if (keyBytes == null || keyBytes.length == -1 || remappingFunction == null) {
             throw new NullPointerException();
         }
-        growNodesArray.acquire();
-        try {
 
-            for (;;) {
-                int n;
-                long v;
-                BolBuffer r;
-                if ((n = findNode(keyBytes)) == NIL) {
-                    if ((r = remappingFunction.apply(null)) == null) {
-                        break;
-                    }
-                    if (!doPut(keyBytes, r, true)) {
-                        return;
-                    }
-                } else if ((v = nodeValue(n)) != NIL) {
-                    long va = acquireValue(n);
-                    if (va == NIL || va == SELF) {
-                        releaseValue(n);
-                    } else {
-                        long rid;
-                        try {
-                            memory.acquireBytes(va, valueBuffer);
-                            memory.release(va);
-
-                            r = remappingFunction.apply(valueBuffer);
-                            rid = r == null ? NIL : memory.allocate(r);
-                        } finally {
-                            releaseValue(n);
+        synchronized (bolBufferLocks.lock(keyBytes, seed)) {
+            growNodesArray.acquire();
+            try {
+                for (;;) {
+                    int n;
+                    long v;
+                    BolBuffer r;
+                    if ((n = findNode(keyBytes)) == NIL) {
+                        if ((r = remappingFunction.apply(null)) == null) {
+                            break;
                         }
-                        if (casValue(n, memory, va, rid)) {
+                        if (!doPut(keyBytes, r, true)) {
                             return;
-                        } else if (rid != NIL) {
-                            memory.release(rid);
+                        }
+                    } else if ((v = nodeValue(n)) != NIL) {
+                        long va = acquireValue(n);
+                        if (va == NIL || va == SELF) {
+                            releaseValue(n);
+                        } else {
+                            long rid;
+                            try {
+                                memory.acquireBytes(va, valueBuffer);
+                                memory.release(va);
+
+                                r = remappingFunction.apply(valueBuffer);
+                                rid = r == null ? NIL : memory.allocate(r);
+                            } finally {
+                                releaseValue(n);
+                            }
+                            if (casValue(n, memory, va, rid)) {
+                                return;
+                            } else if (rid != NIL) {
+                                memory.release(rid);
+                            }
                         }
                     }
                 }
+
+            } finally {
+                growNodesArray.release();
             }
-        } finally {
-            growNodesArray.release();
         }
     }
 
     private final Random random = new Random();
+
     private boolean doPut(BolBuffer keyBytes, BolBuffer valueBytes, boolean onlyIfAbsent) throws Exception {
 
         int z;             // added node

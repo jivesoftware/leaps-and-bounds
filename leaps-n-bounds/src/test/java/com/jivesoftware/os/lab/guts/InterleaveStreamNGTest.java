@@ -4,6 +4,7 @@ import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LabHeapPressure;
+import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
@@ -168,7 +169,8 @@ public class InterleaveStreamNGTest {
                                     return null;
                                 })
                             )
-                        )
+                        ),
+                        new StripingBolBufferLocks(1024)
                     ));
                 TestUtils.append(rand, memoryIndexes[i], 0, step, count, desired, keyBuffer);
                 System.out.println("Index " + i);
