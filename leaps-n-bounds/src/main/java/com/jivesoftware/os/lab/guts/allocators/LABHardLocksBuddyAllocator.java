@@ -42,6 +42,11 @@ public class LABHardLocksBuddyAllocator implements LABMemoryAllocator {
     }
 
     @Override
+    public long sizeInBytes() {
+        throw new UnsupportedOperationException("TODO.");
+    }
+
+    @Override
     public boolean acquireBytes(long address, BolBuffer bolBuffer) {
         bolBuffer.bytes = memory;
         bolBuffer.offset = (int) (address + 1 + 4);

@@ -1,6 +1,5 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.google.common.collect.Lists;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.Arrays;
@@ -18,10 +17,24 @@ import org.testng.annotations.Test;
  */
 public class LABAppendOnlyAllocatorNGTest {
 
+    @Test
+    public void testShifting() {
+        long powerSize = 10;
+        int powerMask = (1 << powerSize) - 1;
+
+        for (int a = 0; a < 2048; a += 256) {
+            int address = a;
+            int index = (int) (address >>> powerSize);
+            address &= powerMask;
+
+            System.out.println(index + " " + address);
+        }
+    }
+
     @Test(invocationCount = 1)
     public void testBytes() throws Exception {
 
-        int count = 1_000_000;
+        int count = 10;
         boolean validate = true;
 
         int maxAllocatePower = 4;
@@ -54,7 +67,7 @@ public class LABAppendOnlyAllocatorNGTest {
 
             return null;
         };
-        allocator[0] = new LABAppendOnlyAllocator(1024 * 1024 * 2, requestGC);
+        allocator[0] = new LABAppendOnlyAllocator(10);
 
         Random rand = new Random();
         byte[] bytes = new byte[(int) UIO.chunkLength(maxAllocatePower)];

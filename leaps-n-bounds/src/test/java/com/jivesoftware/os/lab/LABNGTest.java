@@ -43,6 +43,7 @@ public class LABNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
@@ -153,6 +154,7 @@ public class LABNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
@@ -230,6 +232,7 @@ public class LABNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
@@ -250,8 +253,7 @@ public class LABNGTest {
             stream.stream(-1, UIO.longBytes(1, new byte[8], 0), 4, false, 0, UIO.longBytes(7, new byte[8], 0));
             return true;
         }, fsync, rawEntryBuffer, keyBuffer);
-       commitAndWait(index, fsync);
-
+        commitAndWait(index, fsync);
 
         index.append((stream) -> {
             stream.stream(-1, UIO.longBytes(1, new byte[8], 0), 1, false, 0, UIO.longBytes(1, new byte[8], 0));

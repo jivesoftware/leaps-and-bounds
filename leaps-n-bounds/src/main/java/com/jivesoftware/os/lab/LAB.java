@@ -473,40 +473,6 @@ public class LAB implements ValueIndex {
 
                             count[0]++;
                             return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry);
-
-                            /*RawMemoryIndex copy = flushingMemoryIndex;
-                            TimestampAndVersion timestampAndVersion = rangeStripedCompactableIndexes.maxTimeStampAndVersion();
-                            if ((copy == null || isNewerThan(timestamp, version, copy))
-                            && rawhide.isNewerThan(timestamp, version, timestampAndVersion.maxTimestamp, timestampAndVersion.maxTimestampVersion)) {
-                                return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
-                            } else {
-                                rangeTx(false, -1, key, key, timestamp, version,
-                                    (index1, fromKey, toKey, readIndexes, hydrateValues1) -> {
-                                        GetRaw getRaw = IndexUtil.get(readIndexes);
-                                        return getRaw.get(key,
-                                            (existingReadKeyFormatTransformer, existingReadValueFormatTransformer, existingEntry) -> {
-                                                if (existingEntry == null) {
-                                                    return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
-                                                } else {
-                                                    long existingTimestamp = rawhide.timestamp(existingReadKeyFormatTransformer,
-                                                        existingReadValueFormatTransformer, existingEntry);
-
-                                                    long existingVersion = rawhide.version(existingReadKeyFormatTransformer,
-                                                        existingReadValueFormatTransformer,
-                                                        existingEntry);
-
-                                                    if (rawhide.isNewerThan(timestamp, version, existingTimestamp, existingVersion)) {
-                                                        return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry, 0, rawEntry.length);
-                                                    }
-                                                }
-                                                return false;
-                                            }
-                                        );
-                                    },
-                                    false // This prevent values from being hydrated
-                                );
-                                return true;
-                            }*/
                         }
                     );
                 }, keyBuffer

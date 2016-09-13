@@ -164,6 +164,11 @@ public class LABCASBuddyAllocator implements LABMemoryAllocator {
     }
 
     @Override
+    public long sizeInBytes() {
+        throw new UnsupportedOperationException("TODO.");
+    }    
+
+    @Override
     public byte[] bytes(long address) throws InterruptedException {
         synchronized (this) {
             if (acquire(address)) {

@@ -3,9 +3,6 @@ package com.jivesoftware.os.lab.guts.allocators;
 import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.io.api.UIO;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  *
@@ -13,27 +10,36 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class LABAppendOnlyAllocator implements LABMemoryAllocator {
 
-    private volatile byte[] memory = null;
-    private final int maxAllocationCount = Integer.MAX_VALUE / 2;
-    private final Semaphore allocated = new Semaphore(maxAllocationCount);
-    private final AtomicLong allocateNext = new AtomicLong();
-    private final AtomicLong freed = new AtomicLong();
+    private volatile byte[][] memory = null;
+    private final int powerSize;
+    private final long powerMask;
+    //private final AtomicLong allocateNext = new AtomicLong();
+    private volatile long allocateNext = 0;
 
-    private final int maxAllocatableInBytes;
-    private final Callable<Void> calledOnOOM;
-
-    public LABAppendOnlyAllocator(Callable<Void> calledOnOOM) {
-        this(1024 * 1024 * 100, calledOnOOM);
+    public LABAppendOnlyAllocator(int powerSize) {
+        this.powerSize = powerSize;
+        this.powerMask = (1 << powerSize) - 1;
     }
 
-    public LABAppendOnlyAllocator(int maxAllocatableInBytes, Callable<Void> calledOnOOM) {
-        this.maxAllocatableInBytes = maxAllocatableInBytes;
-        this.calledOnOOM = calledOnOOM;
+    @Override
+    public long sizeInBytes() {
+        byte[][] stackCopy = memory;
+        if (stackCopy == null) {
+            return 0;
+        }
+        long size = 0;
+        for (byte[] bs : stackCopy) {
+            size += (bs != null) ? bs.length : 0;
+        }
+        return size;
     }
 
     @Override
     public boolean acquireBytes(long address, BolBuffer bolBuffer) {
-        byte[] stackCopy = memory;
+        int index = (int) (address >>> powerSize);
+        byte[] stackCopy = memory[index];
+        address &= powerMask;
+
         bolBuffer.bytes = stackCopy;
         bolBuffer.offset = (int) (address + 4);
         bolBuffer.length = UIO.bytesInt(stackCopy, (int) address);
@@ -45,7 +51,10 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         if (address == -1) {
             return null;
         }
-        byte[] stackCopy = memory;
+        int index = (int) (address >>> powerSize);
+        byte[] stackCopy = memory[index];
+        address &= powerMask;
+
         int length = UIO.bytesInt(stackCopy, (int) address);
         if (length > -1) {
             byte[] copy = new byte[length];
@@ -73,110 +82,144 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         if (bytes == null) {
             return -1;
         }
-        int address = allocate(length);
+        long address = allocate(length);
+        int index = (int) (address >>> powerSize);
+        int indexAddress = (int) (address & powerMask);
+
         synchronized (this) {
-            UIO.intBytes(length, memory, address);
-            System.arraycopy(bytes, offset, memory, address + 4, length);
+            byte[] stackCopy = memory[index];
+            UIO.intBytes(length, stackCopy, indexAddress);
+            System.arraycopy(bytes, offset, stackCopy, indexAddress + 4, length);
         }
 
+        //System.out.println("allocate:" + address + " " + Arrays.toString(bytes) + " offset:" + offset + " length:" + length);
         return address;
     }
 
-    private int allocate(int length) throws Exception {
-        long address;
-        while (true) {
-            if (allocateNext.get() + 4 + length > maxAllocatableInBytes) {
-                calledOnOOM.call();
-                Thread.yield();
+    private long allocate(int length) throws Exception {
+
+        synchronized (this) {
+
+            long address = allocateNext;
+            int index = (int) (address >>> powerSize);
+            int tailIndex = (int) ((address + 4 + length) >>> powerSize);
+            if (index == tailIndex) {
+                allocateNext = address + 4 + length;
             } else {
-                allocated.acquire();
-                address = allocateNext.getAndAdd(4 + length);
-                if (address + 4 + length > maxAllocatableInBytes) {
-                    allocated.release();
-                    calledOnOOM.call();
-                } else {
-                    break;
-                }
+                long desiredAddress = tailIndex * (1 << powerSize);
+                allocateNext = desiredAddress + 4 + length;
+                address = desiredAddress;
+                index = (int) (desiredAddress >>> powerSize);
             }
-        }
-        if (memory == null || memory.length < address + 4 + length) {
-            synchronized (this) {
-                if (memory == null || memory.length < address + 4 + length) {
-                    int power = UIO.chunkPower(address + 4 + length, 4);
-                    byte[] bytes = new byte[1 << power];
-                    if (memory != null) {
-                        System.arraycopy(memory, 0, bytes, 0, memory.length);
-                    }
-                    memory = bytes;
+
+            //System.out.println("address:" + address + " index:" + index + "              " + allocateNext.get());
+            int indexAlignedAddress = (int) (address & powerMask);
+            if (memory == null || index >= memory.length || memory[index] == null || memory[index].length < indexAlignedAddress + 4 + length) {
+
+                if (memory == null) {
+                    //System.out.println("Initial " + this);
+                    memory = new byte[index + 1][];
+                } else if (index >= memory.length) {
+                    //System.out.println("Copy " + this);
+                    byte[][] newMemory = new byte[index + 1][];
+                    System.arraycopy(memory, 0, newMemory, 0, memory.length);
+                    memory = newMemory;
                 }
+
+                int power = UIO.chunkPower(indexAlignedAddress + 4 + length, 4);
+                byte[] bytes = new byte[1 << power];
+                //System.out.println("Grow " + bytes.length + "  " + this);
+                if (memory[index] != null) {
+                    System.arraycopy(memory[index], 0, bytes, 0, memory[index].length);
+                }
+                memory[index] = bytes;
             }
+
+            return address;
         }
-        return (int) address;
     }
 
     @Override
     public void release(long address) throws InterruptedException {
-        byte[] stackCopy = memory;
-        int length = UIO.bytesInt(stackCopy, (int) address);
-        if (length > -1) {
-            freed.addAndGet(length);
-        } else {
-            throw new IllegalStateException("Address:" + address + " length=" + length);
-        }
-        allocated.release();
     }
 
     @Override
-    public int compare(Rawhide rawhide, long leftAddress, long rightAddress) {
+    public int compare(Rawhide rawhide, long leftAddress, long rightAddress
+    ) {
+
         if (leftAddress == -1 && rightAddress == -1) {
             return rawhide.compareBB(null, -1, -1, null, -1, -1);
         } else if (leftAddress == -1) {
-            int rightLength = UIO.bytesInt(memory, (int) rightAddress);
-            return rawhide.compareBB(null, -1, -1, memory, (int) rightAddress + 4, rightLength);
+            int rightIndex = (int) (rightAddress >>> powerSize);
+            rightAddress &= powerMask;
+            byte[] rightCopy = memory[rightIndex];
+
+            int rightLength = UIO.bytesInt(rightCopy, (int) rightAddress);
+            return rawhide.compareBB(null, -1, -1, rightCopy, (int) rightAddress + 4, rightLength);
         } else if (rightAddress == -1) {
-            int leftLength = UIO.bytesInt(memory, (int) leftAddress);
-            return rawhide.compareBB(memory, (int) leftAddress + 4, leftLength, null, -1, -1);
+            int leftIndex = (int) (leftAddress >>> powerSize);
+            leftAddress &= powerMask;
+            byte[] leftCopy = memory[leftIndex];
+
+            int leftLength = UIO.bytesInt(leftCopy, (int) leftAddress);
+            return rawhide.compareBB(leftCopy, (int) leftAddress + 4, leftLength, null, -1, -1);
         } else {
-            int leftLength = UIO.bytesInt(memory, (int) leftAddress);
-            int rightLength = UIO.bytesInt(memory, (int) rightAddress);
-            return rawhide.compareBB(memory, (int) leftAddress + 4, leftLength, memory, (int) rightAddress + 4, rightLength);
+            int leftIndex = (int) (leftAddress >>> powerSize);
+            leftAddress &= powerMask;
+            byte[] leftCopy = memory[leftIndex];
+
+            int rightIndex = (int) (rightAddress >>> powerSize);
+            rightAddress &= powerMask;
+            byte[] rightCopy = memory[rightIndex];
+
+            int leftLength = UIO.bytesInt(leftCopy, (int) leftAddress);
+            int rightLength = UIO.bytesInt(rightCopy, (int) rightAddress);
+            return rawhide.compareBB(leftCopy, (int) leftAddress + 4, leftLength, rightCopy, (int) rightAddress + 4, rightLength);
         }
     }
 
     @Override
-    public int compare(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength) {
+    public int compare(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength
+    ) {
         if (leftAddress == -1) {
             return rawhide.compareBB(null, -1, -1, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
         } else {
-            int leftLength = UIO.bytesInt(memory, (int) leftAddress);
-            return rawhide.compareBB(memory, (int) leftAddress + 4, leftLength, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
+            int leftIndex = (int) (leftAddress >>> powerSize);
+            leftAddress &= powerMask;
+            byte[] leftCopy = memory[leftIndex];
+
+            int leftLength = UIO.bytesInt(leftCopy, (int) leftAddress);
+            return rawhide.compareBB(leftCopy, (int) leftAddress + 4, leftLength, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
         }
     }
 
     @Override
-    public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, long rightAddress) {
+    public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, long rightAddress
+    ) {
         if (rightAddress == -1) {
             return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, null, -1, -1);
         } else {
-            int l2 = UIO.bytesInt(memory, (int) rightAddress);
-            return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, memory, (int) rightAddress + 4, l2);
+
+            int rightIndex = (int) (rightAddress >>> powerSize);
+            rightAddress &= powerMask;
+            byte[] rightCopy = memory[rightIndex];
+
+            int l2 = UIO.bytesInt(rightCopy, (int) rightAddress);
+            return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, rightCopy, (int) rightAddress + 4, l2);
         }
     }
 
     @Override
-    public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, byte[] rightBytes, int rightOffset, int rightLength) {
+    public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, byte[] rightBytes, int rightOffset, int rightLength
+    ) {
         return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
     }
 
     public void freeAll() throws InterruptedException {
-
-        allocated.acquire(maxAllocationCount);
-        try {
+        synchronized (this) {
+            //System.out.println("-----freeAll-----");
             memory = null;
-            allocateNext.set(0);
-        } finally {
-            allocated.release(maxAllocationCount);
+            allocateNext = 0;
         }
-
     }
 }

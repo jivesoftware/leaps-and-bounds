@@ -164,10 +164,7 @@ public class InterleaveStreamNGTest {
                     new LABConcurrentSkipListMap(
                         new LABConcurrentSkipListMemory(rawhide,
                             new LABIndexableMemory("memory",
-                                new LABAppendOnlyAllocator(() -> {
-                                    labHeapPressure.freeHeap();
-                                    return null;
-                                })
+                                new LABAppendOnlyAllocator(30)
                             )
                         ),
                         new StripingBolBufferLocks(1024)

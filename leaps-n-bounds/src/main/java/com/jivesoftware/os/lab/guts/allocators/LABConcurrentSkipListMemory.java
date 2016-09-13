@@ -21,6 +21,10 @@ public class LABConcurrentSkipListMemory {
         this.comparator = rawhide.getKeyComparator();
     }
 
+    public long sizeInBytes() {
+        return indexableMemory.sizeInBytes();
+    }
+
     public byte[] bytes(long chunkAddress) throws InterruptedException {
         return indexableMemory.bytes(chunkAddress);
     }

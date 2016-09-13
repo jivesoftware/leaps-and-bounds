@@ -2,7 +2,6 @@ package com.jivesoftware.os.lab.guts.allocators;
 
 import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.Rawhide;
-import com.jivesoftware.os.lab.guts.allocators.LABMemoryAllocator;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 
@@ -22,6 +21,10 @@ public class LABIndexableMemory {
 
         this.name = name;
         this.memoryAllocator = memoryAllocator;
+    }
+
+    long sizeInBytes() {
+        return memoryAllocator.sizeInBytes();
     }
 
     void acquireBytes(long chunkAddress, BolBuffer bolBuffer) throws Exception {

@@ -100,6 +100,7 @@ public class LABEnvironment {
         int minMergeDebt,
         int maxMergeDebt,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
+        StripingBolBufferLocks bolBufferLocks,
         boolean useIndexableMemory) throws IOException {
 
         register(NoOpFormatTransformerProvider.NAME, NoOpFormatTransformerProvider.NO_OP);
@@ -118,8 +119,7 @@ public class LABEnvironment {
         this.walName = walName;
         this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
         this.useIndexableMemory = useIndexableMemory;
-        this.stripingBolBufferLocks = new StripingBolBufferLocks(1024); // TODO expose 
-
+        this.stripingBolBufferLocks = bolBufferLocks;
     }
 
     LabWAL getLabWAL() {
@@ -220,7 +220,7 @@ public class LABEnvironment {
 
         LABIndexProvider indexProvider = (rawhide1) -> {
             if (useIndexableMemory) {
-                LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(callOnOOM);
+                LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(30); // todo config ?
 
                 LABIndexableMemory memory = new LABIndexableMemory(config.rawhideName, allocator);
                 LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);

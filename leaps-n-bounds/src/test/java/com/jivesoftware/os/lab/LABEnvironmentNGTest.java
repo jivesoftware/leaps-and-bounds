@@ -46,6 +46,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure1, 4, 8, leapsCache,
+                new StripingBolBufferLocks(1024),
                 true);
             assertEquals(env.list(), Collections.emptyList());
 
@@ -69,6 +70,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure2, 4, 8, leapsCache,
+                new StripingBolBufferLocks(1024),
                 true);
 
             index = env.open(valueIndexConfig);
@@ -91,6 +93,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure3, 4, 8, leapsCache,
+                new StripingBolBufferLocks(1024),
                 true);
             assertEquals(env.list(), Collections.singletonList("foo"));
             env.rename("foo", "bar");
@@ -117,6 +120,7 @@ public class LABEnvironmentNGTest {
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
                 labHeapPressure4, 4, 8, leapsCache,
+                new StripingBolBufferLocks(1024),
                 true);
             assertEquals(env.list(), Collections.singletonList("bar"));
             env.remove("bar");
@@ -190,6 +194,7 @@ public class LABEnvironmentNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure1, 4, 8, leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
@@ -214,6 +219,7 @@ public class LABEnvironmentNGTest {
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure2, 4, 8, leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
         System.out.println("Recreate env");
 
@@ -246,6 +252,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure1, 4, 8, leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
@@ -271,6 +278,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
             labHeapPressure2, 4, 8, leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
         System.out.println("Recreate env");
         env.open();
@@ -291,7 +299,9 @@ public class LABEnvironmentNGTest {
             1000,
             1024 * 1024 * 10,
             1024 * 1024 * 10, root,
-            labHeapPressure3, 4, 8, leapsCache,
+            labHeapPressure3, 4, 8,
+            leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
         System.out.println("Re-Recreate env");
         env.open();

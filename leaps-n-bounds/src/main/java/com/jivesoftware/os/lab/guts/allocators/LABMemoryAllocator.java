@@ -25,4 +25,6 @@ public interface LABMemoryAllocator {
 
     int compare(Rawhide rawhide, byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength);
 
+    long sizeInBytes();
+
 }

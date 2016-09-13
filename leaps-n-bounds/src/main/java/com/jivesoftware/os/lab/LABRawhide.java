@@ -198,7 +198,11 @@ public class LABRawhide implements Rawhide {
     ) {
         rawEntry.clear();
         int keyLength = rawEntry.getInt();
-        rawEntry.limit(4 + keyLength);
+        try {
+            rawEntry.limit(4 + keyLength);
+        } catch (Exception x) {
+            throw x;
+        }
         return rawEntry.slice();
     }
 

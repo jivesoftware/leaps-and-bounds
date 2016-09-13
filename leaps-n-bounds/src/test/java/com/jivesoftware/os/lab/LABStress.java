@@ -151,6 +151,7 @@ public class LABStress {
             4, // minMergeDebt
             8, // maxMergeDebt
             leapsCache,
+            new StripingBolBufferLocks(1024),
             true);
 
         env.register("8x8fixedWidthRawhide", new FixedWidthRawhide(8, 8));

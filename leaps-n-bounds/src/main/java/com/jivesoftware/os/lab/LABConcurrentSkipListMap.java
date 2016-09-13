@@ -214,108 +214,6 @@ public class LABConcurrentSkipListMap implements LABIndex {
         }
     }
 
-    //-------------------------
-//    static final class Node {
-//
-//        final long key;
-//
-//        private static final AtomicIntegerFieldUpdater<Node> refCountUpdater =
-//            AtomicIntegerFieldUpdater.newUpdater(Node.class, "refCount");
-//
-//        volatile int refCount;
-//
-//        private static final AtomicLongFieldUpdater<Node> valueUpdater =
-//            AtomicLongFieldUpdater.newUpdater(Node.class, "value");
-//
-//        volatile long value;
-//
-//        volatile Node next;
-//
-//        private static final AtomicReferenceFieldUpdater<Node, Node> nextUpdater =
-//            AtomicReferenceFieldUpdater.newUpdater(Node.class, Node.class, "next");
-//
-//         Node(long key, long value, Node next) {
-//            this.key = key;
-//            this.value = value;
-//            this.next = next;
-//        }
-//
-//        Node(Node next) {
-//            this.key = NIL;
-//            this.value = SELF;
-//            this.next = next;
-//        }
-//
-//        long acquireValue() throws InterruptedException {
-//            long v = this.value;
-//            if (v != NIL) {
-//                int at = refCountUpdater.get(this);
-//                while (true) {
-//                    if (at >= 0 && refCountUpdater.compareAndSet(this, at, at + 1)) {
-//                        break;
-//                    } else {
-//                        at = refCountUpdater.get(this);
-//                        Thread.yield();
-//                        if (Thread.interrupted()) {
-//                            throw new InterruptedException();
-//                        }
-//                    }
-//                }
-//                return v;
-//            }
-//            return NIL;
-//        }
-//
-//        void releaseValue() {
-//            int r = refCountUpdater.decrementAndGet(this);
-//       }
-//
-//        boolean casValue(LABConcurrentSkipListMemory memory, long cmp, long val) throws InterruptedException {
-//            while (!refCountUpdater.compareAndSet(this, 0, -1)) {
-//                Thread.yield();
-//                if (Thread.interrupted()) {
-//                    throw new InterruptedException();
-//                }
-//            }
-//            try {
-//                boolean cas = valueUpdater.compareAndSet(this, cmp, val);
-//                if (cas) {
-//                    memory.free(cmp);
-//                }
-//                return cas;
-//            } finally {
-//               refCountUpdater.compareAndSet(this, -1, 0);
-//            }
-//        }
-//
-//        boolean casNext(Node cmp, Node val) {
-//            return nextUpdater.compareAndSet(this, cmp, val);
-//        }
-//
-//        boolean isMarker() {
-//            return value == SELF;
-//        }
-//
-//        boolean isBaseHeader() {
-//            return value == BASE_HEADER;
-//        }
-//
-//        boolean appendMarker(Node f) {
-//            return casNext(f, new Node(f));
-//        }
-//
-//        void helpDelete(Node b, Node f) {
-//            if (f == next && this == b.next) {
-//                if (f == null || f.value != SELF) // not already marked
-//                {
-//                    casNext(f, new Node(f));
-//                } else {
-//                    b.casNext(this, f.next);
-//                }
-//            }
-//        }
-//
-//    }
     private volatile AtomicIntegerArray indexsArray = new AtomicIntegerArray(3 * 8);
     private final AtomicInteger freeIndex = new AtomicInteger(-1);
     private final AtomicInteger allocateIndex = new AtomicInteger();
@@ -405,11 +303,6 @@ public class LABConcurrentSkipListMap implements LABIndex {
         return nodeValue(n) != NIL && casRight(indexAddress, succ, newSucc);
     }
 
-//        final boolean link(LABConcurrentSkipListMap m, Index succ, Index newSucc) throws InterruptedException {
-//            int n = node;
-//            newSucc.right = succ;
-//            return m.nodeValue(n) != NIL && casRight(succ, newSucc);
-//        }
     final boolean unlink(int indexAddress, int succ) throws InterruptedException {
         int n = indexsArray.get(indexAddress + INDEX_NODE);
         if (nodeValue(n) != NIL) {
@@ -421,9 +314,6 @@ public class LABConcurrentSkipListMap implements LABIndex {
         return false;
     }
 
-//        final boolean unlink(LABConcurrentSkipListMap m, Index succ) throws InterruptedException {
-//            return m.nodeValue(node) != NIL && casRight(succ, succ.right);
-//        }
     private int indexNode(int indexAddress) {
         return indexsArray.get(indexAddress + INDEX_NODE);
     }
@@ -439,81 +329,6 @@ public class LABConcurrentSkipListMap implements LABIndex {
     private int indexDown(int indexAddress) {
         return indexsArray.get(indexAddress + INDEX_DOWN);
     }
-
-//    static class Index {
-//
-//        final int node;
-//        final Index down;
-//        volatile Index right;
-//
-//        private static final AtomicReferenceFieldUpdater<Index, Index> rightUpdater =
-//            AtomicReferenceFieldUpdater.newUpdater(Index.class, Index.class, "right");
-//
-//        /**
-//         * Creates index node with given values.
-//         */
-//        Index(int node, Index down, Index right) {
-//            this.node = node;
-//            this.down = down;
-//            this.right = right;
-//        }
-//
-//        /**
-//         * compareAndSet right field
-//         */
-//        final boolean casRight(Index cmp, Index val) {
-//            return rightUpdater.compareAndSet(this, cmp, val);
-//        }
-//
-//        /**
-//         * Returns true if the node this indexes has been deleted.
-//         * @return true if indexed node is known to be deleted
-//         */
-//        final boolean indexesDeletedNode(LABConcurrentSkipListMap m) throws InterruptedException {
-//            return m.nodeValue(node) == NIL;
-//        }
-//
-//        /**
-//         * Tries to CAS newSucc as successor.  To minimize races with
-//         * unlink that may lose this index node, if the node being
-//         * indexed is known to be deleted, it doesn't try to link in.
-//         * @param succ the expected current successor
-//         * @param newSucc the new successor
-//         * @return true if successful
-//         */
-//        final boolean link(LABConcurrentSkipListMap m, Index succ, Index newSucc) throws InterruptedException {
-//            int n = node;
-//            newSucc.right = succ;
-//            return m.nodeValue(n) != NIL && casRight(succ, newSucc);
-//        }
-//
-//        /**
-//         * Tries to CAS right field to skip over apparent successor
-//         * succ.  Fails (forcing a retraversal by caller) if this node
-//         * is known to be deleted.
-//         * @param succ the expected current successor
-//         * @return true if successful
-//         */
-//        final boolean unlink(LABConcurrentSkipListMap m, Index succ) throws InterruptedException {
-//            return m.nodeValue(node) != NIL && casRight(succ, succ.right);
-//        }
-//
-//    }
-
-    /* ---------------- Head nodes -------------- */
-    /**
-     * Nodes heading each level keep track of their level.
-     */
-//    static final class HeadIndex extends Index {
-//
-//        final int level;
-//
-//        HeadIndex(int node, int down, int right, int level) {
-//            super(node, down, right);
-//            this.level = level;
-//
-//        }
-//    }
 
     /* ---------------- Traversal -------------- */
     /**
@@ -816,6 +631,11 @@ public class LABConcurrentSkipListMap implements LABIndex {
         this.seed = System.identityHashCode(this);
         initialize();
     }
+
+    public long sizeInBytes() {
+        return memory.sizeInBytes() + (nodesArray.length() * 8) + indexsArray.length() * 4;
+    }
+
 
     @Override
     public BolBuffer get(BolBuffer keyBytes, BolBuffer valueBuffer) throws Exception {

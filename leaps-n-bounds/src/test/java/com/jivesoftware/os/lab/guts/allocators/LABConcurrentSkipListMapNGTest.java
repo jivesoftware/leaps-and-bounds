@@ -21,9 +21,7 @@ public class LABConcurrentSkipListMapNGTest {
     @Test
     public void batTest() throws Exception {
 
-        LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(1024 * 1024 * 10, () -> {
-            throw new OutOfMemoryError("test blew appenable memory");
-        });
+        LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(30);
         LABIndexableMemory labIndexableMemory = new LABIndexableMemory("test", allocator);
         FixedWidthRawhide rawhide = new FixedWidthRawhide(8, 8);
 

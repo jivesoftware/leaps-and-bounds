@@ -213,11 +213,13 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             hideABone.acquire(numBones);
             try {
                 disposed.set(true);
+                long sizeInBytes = keysCostInBytes.get() + valuesCostInBytes.get();
                 if (index instanceof LABConcurrentSkipListMap) {
+                    sizeInBytes = ((LABConcurrentSkipListMap) index).sizeInBytes();
                     ((LABConcurrentSkipListMap) index).freeAll();
                 }
                 index.clear();
-                labHeapPressure.change(-sizeInBytes());
+                labHeapPressure.change(-sizeInBytes);
             } catch (Throwable t) {
                 LOG.error("Destroy failed horribly!", t);
                 throw t;
@@ -248,7 +250,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public long sizeInBytes() {
-        return keysCostInBytes.get() + valuesCostInBytes.get();
+        if (index instanceof LABConcurrentSkipListMap) {
+            return ((LABConcurrentSkipListMap) index).sizeInBytes();
+        } else {
+            return keysCostInBytes.get() + valuesCostInBytes.get();
+        }
     }
 
     @Override

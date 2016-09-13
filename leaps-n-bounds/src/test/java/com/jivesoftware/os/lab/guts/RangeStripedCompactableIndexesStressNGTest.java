@@ -171,10 +171,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 new LABConcurrentSkipListMap(
                     new LABConcurrentSkipListMemory(LABRawhide.SINGLETON,
                         new LABIndexableMemory("memory",
-                            new LABAppendOnlyAllocator(() -> {
-                                labHeapPressure.freeHeap();
-                                return null;
-                            })
+                            new LABAppendOnlyAllocator(30)
                         )
                     ),
                     new StripingBolBufferLocks(1024)
