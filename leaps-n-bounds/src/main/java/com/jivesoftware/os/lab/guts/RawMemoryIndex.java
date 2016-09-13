@@ -1,7 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
@@ -214,10 +213,6 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             try {
                 disposed.set(true);
                 long sizeInBytes = keysCostInBytes.get() + valuesCostInBytes.get();
-                if (index instanceof LABConcurrentSkipListMap) {
-                    sizeInBytes = ((LABConcurrentSkipListMap) index).sizeInBytes();
-                    ((LABConcurrentSkipListMap) index).freeAll();
-                }
                 index.clear();
                 labHeapPressure.change(-sizeInBytes);
             } catch (Throwable t) {
@@ -250,11 +245,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public long sizeInBytes() {
-        if (index instanceof LABConcurrentSkipListMap) {
-            return ((LABConcurrentSkipListMap) index).sizeInBytes();
-        } else {
-            return keysCostInBytes.get() + valuesCostInBytes.get();
-        }
+        return keysCostInBytes.get() + valuesCostInBytes.get();
     }
 
     @Override
