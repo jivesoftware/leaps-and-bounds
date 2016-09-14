@@ -165,7 +165,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
                 new AtomicLong());
 
-            RawMemoryIndex index = new RawMemoryIndex(destroy,
+            LABMemoryIndex index = new LABMemoryIndex(destroy,
                 labHeapPressure,
                 LABRawhide.SINGLETON,
                 new LABConcurrentSkipListMap(

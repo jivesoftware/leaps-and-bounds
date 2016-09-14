@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import com.jivesoftware.os.lab.guts.api.ReadOnlyIndex;
 
 /**
  * @author jonathan.colt
@@ -561,7 +560,7 @@ public class CompactableIndexes {
         public Void call() throws Exception {
             BolBuffer rawEntryBuffer = new BolBuffer();
             BolBuffer keyBuffer = new BolBuffer();
-            LeapsAndBoundsIndex index = null;
+            ReadOnlyIndex index = null;
             ReadIndex[] readers = new ReadIndex[mergeSet.length];
             try {
 

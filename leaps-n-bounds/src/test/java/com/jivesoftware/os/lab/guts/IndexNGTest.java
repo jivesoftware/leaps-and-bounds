@@ -16,8 +16,6 @@ import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.guts.api.ReadOnlyIndex;
-import com.jivesoftware.os.lab.guts.api.ReadableIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -59,7 +57,7 @@ public class IndexNGTest {
         write.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        LeapsAndBoundsIndex leapsAndBoundsIndex = new LeapsAndBoundsIndex(destroy,
+        ReadOnlyIndex leapsAndBoundsIndex = new ReadOnlyIndex(destroy,
             indexRangeId,
             new IndexFile(indexFiler, "r"),
             NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
@@ -80,7 +78,7 @@ public class IndexNGTest {
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
             new AtomicLong());
         SimpleRawhide rawhide = new SimpleRawhide();
-        RawMemoryIndex walIndex = new RawMemoryIndex(destroy,
+        LABMemoryIndex walIndex = new LABMemoryIndex(destroy,
             labHeapPressure,
             rawhide,
             new LABConcurrentSkipListMap(
@@ -107,7 +105,7 @@ public class IndexNGTest {
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong());
 
         SimpleRawhide rawhide = new SimpleRawhide();
-        RawMemoryIndex memoryIndex = new RawMemoryIndex(destroy,
+        LABMemoryIndex memoryIndex = new LABMemoryIndex(destroy,
             labHeapPressure, rawhide,
             new LABConcurrentSkipListMap(
                 new LABConcurrentSkipListMemory(rawhide,
@@ -145,18 +143,18 @@ public class IndexNGTest {
         disIndex.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        assertions(new LeapsAndBoundsIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
+        assertions(new ReadOnlyIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
             leapsCache), count, step, desired);
 
     }
 
 
-     private void assertions(ReadableIndex walIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
+     private void assertions(LABMemoryIndex memoryIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
         Exception {
         ArrayList<byte[]> keys = new ArrayList<>(desired.navigableKeySet());
 
         int[] index = new int[1];
-        ReadIndex reader = walIndex.acquireReader();
+        ReadIndex reader = memoryIndex.acquireReader();
         try {
             Scanner rowScan = reader.rowScan();
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
@@ -174,7 +172,7 @@ public class IndexNGTest {
         System.out.println("Point Get");
         for (int i = 0; i < count * step; i++) {
             long k = i;
-            reader = walIndex.acquireReader();
+            reader = memoryIndex.acquireReader();
             try {
                 GetRaw getRaw = reader.get();
                 byte[] key = UIO.longBytes(k, new byte[8], 0);
@@ -216,7 +214,7 @@ public class IndexNGTest {
             };
 
             System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
-            reader = walIndex.acquireReader();
+            reader = memoryIndex.acquireReader();
             try {
                 Scanner rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
                 while (rangeScan.next(stream) == Scanner.Next.more) {
@@ -237,7 +235,7 @@ public class IndexNGTest {
                 }
                 return SimpleRawhide.value(entry) != -1;
             };
-            reader = walIndex.acquireReader();
+            reader = memoryIndex.acquireReader();
             try {
                 Scanner rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3));
                 while (rangeScan.next(stream) == Scanner.Next.more) {

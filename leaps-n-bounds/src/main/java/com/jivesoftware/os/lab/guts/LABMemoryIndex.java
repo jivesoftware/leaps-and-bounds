@@ -12,7 +12,6 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.guts.api.ReadableIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -25,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author jonathan.colt
  */
-public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
+public class LABMemoryIndex implements RawAppendableIndex {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
@@ -46,7 +45,7 @@ public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
     private final LABCostChangeInBytes costChangeInBytes;
     private final Compute compute;
 
-    public RawMemoryIndex(ExecutorService destroy,
+    public LABMemoryIndex(ExecutorService destroy,
         LabHeapPressure labHeapPressure,
         Rawhide rawhide,
         LABIndex index) throws InterruptedException {
@@ -137,7 +136,6 @@ public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
         };
     }
 
-    @Override
     public boolean containsKeyInRange(byte[] from, byte[] to) throws Exception {
         return index.contains(from, to);
     }
@@ -167,7 +165,6 @@ public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
     }
 
     // you must call release on this reader! Try to only use it as long as you have to!
-    @Override
     public ReadIndex acquireReader() throws Exception {
         hideABone.acquire();
         if (disposed.get()) {
@@ -177,7 +174,6 @@ public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
         return reader;
     }
 
-    @Override
     public void destroy() throws Exception {
         destroy.submit(() -> {
             hideABone.acquire(numBones);
@@ -195,7 +191,6 @@ public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
         });
     }
 
-    @Override
     public void closeReadable() throws Exception {
     }
 
@@ -203,22 +198,18 @@ public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
     public void closeAppendable(boolean fsync) throws Exception {
     }
 
-    @Override
     public boolean isEmpty() throws Exception {
         return index.isEmpty();
     }
 
-    @Override
     public long count() {
         return approximateCount.get();
     }
 
-    @Override
     public long sizeInBytes() {
         return costInBytes.get();
     }
 
-    @Override
     public boolean mightContain(long newerThanTimestamp, long newerThanTimestampVersion) {
         TimestampAndVersion timestampAndVersion = maxTimestampAndVersion.get();
         return rawhide.mightContain(timestampAndVersion.maxTimestamp,
@@ -227,18 +218,11 @@ public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
             newerThanTimestampVersion);
     }
 
-    @Override
     public byte[] minKey() throws Exception {
         return index.firstKey();
     }
 
-    @Override
     public byte[] maxKey() throws Exception {
         return index.lastKey();
     }
-
-//    @Override
-//    public TimestampAndVersion maxTimestampAndVersion() {
-//        return maxTimestampAndVersion.get();
-//    }
 }

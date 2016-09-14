@@ -75,7 +75,7 @@ public class CompactableIndexsNGTest {
 
             indexFile = new IndexFile(file, "r");
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
+            indexs.append(new ReadOnlyIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
         }
 
         for (int i = 1; i <= id.get(); i++) {
@@ -136,7 +136,7 @@ public class CompactableIndexsNGTest {
 
                 indexFile = new IndexFile(file, "r");
                 LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-                indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
+                indexs.append(new ReadOnlyIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
 
             }
             Thread.sleep(10);
@@ -163,7 +163,7 @@ public class CompactableIndexsNGTest {
                 },
                 (ids) -> {
                     LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
+                    return new ReadOnlyIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
                         leapsCache);
                 }));
 
@@ -206,7 +206,7 @@ public class CompactableIndexsNGTest {
 
             indexFile = new IndexFile(indexFiler, "r");
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-            indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
+            indexs.append(new ReadOnlyIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
         }
 
         indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs, hydrateValues) -> {
@@ -238,7 +238,7 @@ public class CompactableIndexsNGTest {
                         new RawEntryFormat(0, 0));
                 }, (ids) -> {
                     LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-                    return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
+                    return new ReadOnlyIndex(destroy, ids.get(0), new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
                         leapsCache);
                 }));
 
@@ -266,7 +266,7 @@ public class CompactableIndexsNGTest {
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         IndexFile indexFile = new IndexFile(indexFiler, "r");
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        indexs.append(new LeapsAndBoundsIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
+        indexs.append(new ReadOnlyIndex(destroy, indexRangeId, indexFile, NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
 
         assertions(indexs, count, step, desired);
     }

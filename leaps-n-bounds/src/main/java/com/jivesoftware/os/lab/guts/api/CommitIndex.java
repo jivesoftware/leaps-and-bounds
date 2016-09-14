@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.api;
 
 import com.jivesoftware.os.lab.guts.IndexRangeId;
-import com.jivesoftware.os.lab.guts.LeapsAndBoundsIndex;
+import com.jivesoftware.os.lab.guts.ReadOnlyIndex;
 import java.util.List;
 
 /**
@@ -10,6 +10,6 @@ import java.util.List;
  */
 public interface CommitIndex {
 
-    LeapsAndBoundsIndex commit(List<IndexRangeId> ids) throws Exception;
+    ReadOnlyIndex commit(List<IndexRangeId> ids) throws Exception;
 
 }

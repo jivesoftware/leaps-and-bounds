@@ -75,7 +75,7 @@ public class IndexStressNGTest {
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
                                 LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-                                return new LeapsAndBoundsIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r"), NoOpFormatTransformerProvider.NO_OP,
+                                return new ReadOnlyIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r"), NoOpFormatTransformerProvider.NO_OP,
                                     simpleRawEntry, leapsCache);
                             }));
                     if (compactor != null) {
@@ -185,7 +185,7 @@ public class IndexStressNGTest {
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
             indexs.append(
-                new LeapsAndBoundsIndex(destroy, id, new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
+                new ReadOnlyIndex(destroy, id, new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
 
             count += batchSize;
 

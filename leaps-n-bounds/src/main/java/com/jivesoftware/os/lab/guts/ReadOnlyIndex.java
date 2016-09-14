@@ -18,12 +18,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.FOOTER;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
 
-import com.jivesoftware.os.lab.guts.api.ReadOnlyIndex;
 
 /**
  * @author jonathan.colt
  */
-public class LeapsAndBoundsIndex implements ReadOnlyIndex {
+public class ReadOnlyIndex {
 
     private static final AtomicLong CACHE_KEYS = new AtomicLong();
     private final IndexRangeId id;
@@ -43,7 +42,7 @@ public class LeapsAndBoundsIndex implements ReadOnlyIndex {
 
     private final long cacheKey = CACHE_KEYS.incrementAndGet();
 
-    public LeapsAndBoundsIndex(ExecutorService destroy,
+    public ReadOnlyIndex(ExecutorService destroy,
         IndexRangeId id,
         IndexFile index,
         FormatTransformerProvider formatTransformerProvider,
@@ -90,18 +89,15 @@ public class LeapsAndBoundsIndex implements ReadOnlyIndex {
         return Footer.read(readable);
     }
 
-    @Override
     public String name() {
         return id + " " + index.getFileName();
     }
 
-    @Override
     public IndexRangeId id() {
         return id;
     }
 
     // you must call release on this reader! Try to only use it as long have you have to!
-    @Override
     public ReadIndex acquireReader() throws Exception {
         hideABone.acquire();
         if (disposed.get() || index.isClosed()) {
@@ -170,7 +166,6 @@ public class LeapsAndBoundsIndex implements ReadOnlyIndex {
         }
     }
 
-    @Override
     public void destroy() throws Exception {
         destroy.submit(() -> {
 
@@ -199,7 +194,6 @@ public class LeapsAndBoundsIndex implements ReadOnlyIndex {
         }
     }
 
-    @Override
     public void closeReadable() throws Exception {
         hideABone.acquire(Short.MAX_VALUE);
         try {
@@ -209,53 +203,43 @@ public class LeapsAndBoundsIndex implements ReadOnlyIndex {
         }
     }
 
-    @Override
     public boolean isEmpty() throws IOException {
         return footer.count == 0;
     }
 
-    @Override
     public long count() throws IOException {
         return footer.count;
     }
 
-    @Override
     public long sizeInBytes() throws IOException {
         return index.length();
     }
 
-    @Override
     public long keysSizeInBytes() throws IOException {
         return footer.keysSizeInBytes;
     }
 
-    @Override
     public long valuesSizeInBytes() throws IOException {
         return footer.valuesSizeInBytes;
     }
 
-    @Override
     public byte[] minKey() {
         return footer.minKey;
     }
 
-    @Override
     public byte[] maxKey() {
         return footer.maxKey;
     }
 
-    @Override
     public TimestampAndVersion maxTimestampAndVersion() {
         return footer.maxTimestampAndVersion;
     }
 
-    @Override
     public boolean containsKeyInRange(byte[] from, byte[] to) {
         Comparator<byte[]> keyComparator = rawhide.getKeyComparator();
         return keyComparator.compare(footer.minKey, from) <= 0 && keyComparator.compare(footer.maxKey, to) >= 0;
     }
 
-    @Override
     public String toString() {
         return "LeapsAndBoundsIndex{" + "id=" + id + ", index=" + index + ", disposed=" + disposed + ", footer=" + footer + '}';
     }

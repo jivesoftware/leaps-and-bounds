@@ -14,15 +14,14 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
+import com.jivesoftware.os.lab.guts.LABMemoryIndex;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.PointGetRaw;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
-import com.jivesoftware.os.lab.guts.RawMemoryIndex;
 import com.jivesoftware.os.lab.guts.ReaderTx;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
-import com.jivesoftware.os.lab.guts.api.ReadableIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.Scanner.Next;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -69,8 +68,8 @@ public class LAB implements ValueIndex {
     private final AtomicLong ongoingCompactions = new AtomicLong();
     private final AtomicBoolean closeRequested = new AtomicBoolean(false);
 
-    private volatile RawMemoryIndex memoryIndex;
-    private volatile RawMemoryIndex flushingMemoryIndex;
+    private volatile LABMemoryIndex memoryIndex;
+    private volatile LABMemoryIndex flushingMemoryIndex;
     private volatile boolean corrupt = false;
 
     private final String rawhideName;
@@ -109,7 +108,7 @@ public class LAB implements ValueIndex {
         this.walId = walId;
         this.labHeapPressure = labHeapPressure;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
-        this.memoryIndex = new RawMemoryIndex(destroy, labHeapPressure, rawhide, indexProvider.create(rawhide));
+        this.memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, rawhide, indexProvider.create(rawhide));
         this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
         this.indexName = indexName;
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(destroy,
@@ -217,7 +216,7 @@ public class LAB implements ValueIndex {
     }
 
     public long approximateHeapPressureInBytes() {
-        RawMemoryIndex stackCopyFlushingMemoryIndex = flushingMemoryIndex;
+        LABMemoryIndex stackCopyFlushingMemoryIndex = flushingMemoryIndex;
         return memoryIndex.sizeInBytes() + ((stackCopyFlushingMemoryIndex == null) ? 0 : stackCopyFlushingMemoryIndex.sizeInBytes());
     }
 
@@ -231,8 +230,8 @@ public class LAB implements ValueIndex {
         ReadIndex flushingMemoryIndexReader = null;
         try {
             while (!closeRequested.get()) {
-                ReadableIndex memoryIndexStackCopy;
-                ReadableIndex flushingMemoryIndexStackCopy;
+                LABMemoryIndex memoryIndexStackCopy;
+                LABMemoryIndex flushingMemoryIndexStackCopy;
 
                 commitSemaphore.acquire();
                 try {
@@ -325,8 +324,8 @@ public class LAB implements ValueIndex {
         ReadIndex flushingMemoryIndexReader = null;
         try {
             while (true) {
-                ReadableIndex memoryIndexStackCopy;
-                ReadableIndex flushingMemoryIndexStackCopy;
+                LABMemoryIndex memoryIndexStackCopy;
+                LABMemoryIndex flushingMemoryIndexStackCopy;
 
                 if (acquireCommitSemaphore) {
                     commitSemaphore.acquire();
@@ -518,13 +517,13 @@ public class LAB implements ValueIndex {
     private boolean internalCommit(boolean fsync, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception, InterruptedException {
         commitSemaphore.acquire(Short.MAX_VALUE);
         try {
-            RawMemoryIndex stackCopy = memoryIndex;
+            LABMemoryIndex stackCopy = memoryIndex;
             if (stackCopy.isEmpty()) {
                 return false;
             }
             LOG.inc("commit>count", stackCopy.count());
             flushingMemoryIndex = stackCopy;
-            memoryIndex = new RawMemoryIndex(destroy, labHeapPressure, rawhide, indexProvider.create(rawhide));
+            memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, rawhide, indexProvider.create(rawhide));
             rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, rawEntryBuffer, keyBuffer);
             flushingMemoryIndex = null;
             stackCopy.destroy();

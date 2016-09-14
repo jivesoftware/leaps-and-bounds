@@ -150,7 +150,7 @@ public class InterleaveStreamNGTest {
         ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong());
-        RawMemoryIndex[] memoryIndexes = new RawMemoryIndex[indexes];
+        LABMemoryIndex[] memoryIndexes = new LABMemoryIndex[indexes];
         ReadIndex[] reorderIndexReaders = new ReadIndex[indexes];
         ReadIndex[] readerIndexs = new ReadIndex[indexes];
         BolBuffer keyBuffer = new BolBuffer();
@@ -159,7 +159,7 @@ public class InterleaveStreamNGTest {
 
                 int i = (indexes - 1) - wi;
 
-                memoryIndexes[i] = new RawMemoryIndex(destroy, labHeapPressure,
+                memoryIndexes[i] = new LABMemoryIndex(destroy, labHeapPressure,
                     rawhide,
                     new LABConcurrentSkipListMap(
                         new LABConcurrentSkipListMemory(rawhide,
