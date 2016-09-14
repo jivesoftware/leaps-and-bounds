@@ -10,9 +10,9 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
-import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.ReadableIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -286,7 +286,7 @@ public class RangeStripedCompactableIndexes {
             FileUtils.deleteQuietly(splittingRoot);
         }
 
-        void append(String rawhideName, RawConcurrentReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync,
+        void append(String rawhideName, ReadableIndex rawConcurrentReadableIndex, byte[] minKey, byte[] maxKey, boolean fsync,
             BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
 
             LeapsAndBoundsIndex lab = flushMemoryIndexToDisk(rawhideName,
@@ -294,7 +294,7 @@ public class RangeStripedCompactableIndexes {
             compactableIndexes.append(lab);
         }
 
-        private LeapsAndBoundsIndex flushMemoryIndexToDisk(String rawhideName, RawConcurrentReadableIndex rawConcurrentReadableIndex,
+        private LeapsAndBoundsIndex flushMemoryIndexToDisk(String rawhideName, ReadableIndex rawConcurrentReadableIndex,
             byte[] minKey,
             byte[] maxKey,
             long nextIndexId,
@@ -593,7 +593,7 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public void append(String rawhideName, RawConcurrentReadableIndex rawMemoryIndex, boolean fsync, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
+    public void append(String rawhideName, ReadableIndex rawMemoryIndex, boolean fsync, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
         
         appendSemaphore.acquire();
         try {

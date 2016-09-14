@@ -5,7 +5,6 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
 import com.jivesoftware.os.lab.api.Rawhide;
-import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -19,10 +18,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.FOOTER;
 import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
 
+import com.jivesoftware.os.lab.guts.api.ReadOnlyIndex;
+
 /**
  * @author jonathan.colt
  */
-public class LeapsAndBoundsIndex implements RawConcurrentReadableIndex {
+public class LeapsAndBoundsIndex implements ReadOnlyIndex {
 
     private static final AtomicLong CACHE_KEYS = new AtomicLong();
     private final IndexRangeId id;

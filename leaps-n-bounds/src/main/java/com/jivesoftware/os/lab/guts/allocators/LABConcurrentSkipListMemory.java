@@ -33,12 +33,12 @@ public class LABConcurrentSkipListMemory {
         indexableMemory.acquireBytes(chunkAddress, bolBuffer);
     }
 
-    public long allocate(BolBuffer bytes) throws Exception {
-        return indexableMemory.allocate(bytes);
+    public long allocate(BolBuffer bytes, LABCostChangeInBytes costInBytes) throws Exception {
+        return indexableMemory.allocate(bytes, costInBytes);
     }
 
-    public long allocate(byte[] bytes) throws Exception {
-        return indexableMemory.allocate(bytes);
+    public long allocate(byte[] bytes, LABCostChangeInBytes costInBytes) throws Exception {
+        return indexableMemory.allocate(bytes, costInBytes);
     }
 
     public void release(long address) throws Exception {

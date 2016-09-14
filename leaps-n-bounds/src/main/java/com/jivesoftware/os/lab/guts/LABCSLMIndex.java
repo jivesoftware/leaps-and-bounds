@@ -19,6 +19,7 @@ import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import java.nio.ByteBuffer;
@@ -35,7 +36,7 @@ public class LABCSLMIndex implements LABIndex {
     private final ConcurrentSkipListMap<byte[], byte[]> map;
     private final StripingBolBufferLocks bolBufferLocks;
     private final int seed;
-
+    
     public LABCSLMIndex(Rawhide rawhide, StripingBolBufferLocks bolBufferLocks) {
         this.map = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
         this.bolBufferLocks = bolBufferLocks;
@@ -43,24 +44,39 @@ public class LABCSLMIndex implements LABIndex {
     }
 
     @Override
-    public void compute(BolBuffer keyBytes, BolBuffer valueBuffer, Compute remappingFunction) {
+    public void compute(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
+        BolBuffer rawEntry,
+        BolBuffer keyBytes,
+        BolBuffer valueBuffer,
+        Compute remappingFunction,
+        LABCostChangeInBytes changeInBytes) {
+
         synchronized (bolBufferLocks.lock(keyBytes, seed)) {
             map.compute(keyBytes.copy(), // Grrr
                 (k, v) -> {
-
-                    BolBuffer apply;
-                    if (v != null) {
-                        valueBuffer.bytes = v;
-                        valueBuffer.offset = 0;
-                        valueBuffer.length = v.length;
-                        apply = remappingFunction.apply(valueBuffer);
-                    } else {
-                        apply = remappingFunction.apply(null);
-                    }
-                    if (apply != null && v == apply.bytes) {
-                        return v;
-                    } else {
-                        return apply == null ? null : apply.copy();
+                    long cost = 0;
+                    try {
+                        BolBuffer apply;
+                        if (v != null) {
+                            valueBuffer.bytes = v;
+                            valueBuffer.offset = 0;
+                            valueBuffer.length = v.length;
+                            apply = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, valueBuffer);
+                            cost = v.length - ((apply == null || apply.length == -1) ? 0 : apply.length);
+                        } else {
+                            apply = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, null);
+                            if (apply != null && apply.length > -1) {
+                                cost = k.length + apply.length;
+                            }
+                        }
+                        if (apply != null && v == apply.bytes) {
+                            return v;
+                        } else {
+                            return apply == null ? null : apply.copy();
+                        }
+                    } finally {
+                        changeInBytes.cost(cost);
                     }
                 });
         }

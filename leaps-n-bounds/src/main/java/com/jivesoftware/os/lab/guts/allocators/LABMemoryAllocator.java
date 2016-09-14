@@ -9,11 +9,11 @@ import com.jivesoftware.os.lab.api.Rawhide;
  */
 public interface LABMemoryAllocator {
 
-   boolean acquireBytes(long address, BolBuffer bolBuffer) throws Exception;
+    boolean acquireBytes(long address, BolBuffer bolBuffer) throws Exception;
 
     byte[] bytes(long address) throws InterruptedException;
 
-    long allocate(byte[] bytes, int offset, int length) throws Exception;
+    long allocate(byte[] bytes, int offset, int length, LABCostChangeInBytes costInBytes) throws Exception;
 
     void release(long address) throws Exception;
 

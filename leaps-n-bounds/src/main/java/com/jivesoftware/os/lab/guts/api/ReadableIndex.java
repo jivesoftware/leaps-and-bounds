@@ -1,17 +1,10 @@
 package com.jivesoftware.os.lab.guts.api;
 
-import com.jivesoftware.os.lab.guts.IndexRangeId;
-import com.jivesoftware.os.lab.guts.TimestampAndVersion;
-
 /**
  *
  * @author jonathan.colt
  */
-public interface RawConcurrentReadableIndex {
-
-    String name();
-
-    IndexRangeId id();
+public interface ReadableIndex {
 
     byte[] minKey() throws Exception;
 
@@ -29,12 +22,7 @@ public interface RawConcurrentReadableIndex {
 
     long sizeInBytes() throws Exception;
 
-    long keysSizeInBytes() throws Exception;
-
-    long valuesSizeInBytes() throws Exception;
-
-    TimestampAndVersion maxTimestampAndVersion();
+    boolean mightContain(long newerThanTimestamp, long newerThanTimestampVersion);
 
     boolean containsKeyInRange(byte[] from, byte[] to) throws Exception;
-
 }

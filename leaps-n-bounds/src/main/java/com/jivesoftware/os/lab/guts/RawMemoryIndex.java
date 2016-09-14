@@ -4,16 +4,18 @@ import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.guts.LABIndex.Compute;
+import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
+import com.jivesoftware.os.lab.guts.api.AppendEntryStream;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
-import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.ReadableIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
-import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author jonathan.colt
  */
-public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadableIndex {
+public class RawMemoryIndex implements RawAppendableIndex, ReadableIndex {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
@@ -33,8 +35,7 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     private final ExecutorService destroy;
     private final LabHeapPressure labHeapPressure;
-    private final AtomicLong keysCostInBytes = new AtomicLong();
-    private final AtomicLong valuesCostInBytes = new AtomicLong();
+    private final AtomicLong costInBytes = new AtomicLong();
 
     private final Rawhide rawhide;
 
@@ -42,11 +43,36 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     private final Semaphore hideABone = new Semaphore(numBones, true);
     private final ReadIndex reader;
     private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
+    private final LABCostChangeInBytes costChangeInBytes;
+    private final Compute compute;
 
     public RawMemoryIndex(ExecutorService destroy,
         LabHeapPressure labHeapPressure,
         Rawhide rawhide,
         LABIndex index) throws InterruptedException {
+
+        this.costChangeInBytes = (cost) -> {
+            costInBytes.addAndGet(cost);
+            labHeapPressure.change(cost);
+        };
+
+        this.compute = (readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, value) -> {
+
+            BolBuffer merged;
+            if (value == null) {
+                approximateCount.incrementAndGet();
+                merged = rawEntryBuffer;
+            } else {
+                merged = rawhide.merge(FormatTransformer.NO_OP, FormatTransformer.NO_OP, value,
+                    readKeyFormatTransformer, readValueFormatTransformer,
+                    rawEntryBuffer, FormatTransformer.NO_OP, FormatTransformer.NO_OP);
+
+            }
+            long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
+            long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
+            updateMaxTimestampAndVersion(timestamp, version);
+            return merged;
+        };
 
         this.destroy = destroy;
         this.labHeapPressure = labHeapPressure;
@@ -81,29 +107,11 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
             @Override
             public Scanner rangeScan(byte[] from, byte[] to) throws Exception {
-//                Iterator<Map.Entry<byte[], byte[]>> iterator = subMap(from, to).entrySet().iterator();
-//                return (stream) -> {
-//                    if (iterator.hasNext()) {
-//                        Map.Entry<byte[], byte[]> next = iterator.next();
-//                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
-//                        return more ? Next.more : Next.stopped;
-//                    }
-//                    return Next.eos;
-//                };
                 return index.scanner(from, to);
             }
 
             @Override
             public Scanner rowScan() throws Exception {
-//                Iterator<Map.Entry<byte[], byte[]>> iterator = index.entrySet().iterator();
-//                return (stream) -> {
-//                    if (iterator.hasNext()) {
-//                        Map.Entry<byte[], byte[]> next = iterator.next();
-//                        boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
-//                        return more ? Next.more : Next.stopped;
-//                    }
-//                    return Next.eos;
-//                };
                 return index.scanner(null, null);
             }
 
@@ -135,52 +143,15 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
     }
 
     @Override
-    public String name() {
-        return "RawMemoryIndex";
-    }
-
-    @Override
-    public IndexRangeId id() {
-        return null;
-    }
-
-    @Override
     public boolean append(AppendEntries entries, BolBuffer keyBuffer) throws Exception {
         BolBuffer valueBuffer = new BolBuffer(); // Grrrr
-        return entries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer) -> {
 
+        AppendEntryStream appendEntryStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer) -> {
             BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, keyBuffer);
-            int keyLength = key.length;
-
-            index.compute(key, valueBuffer,
-                (value) -> {
-
-                    BolBuffer merged;
-                    int valueLength = ((rawEntryBuffer.length == -1) ? 0 : rawEntryBuffer.length);
-                    if (value == null) {
-                        approximateCount.incrementAndGet();
-                        keysCostInBytes.addAndGet(keyLength);
-                        valuesCostInBytes.addAndGet(valueLength);
-                        labHeapPressure.change(keyLength + valueLength);
-                        merged = rawEntryBuffer;
-                    } else {
-                        merged = rawhide.merge(FormatTransformer.NO_OP, FormatTransformer.NO_OP, value,
-                            readKeyFormatTransformer, readValueFormatTransformer,
-                            rawEntryBuffer, FormatTransformer.NO_OP, FormatTransformer.NO_OP);
-
-                        int mergeValueLength = ((merged.length == -1) ? 0 : merged.length);
-                        int valueLengthDelta = mergeValueLength - valueLength;
-                        valuesCostInBytes.addAndGet(valueLengthDelta);
-                        labHeapPressure.change(valueLengthDelta);
-                    }
-                    long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
-                    long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
-                    updateMaxTimestampAndVersion(timestamp, version);
-                    return merged;
-                }
-            );
+            index.compute(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, key, valueBuffer, compute, costChangeInBytes);
             return true;
-        });
+        };
+        return entries.consume(appendEntryStream);
     }
 
     private void updateMaxTimestampAndVersion(long timestamp, long version) {
@@ -212,9 +183,8 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
             hideABone.acquire(numBones);
             try {
                 disposed.set(true);
-                long sizeInBytes = keysCostInBytes.get() + valuesCostInBytes.get();
                 index.clear();
-                labHeapPressure.change(-sizeInBytes);
+                labHeapPressure.change(-costInBytes.get());
             } catch (Throwable t) {
                 LOG.error("Destroy failed horribly!", t);
                 throw t;
@@ -245,17 +215,16 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
 
     @Override
     public long sizeInBytes() {
-        return keysCostInBytes.get() + valuesCostInBytes.get();
+        return costInBytes.get();
     }
 
     @Override
-    public long keysSizeInBytes() throws IOException {
-        return keysCostInBytes.get();
-    }
-
-    @Override
-    public long valuesSizeInBytes() throws IOException {
-        return valuesCostInBytes.get();
+    public boolean mightContain(long newerThanTimestamp, long newerThanTimestampVersion) {
+        TimestampAndVersion timestampAndVersion = maxTimestampAndVersion.get();
+        return rawhide.mightContain(timestampAndVersion.maxTimestamp,
+            timestampAndVersion.maxTimestampVersion,
+            newerThanTimestamp,
+            newerThanTimestampVersion);
     }
 
     @Override
@@ -268,9 +237,8 @@ public class RawMemoryIndex implements RawAppendableIndex, RawConcurrentReadable
         return index.lastKey();
     }
 
-    @Override
-    public TimestampAndVersion maxTimestampAndVersion() {
-        return maxTimestampAndVersion.get();
-    }
-
+//    @Override
+//    public TimestampAndVersion maxTimestampAndVersion() {
+//        return maxTimestampAndVersion.get();
+//    }
 }

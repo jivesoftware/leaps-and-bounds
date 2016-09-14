@@ -35,25 +35,25 @@ public class LABIndexableMemory {
         memoryAllocator.acquireBytes(chunkAddress, bolBuffer);
     }
 
-    public byte[] bytes(long chunkAddress) throws InterruptedException {
-        if (chunkAddress == -1) {
+    public byte[] bytes(long address) throws InterruptedException {
+        if (address == -1) {
             return null;
         }
-        return memoryAllocator.bytes(chunkAddress);
+        return memoryAllocator.bytes(address);
     }
 
-    public long allocate(BolBuffer bolBuffer) throws Exception {
+    public long allocate(BolBuffer bolBuffer, LABCostChangeInBytes costInBytes) throws Exception {
         if (bolBuffer == null || bolBuffer.length == -1) {
             throw new IllegalStateException();
         }
-        return memoryAllocator.allocate(bolBuffer.bytes, bolBuffer.offset, bolBuffer.length);
+        return memoryAllocator.allocate(bolBuffer.bytes, bolBuffer.offset, bolBuffer.length, costInBytes);
     }
 
-    public long allocate(byte[] bytes) throws Exception {
+    public long allocate(byte[] bytes, LABCostChangeInBytes costInBytes) throws Exception {
         if (bytes == null) {
             throw new IllegalStateException();
         }
-        return memoryAllocator.allocate(bytes, 0, bytes.length);
+        return memoryAllocator.allocate(bytes, 0, bytes.length, costInBytes);
     }
 
     public void release(long address) throws Exception {

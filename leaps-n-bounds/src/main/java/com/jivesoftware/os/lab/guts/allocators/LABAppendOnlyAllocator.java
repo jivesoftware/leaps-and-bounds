@@ -66,23 +66,23 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
 
     }
 
-    public long allocate(BolBuffer bytes) throws Exception {
+    public long allocate(BolBuffer bytes, LABCostChangeInBytes costInBytes) throws Exception {
         if (bytes == null || bytes.length == -1) {
             return -1;
         }
-        return allocate(bytes.bytes, bytes.offset, bytes.length);
+        return allocate(bytes.bytes, bytes.offset, bytes.length, costInBytes);
     }
 
-    public long allocate(byte[] bytes) throws Exception {
-        return allocate(bytes, 0, bytes.length);
+    public long allocate(byte[] bytes, LABCostChangeInBytes costInBytes) throws Exception {
+        return allocate(bytes, 0, bytes.length, costInBytes);
     }
 
     @Override
-    public long allocate(byte[] bytes, int offset, int length) throws Exception {
+    public long allocate(byte[] bytes, int offset, int length, LABCostChangeInBytes costInBytes) throws Exception {
         if (bytes == null) {
             return -1;
         }
-        long address = allocate(length);
+        long address = allocate(length, costInBytes);
         int index = (int) (address >>> powerSize);
         int indexAddress = (int) (address & powerMask);
 
@@ -96,7 +96,7 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         return address;
     }
 
-    private long allocate(int length) throws Exception {
+    private long allocate(int length, LABCostChangeInBytes costInBytes) throws Exception {
 
         synchronized (this) {
 
@@ -131,6 +131,9 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
                 //System.out.println("Grow " + bytes.length + "  " + this);
                 if (memory[index] != null) {
                     System.arraycopy(memory[index], 0, bytes, 0, memory[index].length);
+                    costInBytes.cost(bytes.length - memory[index].length);
+                } else {
+                    costInBytes.cost(bytes.length);
                 }
                 memory[index] = bytes;
             }

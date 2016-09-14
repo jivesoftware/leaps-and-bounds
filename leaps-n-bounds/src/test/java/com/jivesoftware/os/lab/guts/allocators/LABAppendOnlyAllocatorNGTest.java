@@ -78,7 +78,8 @@ public class LABAppendOnlyAllocatorNGTest {
 
             int l = 1 + rand.nextInt(bytes.length - 1);
             long start = System.nanoTime();
-            long address = allocator[0].allocate(bytes, 0, l);
+            long address = allocator[0].allocate(bytes, 0, l, (cost) -> {
+            });
             elapse += System.nanoTime() - start;
 
             arrayOfAllocated.add(address);

@@ -6,7 +6,6 @@ import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.api.FixedWidthRawhide;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.IndexUtil;
-import com.jivesoftware.os.lab.guts.LABIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.nio.ByteBuffer;
@@ -32,12 +31,10 @@ public class LABConcurrentSkipListMapNGTest {
 
             BolBuffer key = new BolBuffer(UIO.longBytes(i));
             BolBuffer value = new BolBuffer(UIO.longBytes(i));
-            map.compute(key, value, new LABIndex.Compute() {
-                @Override
-                public BolBuffer apply(BolBuffer existing) {
-                    return value;
-                }
-            });
+            map.compute(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(), key, value,
+                (t1, t2, b, existing) -> value,
+                (cost) -> {
+                });
         }
         System.out.println("Count:" + map.size());
         System.out.println("first:" + UIO.bytesLong(map.firstKey()));

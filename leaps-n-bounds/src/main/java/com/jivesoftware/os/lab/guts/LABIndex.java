@@ -1,6 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 
 /**
@@ -11,10 +13,19 @@ public interface LABIndex {
 
     interface Compute {
 
-        BolBuffer apply(BolBuffer existing);
+        BolBuffer apply(FormatTransformer readKeyFormatTransformer,
+            FormatTransformer readValueFormatTransformer,
+            BolBuffer rawEntry,
+            BolBuffer existing);
     }
 
-    void compute(BolBuffer keyBytes, BolBuffer valueBuffer, Compute computeFunction) throws Exception;
+    void compute(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
+        BolBuffer rawEntry,
+        BolBuffer keyBytes,
+        BolBuffer valueBuffer,
+        Compute computeFunction,
+        LABCostChangeInBytes changeInBytes) throws Exception;
 
     BolBuffer get(BolBuffer key, BolBuffer valueBuffer) throws Exception;
 

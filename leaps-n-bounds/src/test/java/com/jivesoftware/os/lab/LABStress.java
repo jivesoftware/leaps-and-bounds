@@ -135,9 +135,10 @@ public class LABStress {
         LabHeapPressure labHeapPressure = new LabHeapPressure(
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
             "default",
-            1024 * 1024 * 10,
             1024 * 1024 * 20,
+            1024 * 1024 * 40,
             new AtomicLong());
+
         LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy

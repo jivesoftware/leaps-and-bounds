@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.LABIndex;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
+import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import java.util.NoSuchElementException;
@@ -632,11 +633,6 @@ public class LABConcurrentSkipListMap implements LABIndex {
         initialize();
     }
 
-    public long sizeInBytes() {
-        return memory.sizeInBytes() + (nodesArray.length() * 8) + indexsArray.length() * 4;
-    }
-
-
     @Override
     public BolBuffer get(BolBuffer keyBytes, BolBuffer valueBuffer) throws Exception {
         growNodesArray.acquire();
@@ -686,7 +682,14 @@ public class LABConcurrentSkipListMap implements LABIndex {
     }
 
     @Override
-    public void compute(BolBuffer keyBytes, BolBuffer valueBuffer, LABIndex.Compute remappingFunction) throws Exception {
+    public void compute(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
+        BolBuffer rawEntry,
+        BolBuffer keyBytes,
+        BolBuffer valueBuffer,
+        LABIndex.Compute remappingFunction,
+        LABCostChangeInBytes changeInBytes) throws Exception {
+
         if (keyBytes == null || keyBytes.length == -1 || remappingFunction == null) {
             throw new NullPointerException();
         }
@@ -699,10 +702,10 @@ public class LABConcurrentSkipListMap implements LABIndex {
                     long v;
                     BolBuffer r;
                     if ((n = findNode(keyBytes)) == NIL) {
-                        if ((r = remappingFunction.apply(null)) == null) {
+                        if ((r = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, null)) == null) {
                             break;
                         }
-                        if (!doPut(keyBytes, r, true)) {
+                        if (!doPut(keyBytes, r, true, changeInBytes)) {
                             return;
                         }
                     } else if ((v = nodeValue(n)) != NIL) {
@@ -715,8 +718,8 @@ public class LABConcurrentSkipListMap implements LABIndex {
                                 memory.acquireBytes(va, valueBuffer);
                                 memory.release(va);
 
-                                r = remappingFunction.apply(valueBuffer);
-                                rid = r == null ? NIL : memory.allocate(r);
+                                r = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, valueBuffer);
+                                rid = r == null ? NIL : memory.allocate(r, changeInBytes);
                             } finally {
                                 releaseValue(n);
                             }
@@ -737,7 +740,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
 
     private final Random random = new Random();
 
-    private boolean doPut(BolBuffer keyBytes, BolBuffer valueBytes, boolean onlyIfAbsent) throws Exception {
+    private boolean doPut(BolBuffer keyBytes, BolBuffer valueBytes, boolean onlyIfAbsent, LABCostChangeInBytes changeInBytes) throws Exception {
 
         int z;             // added node
         if (keyBytes == null || keyBytes.length == -1) {
@@ -784,7 +787,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
                             return true;
                         }
                         if (vid == NIL) {
-                            vid = valueBytes == null ? NIL : memory.allocate(valueBytes);
+                            vid = valueBytes == null ? NIL : memory.allocate(valueBytes, changeInBytes);
                         }
                         if (casValue(n, memory, v, vid)) {
                             memory.release(v);
@@ -802,10 +805,10 @@ public class LABConcurrentSkipListMap implements LABIndex {
                 }
 
                 if (kid == NIL) {
-                    kid = memory.allocate(keyBytes);
+                    kid = memory.allocate(keyBytes, changeInBytes);
                 }
                 if (vid == NIL) {
-                    vid = valueBytes == null ? NIL : memory.allocate(valueBytes);
+                    vid = valueBytes == null ? NIL : memory.allocate(valueBytes, changeInBytes);
                 }
                 z = allocateNode(kid, vid, n);
                 if (!casNext(b, n, z)) {

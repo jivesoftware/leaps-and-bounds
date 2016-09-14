@@ -14,9 +14,10 @@ import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
-import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.ReadOnlyIndex;
+import com.jivesoftware.os.lab.guts.api.ReadableIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -149,7 +150,109 @@ public class IndexNGTest {
 
     }
 
-    private void assertions(RawConcurrentReadableIndex walIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
+
+     private void assertions(ReadableIndex walIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
+        Exception {
+        ArrayList<byte[]> keys = new ArrayList<>(desired.navigableKeySet());
+
+        int[] index = new int[1];
+        ReadIndex reader = walIndex.acquireReader();
+        try {
+            Scanner rowScan = reader.rowScan();
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                System.out.println("rowScan:" + SimpleRawhide.key(rawEntry));
+                Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawhide.key(rawEntry));
+                index[0]++;
+                return true;
+            };
+            while (rowScan.next(stream) == Scanner.Next.more) {
+            }
+        } finally {
+            reader.release();
+            reader = null;
+        }
+        System.out.println("Point Get");
+        for (int i = 0; i < count * step; i++) {
+            long k = i;
+            reader = walIndex.acquireReader();
+            try {
+                GetRaw getRaw = reader.get();
+                byte[] key = UIO.longBytes(k, new byte[8], 0);
+                RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+
+                    System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
+                    if (rawEntry != null) {
+                        byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry), new byte[8], 0);
+                        Assert.assertEquals(rawKey, key);
+                        byte[] d = desired.get(key);
+                        if (d == null) {
+                            Assert.fail();
+                        } else {
+                            Assert.assertEquals(SimpleRawhide.value(rawEntry), SimpleRawhide.value(d));
+                        }
+                    } else {
+                        Assert.assertFalse(desired.containsKey(key));
+                    }
+                    return rawEntry != null;
+                };
+
+                Assert.assertEquals(getRaw.get(key, stream), desired.containsKey(key));
+            } finally {
+                reader.release();
+            }
+        }
+
+        System.out.println("Ranges");
+        for (int i = 0; i < keys.size() - 3; i++) {
+            int _i = i;
+
+            int[] streamed = new int[1];
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
+                if (entry != null) {
+                    System.out.println("Streamed:" + SimpleRawhide.toString(entry));
+                    streamed[0]++;
+                }
+                return true;
+            };
+
+            System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
+            reader = walIndex.acquireReader();
+            try {
+                Scanner rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
+                while (rangeScan.next(stream) == Scanner.Next.more) {
+                }
+                Assert.assertEquals(3, streamed[0]);
+            } finally {
+                reader.release();
+            }
+
+        }
+
+        for (int i = 0; i < keys.size() - 3; i++) {
+            int _i = i;
+            int[] streamed = new int[1];
+            RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
+                if (entry != null) {
+                    streamed[0]++;
+                }
+                return SimpleRawhide.value(entry) != -1;
+            };
+            reader = walIndex.acquireReader();
+            try {
+                Scanner rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3));
+                while (rangeScan.next(stream) == Scanner.Next.more) {
+                }
+                Assert.assertEquals(2, streamed[0]);
+            } finally {
+                reader.release();
+            }
+
+        }
+    }
+
+
+
+    private void assertions(ReadOnlyIndex walIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
         Exception {
         ArrayList<byte[]> keys = new ArrayList<>(desired.navigableKeySet());
 

@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
-import com.jivesoftware.os.lab.guts.api.RawConcurrentReadableIndex;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
 import com.jivesoftware.os.lab.io.AppendableHeap;
@@ -23,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import com.jivesoftware.os.lab.guts.api.ReadOnlyIndex;
 
 /**
  * @author jonathan.colt
@@ -38,7 +38,7 @@ public class CompactableIndexes {
     private final Rawhide rawhide;
     private final IndexesLock indexesLock = new IndexesLock();
     private volatile boolean[] merging = new boolean[0]; // is volatile for reference changes not value changes.
-    private volatile RawConcurrentReadableIndex[] indexes = new RawConcurrentReadableIndex[0];  // is volatile for reference changes not value changes.
+    private volatile ReadOnlyIndex[] indexes = new ReadOnlyIndex[0];  // is volatile for reference changes not value changes.
     private volatile long version;
     private volatile boolean disposed = false;
     private final AtomicLong compactorCheckVersion = new AtomicLong();
@@ -49,7 +49,7 @@ public class CompactableIndexes {
         this.rawhide = rawhide;
     }
 
-    public boolean append(RawConcurrentReadableIndex index) {
+    public boolean append(ReadOnlyIndex index) {
         synchronized (indexesLock) {
             if (disposed) {
                 return false;
@@ -60,7 +60,7 @@ public class CompactableIndexes {
             prependToMerging[0] = false;
             System.arraycopy(merging, 0, prependToMerging, 1, merging.length);
 
-            RawConcurrentReadableIndex[] prependToIndexes = new RawConcurrentReadableIndex[length];
+            ReadOnlyIndex[] prependToIndexes = new ReadOnlyIndex[length];
             prependToIndexes[0] = index;
             System.arraycopy(indexes, 0, prependToIndexes, 1, indexes.length);
 
@@ -72,9 +72,9 @@ public class CompactableIndexes {
         return true;
     }
 
-    private void refreshMaxTimestamp(RawConcurrentReadableIndex[] concurrentReadableIndexs) {
+    private void refreshMaxTimestamp(ReadOnlyIndex[] concurrentReadableIndexs) {
         TimestampAndVersion timestampAndVersion = TimestampAndVersion.NULL;
-        for (RawConcurrentReadableIndex rawConcurrentReadableIndex : concurrentReadableIndexs) {
+        for (ReadOnlyIndex rawConcurrentReadableIndex : concurrentReadableIndexs) {
             TimestampAndVersion other = rawConcurrentReadableIndex.maxTimestampAndVersion();
             if (rawhide.isNewerThan(other.maxTimestamp,
                 other.maxTimestampVersion,
@@ -160,7 +160,7 @@ public class CompactableIndexes {
         long splittableIfValuesLargerThanBytes,
         long splittableIfLargerThanBytes) throws Exception {
 
-        RawConcurrentReadableIndex[] splittable;
+        ReadOnlyIndex[] splittable;
         synchronized (indexesLock) {
             if (disposed || indexes.length == 0) {
                 return false;
@@ -211,7 +211,7 @@ public class CompactableIndexes {
 
         // lock out merging if possible
         long allVersion;
-        RawConcurrentReadableIndex[] all;
+        ReadOnlyIndex[] all;
         synchronized (indexesLock) {
             allVersion = version;
             for (boolean b : merging) {
@@ -228,14 +228,14 @@ public class CompactableIndexes {
 
     public class Splitter implements Callable<Void> {
 
-        private final RawConcurrentReadableIndex[] all;
+        private final ReadOnlyIndex[] all;
         private long allVersion;
         private final IndexFactory leftHalfIndexFactory;
         private final IndexFactory rightHalfIndexFactory;
         private final CommitIndex commitIndex;
         private final boolean fsync;
 
-        public Splitter(RawConcurrentReadableIndex[] all,
+        public Splitter(ReadOnlyIndex[] all,
             long allVersion,
             IndexFactory leftHalfIndexFactory,
             IndexFactory rightHalfIndexFactory,
@@ -351,17 +351,17 @@ public class CompactableIndexes {
                         LOG.debug("Splitting trying to catchup for a middle of:{}", Arrays.toString(middle));
                         CATCHUP_YOU_BABY_TOMATO:
                         while (true) {
-                            RawConcurrentReadableIndex[] catchupMergeSet;
+                            ReadOnlyIndex[] catchupMergeSet;
                             synchronized (indexesLock) {
                                 if (allVersion == version) {
                                     LOG.debug("Commiting split for a middle of:{}", Arrays.toString(middle));
 
                                     commitIndex.commit(commitRanges);
                                     disposed = true;
-                                    for (RawConcurrentReadableIndex destroy : all) {
+                                    for (ReadOnlyIndex destroy : all) {
                                         destroy.destroy();
                                     }
-                                    indexes = new RawConcurrentReadableIndex[0]; // TODO go handle null so that thread wait rety higher up
+                                    indexes = new ReadOnlyIndex[0]; // TODO go handle null so that thread wait rety higher up
                                     refreshMaxTimestamp(indexes);
                                     version++;
                                     merging = new boolean[0];
@@ -382,14 +382,14 @@ public class CompactableIndexes {
                                         }
                                     }
                                     allVersion = version;
-                                    catchupMergeSet = new RawConcurrentReadableIndex[catchupLength];
+                                    catchupMergeSet = new ReadOnlyIndex[catchupLength];
                                     Arrays.fill(merging, 0, catchupLength, true);
                                     System.arraycopy(indexes, 0, catchupMergeSet, 0, catchupLength);
                                     splitLength = merging.length;
                                 }
                             }
 
-                            for (RawConcurrentReadableIndex catchup : catchupMergeSet) {
+                            for (ReadOnlyIndex catchup : catchupMergeSet) {
                                 IndexRangeId id = catchup.id();
 
                                 LABAppendableIndex catchupLeftAppenableIndex = null;
@@ -470,8 +470,8 @@ public class CompactableIndexes {
 
     private Merger buildMerger(int minimumRun, boolean fsync, IndexFactory indexFactory, CommitIndex commitIndex) throws Exception {
         boolean[] mergingCopy;
-        RawConcurrentReadableIndex[] indexesCopy;
-        RawConcurrentReadableIndex[] mergeSet;
+        ReadOnlyIndex[] indexesCopy;
+        ReadOnlyIndex[] mergeSet;
         MergeRange mergeRange;
         long[] counts;
         long[] sizes;
@@ -499,7 +499,7 @@ public class CompactableIndexes {
                 return null;
             }
 
-            mergeSet = new RawConcurrentReadableIndex[mergeRange.length];
+            mergeSet = new ReadOnlyIndex[mergeRange.length];
             System.arraycopy(indexesCopy, mergeRange.offset, mergeSet, 0, mergeRange.length);
 
             boolean[] updateMerging = new boolean[merging.length];
@@ -509,7 +509,7 @@ public class CompactableIndexes {
         }
 
         IndexRangeId join = null;
-        for (RawConcurrentReadableIndex m : mergeSet) {
+        for (ReadOnlyIndex m : mergeSet) {
             IndexRangeId id = m.id();
             if (join == null) {
                 join = new IndexRangeId(id.start, id.end, mergeRange.generation + 1);
@@ -525,7 +525,7 @@ public class CompactableIndexes {
 
         private final long[] counts;
         private final long[] generations;
-        private final RawConcurrentReadableIndex[] mergeSet;
+        private final ReadOnlyIndex[] mergeSet;
         private final IndexRangeId mergeRangeId;
         private final IndexFactory indexFactory;
         private final CommitIndex commitIndex;
@@ -535,7 +535,7 @@ public class CompactableIndexes {
         private Merger(
             long[] counts,
             long[] generations,
-            RawConcurrentReadableIndex[] mergeSet,
+            ReadOnlyIndex[] mergeSet,
             IndexRangeId mergeRangeId,
             IndexFactory indexFactory,
             CommitIndex commitIndex,
@@ -605,7 +605,7 @@ public class CompactableIndexes {
                 synchronized (indexesLock) {
                     int newLength = (indexes.length - mergeSet.length) + 1;
                     boolean[] updateMerging = new boolean[newLength];
-                    RawConcurrentReadableIndex[] updateIndexes = new RawConcurrentReadableIndex[newLength];
+                    ReadOnlyIndex[] updateIndexes = new ReadOnlyIndex[newLength];
 
                     int ui = 0;
                     int mi = 0;
@@ -637,7 +637,7 @@ public class CompactableIndexes {
                     index.name()
                 );
 
-                for (RawConcurrentReadableIndex rawConcurrentReadableIndex : mergeSet) {
+                for (ReadOnlyIndex rawConcurrentReadableIndex : mergeSet) {
                     rawConcurrentReadableIndex.destroy();
                 }
 
@@ -681,7 +681,7 @@ public class CompactableIndexes {
 
     public boolean tx(int index, byte[] fromKey, byte[] toKey, ReaderTx tx, boolean hydrateValues) throws Exception {
 
-        RawConcurrentReadableIndex[] stackIndexes;
+        ReadOnlyIndex[] stackIndexes;
 
         ReadIndex[] readIndexs = null;
         START_OVER:
@@ -726,7 +726,7 @@ public class CompactableIndexes {
 
     public long count() throws Exception {
         long count = 0;
-        for (RawConcurrentReadableIndex g : grab()) {
+        for (ReadOnlyIndex g : grab()) {
             count += g.count();
         }
         return count;
@@ -734,7 +734,7 @@ public class CompactableIndexes {
 
     public void close() throws Exception {
         synchronized (indexesLock) {
-            for (RawConcurrentReadableIndex index : indexes) {
+            for (ReadOnlyIndex index : indexes) {
                 index.closeReadable();
             }
         }
@@ -742,14 +742,14 @@ public class CompactableIndexes {
 
     public void destroy() throws Exception {
         synchronized (indexesLock) {
-            for (RawConcurrentReadableIndex index : indexes) {
+            for (ReadOnlyIndex index : indexes) {
                 index.destroy();
             }
         }
     }
 
     public boolean isEmpty() throws Exception {
-        for (RawConcurrentReadableIndex g : grab()) {
+        for (ReadOnlyIndex g : grab()) {
             if (!g.isEmpty()) {
                 return false;
             }
@@ -757,8 +757,8 @@ public class CompactableIndexes {
         return true;
     }
 
-    private RawConcurrentReadableIndex[] grab() {
-        RawConcurrentReadableIndex[] copy;
+    private ReadOnlyIndex[] grab() {
+        ReadOnlyIndex[] copy;
         synchronized (indexesLock) {
             copy = indexes;
         }
@@ -766,7 +766,7 @@ public class CompactableIndexes {
     }
 
     void auditRanges(String prefix, KeyToString keyToString) throws Exception {
-        RawConcurrentReadableIndex[] copy;
+        ReadOnlyIndex[] copy;
         synchronized (indexesLock) {
             copy = indexes;
         }
