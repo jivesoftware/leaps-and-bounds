@@ -113,7 +113,7 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
             right.nextReadKeyFormatTransformer, right.nextReadValueFormatTransformer, right.nextRawEntry);
     }
 
-    private static class Feed implements Comparable<Feed> {
+    private static class Feed implements Comparable<Feed>, RawEntryStream {
 
         private final int index;
         private final Scanner scanner;
@@ -130,16 +130,19 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
         }
 
         private ByteBuffer feedNext() throws Exception {
-            Next hadNext = scanner.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                nextRawEntry = rawEntry;
-                nextReadKeyFormatTransformer = readKeyFormatTransformer;
-                nextReadValueFormatTransformer = readValueFormatTransformer;
-                return true;
-            });
+            Next hadNext = scanner.next(this);
             if (hadNext != Next.more) {
                 nextRawEntry = null;
             }
             return nextRawEntry;
+        }
+
+        @Override
+        public boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, ByteBuffer rawEntry) throws Exception {
+            nextRawEntry = rawEntry;
+            nextReadKeyFormatTransformer = readKeyFormatTransformer;
+            nextReadValueFormatTransformer = readValueFormatTransformer;
+            return true;
         }
 
         @Override

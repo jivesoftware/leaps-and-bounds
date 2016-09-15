@@ -231,8 +231,8 @@ public class ReadOnlyIndex {
         return footer.maxKey;
     }
 
-    public TimestampAndVersion maxTimestampAndVersion() {
-        return footer.maxTimestampAndVersion;
+    public Footer footer() {
+        return footer;
     }
 
     public boolean containsKeyInRange(byte[] from, byte[] to) {

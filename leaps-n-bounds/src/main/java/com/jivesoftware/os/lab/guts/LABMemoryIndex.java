@@ -19,7 +19,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author jonathan.colt
@@ -41,7 +40,10 @@ public class LABMemoryIndex implements RawAppendableIndex {
     private final int numBones = Short.MAX_VALUE;
     private final Semaphore hideABone = new Semaphore(numBones, true);
     private final ReadIndex reader;
-    private AtomicReference<TimestampAndVersion> maxTimestampAndVersion = new AtomicReference<>(TimestampAndVersion.NULL);
+
+    private final Object timestampLock = new Object();
+    private volatile long maxTimestamp = -1;
+    private volatile long maxVersion = -1;
     private final LABCostChangeInBytes costChangeInBytes;
     private final Compute compute;
 
@@ -69,7 +71,14 @@ public class LABMemoryIndex implements RawAppendableIndex {
             }
             long timestamp = rawhide.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
             long version = rawhide.version(FormatTransformer.NO_OP, FormatTransformer.NO_OP, merged);
-            updateMaxTimestampAndVersion(timestamp, version);
+
+            synchronized (timestampLock) {
+                if (rawhide.isNewerThan(timestamp, version, maxTimestamp, maxVersion)) {
+                    maxTimestamp = timestamp;
+                    maxVersion = version;
+                }
+            }
+
             return merged;
         };
 
@@ -152,18 +161,6 @@ public class LABMemoryIndex implements RawAppendableIndex {
         return entries.consume(appendEntryStream);
     }
 
-    private void updateMaxTimestampAndVersion(long timestamp, long version) {
-        TimestampAndVersion existing = maxTimestampAndVersion.get();
-        TimestampAndVersion update = new TimestampAndVersion(timestamp, version);
-        while (rawhide.isNewerThan(timestamp, version, existing.maxTimestamp, existing.maxTimestampVersion)) {
-            if (maxTimestampAndVersion.compareAndSet(existing, update)) {
-                break;
-            } else {
-                existing = maxTimestampAndVersion.get();
-            }
-        }
-    }
-
     // you must call release on this reader! Try to only use it as long as you have to!
     public ReadIndex acquireReader() throws Exception {
         hideABone.acquire();
@@ -210,12 +207,15 @@ public class LABMemoryIndex implements RawAppendableIndex {
         return costInBytes.get();
     }
 
-    public boolean mightContain(long newerThanTimestamp, long newerThanTimestampVersion) {
-        TimestampAndVersion timestampAndVersion = maxTimestampAndVersion.get();
-        return rawhide.mightContain(timestampAndVersion.maxTimestamp,
-            timestampAndVersion.maxTimestampVersion,
-            newerThanTimestamp,
-            newerThanTimestampVersion);
+    public boolean mightContain(long newerThanTimestamp, long newerThanVersion) {
+
+        synchronized (timestampLock) {
+            return rawhide.mightContain(maxTimestamp,
+                maxVersion,
+                newerThanTimestamp,
+                newerThanVersion);
+        }
+
     }
 
     public byte[] minKey() throws Exception {

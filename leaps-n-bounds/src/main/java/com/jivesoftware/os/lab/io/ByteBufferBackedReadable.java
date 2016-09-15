@@ -1,11 +1,13 @@
 package com.jivesoftware.os.lab.io;
 
-import com.jivesoftware.os.lab.io.api.ByteBufferFactory;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 /**
  *
@@ -17,7 +19,8 @@ public class ByteBufferBackedReadable implements IReadable {
 
     private final long initialBufferSegmentSize;
     private final long maxBufferSegmentSize;
-    private final ByteBufferFactory byteBufferFactory;
+
+    private final File file;
 
     private ByteBufferBackedFiler[] filers;
     private int fpFilerIndex;
@@ -28,14 +31,16 @@ public class ByteBufferBackedReadable implements IReadable {
 
     public ByteBufferBackedReadable(long initialBufferSegmentSize,
         long maxBufferSegmentSize,
-        ByteBufferFactory byteBufferFactory) throws IOException {
+        File file
+    ) throws IOException {
 
         this.initialBufferSegmentSize = initialBufferSegmentSize > 0 ? UIO.chunkLength(UIO.chunkPower(initialBufferSegmentSize, 0)) : -1;
         this.maxBufferSegmentSize = Math.min(UIO.chunkLength(UIO.chunkPower(maxBufferSegmentSize, 0)), MAX_BUFFER_SEGMENT_SIZE);
 
-        this.byteBufferFactory = byteBufferFactory;
+        this.file = file;
+        
         this.filers = new ByteBufferBackedFiler[0];
-        this.length = byteBufferFactory.length();
+        this.length = file.length();
 
         // test power of 2
         if ((this.maxBufferSegmentSize & (this.maxBufferSegmentSize - 1)) == 0) {
@@ -46,15 +51,52 @@ public class ByteBufferBackedReadable implements IReadable {
         }
     }
 
+
+    private ByteBuffer allocate(int index, long length) throws IOException {
+        ensureDirectory(file.getParentFile());
+        long segmentOffset = maxBufferSegmentSize * index;
+        long requiredLength = segmentOffset + length;
+        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            if (requiredLength > raf.length()) {
+                raf.seek(requiredLength - 1);
+                raf.write(0);
+            }
+            raf.seek(segmentOffset);
+            try (FileChannel channel = raf.getChannel()) {
+                return channel.map(FileChannel.MapMode.READ_WRITE, segmentOffset, Math.min(maxBufferSegmentSize, channel.size() - segmentOffset));
+            }
+        }
+    }
+
+    private ByteBuffer reallocate(int index, long newSize) throws IOException {
+        return allocate(index, newSize);
+    }
+
+
+    private long nextLength(int index) {
+        long segmentOffset = maxBufferSegmentSize * index;
+        return Math.min(maxBufferSegmentSize, file.length() - segmentOffset);
+    }
+
+    private void ensureDirectory(File directory)  throws IOException {
+        if (!directory.exists()) {
+            if (!directory.mkdirs()) {
+                if (!directory.exists()) {
+                    throw new IOException("Failed to create directory: " + directory);
+                }
+            }
+        }
+    }
+
     private ByteBufferBackedReadable(long maxBufferSegmentSize,
-        ByteBufferFactory byteBufferFactory,
+         File file,
         ByteBufferBackedFiler[] filers,
         long length,
         int fShift,
         long fseekMask) {
         this.initialBufferSegmentSize = -1;
         this.maxBufferSegmentSize = maxBufferSegmentSize;
-        this.byteBufferFactory = byteBufferFactory;
+        this.file = file;
         this.filers = filers;
         this.fpFilerIndex = -1;
         this.length = length;
@@ -67,7 +109,7 @@ public class ByteBufferBackedReadable implements IReadable {
         for (int i = 0; i < duplicate.length; i++) {
             duplicate[i] = new ByteBufferBackedFiler(filers[i].buffer.duplicate());
         }
-        return new ByteBufferBackedReadable(maxBufferSegmentSize, byteBufferFactory, duplicate, length, fShift, fseekMask);
+        return new ByteBufferBackedReadable(maxBufferSegmentSize, file, duplicate, length, fShift, fseekMask);
     }
 
     final long ensure(long bytesToWrite) throws IOException {
@@ -90,7 +132,7 @@ public class ByteBufferBackedReadable implements IReadable {
         if (f >= filers.length) {
             int lastFilerIndex = filers.length - 1;
             if (lastFilerIndex > -1 && filers[lastFilerIndex].length() < maxBufferSegmentSize) {
-                ByteBuffer reallocate = reallocate(lastFilerIndex, filers[lastFilerIndex].buffer, maxBufferSegmentSize);
+                ByteBuffer reallocate = reallocate(lastFilerIndex, maxBufferSegmentSize);
                 filers[lastFilerIndex] = new ByteBufferBackedFiler(reallocate);
             }
 
@@ -107,20 +149,12 @@ public class ByteBufferBackedReadable implements IReadable {
             filers = newFilers;
 
         } else if (f == filers.length - 1 && fseek > filers[f].length()) {
-            long newSize = byteBufferFactory.nextLength(f, filers[f].length(), fseek);
-            ByteBuffer reallocate = reallocate(f, filers[f].buffer, Math.min(maxBufferSegmentSize, newSize));
+            long newSize = nextLength(f);
+            ByteBuffer reallocate = reallocate(f, Math.min(maxBufferSegmentSize, newSize));
             filers[f] = new ByteBufferBackedFiler(reallocate);
         }
         filers[f].seek(fseek);
         fpFilerIndex = f;
-    }
-
-    private ByteBuffer allocate(int index, long maxBufferSegmentSize) throws IOException {
-        return byteBufferFactory.allocate(index, maxBufferSegmentSize);
-    }
-
-    private ByteBuffer reallocate(int index, ByteBuffer oldBuffer, long newSize) throws IOException {
-        return byteBufferFactory.reallocate(index, oldBuffer, newSize);
     }
 
     @Override

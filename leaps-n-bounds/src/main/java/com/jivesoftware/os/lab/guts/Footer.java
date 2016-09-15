@@ -20,7 +20,8 @@ public class Footer {
     final byte[] maxKey;
     final long keyFormat;
     final long valueFormat;
-    final TimestampAndVersion maxTimestampAndVersion;
+    final long maxTimestamp;
+    final long maxTimestampVersion;
 
     public Footer(int leapCount,
         long count,
@@ -30,7 +31,8 @@ public class Footer {
         byte[] maxKey,
         long keyFormat,
         long valueFormat,
-        TimestampAndVersion maxTimestampAndVersion
+        long maxTimestamp,
+        long maxTimestampVersion
     ) {
 
         this.leapCount = leapCount;
@@ -41,7 +43,8 @@ public class Footer {
         this.maxKey = maxKey;
         this.keyFormat = keyFormat;
         this.valueFormat = valueFormat;
-        this.maxTimestampAndVersion = maxTimestampAndVersion;
+        this.maxTimestamp = maxTimestamp;
+        this.maxTimestampVersion = maxTimestampVersion;
     }
 
     @Override
@@ -55,7 +58,8 @@ public class Footer {
             + ", maxKey=" + Arrays.toString(maxKey)
             + ", keyFormat=" + keyFormat
             + ", valueFormat=" + valueFormat
-            + ", maxTimestampAndVersion=" + maxTimestampAndVersion
+            + ", maxTimestamp=" + maxTimestamp
+            + ", maxTimestampVersion=" + maxTimestampVersion
             + '}';
     }
 
@@ -68,8 +72,8 @@ public class Footer {
         writeable.appendLong(valuesSizeInBytes);
         UIO.writeByteArray(writeable, minKey, "minKey");
         UIO.writeByteArray(writeable, maxKey, "maxKey");
-        writeable.appendLong(maxTimestampAndVersion.maxTimestamp);
-        writeable.appendLong(maxTimestampAndVersion.maxTimestampVersion);
+        writeable.appendLong(maxTimestamp);
+        writeable.appendLong(maxTimestampVersion);
         writeable.appendLong(keyFormat);
         writeable.appendLong(valueFormat);
         writeable.appendInt(entryLength);
@@ -106,8 +110,7 @@ public class Footer {
         if (el != entryLength) {
             throw new RuntimeException("Encountered length corruption. " + el + " vs " + entryLength);
         }
-        return new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, minKey, maxKey, keyFormat, valueFormat, new TimestampAndVersion(maxTimestamp,
-            maxTimestampVersion));
+        return new Footer(leapCount, count, keysSizeInBytes, valuesSizeInBytes, minKey, maxKey, keyFormat, valueFormat, maxTimestamp, maxTimestampVersion);
     }
 
 }

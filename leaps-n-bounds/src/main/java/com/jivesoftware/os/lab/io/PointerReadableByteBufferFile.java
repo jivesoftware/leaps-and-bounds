@@ -1,11 +1,13 @@
 package com.jivesoftware.os.lab.io;
 
-import com.jivesoftware.os.lab.io.api.ByteBufferFactory;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 /**
  *
@@ -17,23 +19,23 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
 
     private final long initialBufferSegmentSize;
     private final long maxBufferSegmentSize;
-    private final ByteBufferFactory byteBufferFactory;
+    private final File file;
 
     private ByteBuffer[] bbs;
-    
+
     private final int fShift;
     private final long fseekMask;
 
     public PointerReadableByteBufferFile(long initialBufferSegmentSize,
         long maxBufferSegmentSize,
-        FileBackedMemMappedByteBufferFactory byteBufferFactory) throws IOException {
+        File file) throws IOException {
 
         this.initialBufferSegmentSize = initialBufferSegmentSize > 0 ? UIO.chunkLength(UIO.chunkPower(initialBufferSegmentSize, 0)) : -1;
         this.maxBufferSegmentSize = Math.min(UIO.chunkLength(UIO.chunkPower(maxBufferSegmentSize, 0)), MAX_BUFFER_SEGMENT_SIZE);
 
-        this.byteBufferFactory = byteBufferFactory;
+        this.file = file;
         this.bbs = new ByteBuffer[0];
-       
+
         // test power of 2
         if ((this.maxBufferSegmentSize & (this.maxBufferSegmentSize - 1)) == 0) {
             this.fShift = Long.numberOfTrailingZeros(this.maxBufferSegmentSize);
@@ -41,8 +43,41 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         } else {
             throw new IllegalArgumentException("It's hard to ensure powers of 2");
         }
+    }
 
+    private ByteBuffer allocate(int index, long length) throws IOException {
+        ensureDirectory(file.getParentFile());
+        long segmentOffset = maxBufferSegmentSize * index;
+        long requiredLength = segmentOffset + length;
+        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            if (requiredLength > raf.length()) {
+                raf.seek(requiredLength - 1);
+                raf.write(0);
+            }
+            raf.seek(segmentOffset);
+            try (FileChannel channel = raf.getChannel()) {
+                return channel.map(FileChannel.MapMode.READ_WRITE, segmentOffset, Math.min(maxBufferSegmentSize, channel.size() - segmentOffset));
+            }
+        }
+    }
 
+    private ByteBuffer reallocate(int index, long newSize) throws IOException {
+        return allocate(index, newSize);
+    }
+
+    private long nextLength(int index) {
+        long segmentOffset = maxBufferSegmentSize * index;
+        return Math.min(maxBufferSegmentSize, file.length() - segmentOffset);
+    }
+
+    private void ensureDirectory(File directory) throws IOException {
+        if (!directory.exists()) {
+            if (!directory.mkdirs()) {
+                if (!directory.exists()) {
+                    throw new IOException("Failed to create directory: " + directory);
+                }
+            }
+        }
     }
 
     private int position(int f, long fseek) throws IOException {
@@ -50,7 +85,7 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         if (f >= bbs.length) {
             int lastFilerIndex = bbs.length - 1;
             if (lastFilerIndex > -1 && bbs[lastFilerIndex].capacity() < maxBufferSegmentSize) {
-                ByteBuffer reallocate = reallocate(lastFilerIndex, bbs[lastFilerIndex], maxBufferSegmentSize);
+                ByteBuffer reallocate = reallocate(lastFilerIndex, maxBufferSegmentSize);
                 bbs[lastFilerIndex] = reallocate;
             }
 
@@ -67,20 +102,12 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             bbs = newFilers;
 
         } else if (f == bbs.length - 1 && fseek > bbs[f].capacity()) {
-            long newSize = byteBufferFactory.nextLength(f, bbs[f].capacity(), fseek);
-            ByteBuffer reallocate = reallocate(f, bbs[f], Math.min(maxBufferSegmentSize, newSize));
+            long newSize = nextLength(f);
+            ByteBuffer reallocate = reallocate(f, Math.min(maxBufferSegmentSize, newSize));
             bbs[f] = reallocate;
         }
         return f;
 
-    }
-
-    private ByteBuffer allocate(int index, long maxBufferSegmentSize) throws IOException {
-        return byteBufferFactory.allocate(index, maxBufferSegmentSize);
-    }
-
-    private ByteBuffer reallocate(int index, ByteBuffer oldBuffer, long newSize) throws IOException {
-        return byteBufferFactory.reallocate(index, oldBuffer, newSize);
     }
 
     @Override
@@ -121,7 +148,7 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         filerIndex = position(filerIndex, filerSeek);
 
         if (filerSeek + 4 < bbs[filerIndex].capacity()) {
-            return bbs[filerIndex].getInt((int)filerSeek);
+            return bbs[filerIndex].getInt((int) filerSeek);
         } else {
             int b0 = readAtleastOne(position);
             int b1 = readAtleastOne(position + 1);
@@ -151,16 +178,16 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         filerIndex = position(filerIndex, filerSeek);
 
         if (filerSeek + 8 < bbs[filerIndex].capacity()) {
-            return bbs[(int)filerIndex].getLong((int)filerSeek);
+            return bbs[(int) filerIndex].getLong((int) filerSeek);
         } else {
             int b0 = readAtleastOne(position);
-            int b1 = readAtleastOne(position+1);
-            int b2 = readAtleastOne(position+2);
-            int b3 = readAtleastOne(position+3);
-            int b4 = readAtleastOne(position+4);
-            int b5 = readAtleastOne(position+5);
-            int b6 = readAtleastOne(position+6);
-            int b7 = readAtleastOne(position+7);
+            int b1 = readAtleastOne(position + 1);
+            int b2 = readAtleastOne(position + 2);
+            int b3 = readAtleastOne(position + 3);
+            int b4 = readAtleastOne(position + 4);
+            int b5 = readAtleastOne(position + 5);
+            int b6 = readAtleastOne(position + 6);
+            int b7 = readAtleastOne(position + 7);
 
             long v = 0;
             v |= (b0 & 0xFF);
@@ -197,9 +224,9 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             return 0;
         }
         int remaining = len;
-        int read = Math.max(-1,(int)(bbs[bbIndex].capacity()-bbSeek));
-        for(int i=0;i<read;i++) {
-            b[offset] = bbs[bbIndex].get((int)bbSeek);
+        int read = Math.max(-1, (int) (bbs[bbIndex].capacity() - bbSeek));
+        for (int i = 0; i < read; i++) {
+            b[offset] = bbs[bbIndex].get((int) bbSeek);
             offset++;
             bbSeek++;
         }
@@ -212,9 +239,9 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             bbIndex++;
             bbSeek = 0;
 
-            read = Math.max(-1,(int)(bbs[bbIndex].capacity()-bbSeek));
-            for(int i=0;i<read;i++) {
-                b[offset] = bbs[bbIndex].get((int)bbSeek);
+            read = Math.max(-1, (int) (bbs[bbIndex].capacity() - bbSeek));
+            for (int i = 0; i < read; i++) {
+                b[offset] = bbs[bbIndex].get((int) bbSeek);
                 offset++;
                 bbSeek++;
             }

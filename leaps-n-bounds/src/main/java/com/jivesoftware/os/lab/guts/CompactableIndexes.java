@@ -72,17 +72,23 @@ public class CompactableIndexes {
     }
 
     private void refreshMaxTimestamp(ReadOnlyIndex[] concurrentReadableIndexs) {
-        TimestampAndVersion timestampAndVersion = TimestampAndVersion.NULL;
+        
+        long maxTimestamp = -1;
+        long maxTimestampVersion = -1;
+
         for (ReadOnlyIndex rawConcurrentReadableIndex : concurrentReadableIndexs) {
-            TimestampAndVersion other = rawConcurrentReadableIndex.maxTimestampAndVersion();
+            Footer other = rawConcurrentReadableIndex.footer();
             if (rawhide.isNewerThan(other.maxTimestamp,
                 other.maxTimestampVersion,
-                timestampAndVersion.maxTimestamp,
-                timestampAndVersion.maxTimestampVersion)) {
-                timestampAndVersion = other;
+                maxTimestamp,
+                maxTimestampVersion)) {
+
+                maxTimestamp = other.maxTimestamp;
+                maxTimestampVersion = other.maxTimestampVersion;
             }
         }
-        maxTimestampAndVersion = timestampAndVersion;
+
+        maxTimestampAndVersion = new TimestampAndVersion(maxTimestamp, maxTimestampVersion);
     }
 
     public TimestampAndVersion maxTimeStampAndVersion() {

@@ -2,11 +2,8 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.api.LABIndexClosedException;
 import com.jivesoftware.os.lab.io.ByteBufferBackedReadable;
-import com.jivesoftware.os.lab.io.FileBackedMemMappedByteBufferFactory;
-import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.ICloseable;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -26,9 +23,6 @@ public class IndexFile implements ICloseable {
 
     private final static MetricLogger LOG = MetricLoggerFactory.getLogger();
 
-    static private class OpenFileLock {
-    }
-
     static private class MemMapLock {
     }
 
@@ -43,8 +37,6 @@ public class IndexFile implements ICloseable {
     private final ByteBufferBackedReadable memMapFiler;
     private final AtomicLong memMapFilerLength = new AtomicLong(-1);
 
-    private final OpenFileLock openFileLock = new OpenFileLock();
-    private final MemMapLock memMapLock = new MemMapLock();
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public IndexFile(File file, String mode) throws IOException {
@@ -79,7 +71,7 @@ public class IndexFile implements ICloseable {
 
         long memMapSize = memMapFilerLength.get();
         if (requiredLength > memMapSize) {
-            synchronized (memMapLock) {
+            synchronized (memMapFiler) {
                 long length = size.get();
                 memMapFiler.seek(length);
                 memMapFilerLength.set(length);
@@ -153,14 +145,8 @@ public class IndexFile implements ICloseable {
         };
     }
 
-    private IPointerReadable createPointerReadable() throws IOException {
-        FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(file, BUFFER_SEGMENT_SIZE);
-        return new PointerReadableByteBufferFile(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
-    }
-
     private ByteBufferBackedReadable createMemMap() throws IOException {
-        FileBackedMemMappedByteBufferFactory byteBufferFactory = new FileBackedMemMappedByteBufferFactory(file, BUFFER_SEGMENT_SIZE);
-        return new ByteBufferBackedReadable(-1L, BUFFER_SEGMENT_SIZE, byteBufferFactory);
+        return new ByteBufferBackedReadable(-1L, BUFFER_SEGMENT_SIZE, file);
     }
 
     @Override
@@ -173,7 +159,7 @@ public class IndexFile implements ICloseable {
 
     @Override
     public void close() throws IOException {
-        synchronized (openFileLock) {
+        synchronized (closed) {
             if (closed.compareAndSet(false, true)) {
                 randomAccessFile.close();
                 if (memMapFiler != null) {
@@ -192,7 +178,7 @@ public class IndexFile implements ICloseable {
             throw new IOException("Cannot ensureOpen on an index that is already closed.");
         }
         if (!channel.isOpen()) {
-            synchronized (openFileLock) {
+            synchronized (closed) {
                 if (closed.get()) {
                     throw new IOException("Cannot ensureOpen on an index that is already closed.");
                 }

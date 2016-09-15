@@ -154,8 +154,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 lastKey.copy(),
                 rawhideFormat.getKeyFormat(),
                 rawhideFormat.getValueFormat(),
-                new TimestampAndVersion(maxTimestamp,
-                    maxTimestampVersion));
+                maxTimestamp,
+                maxTimestampVersion);
             footer.write(appendableHeap);
 
             appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
