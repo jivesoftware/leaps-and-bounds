@@ -2,14 +2,16 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.text.NumberFormat;
@@ -29,7 +31,7 @@ import org.testng.annotations.Test;
 public class IndexStressNGTest {
 
     private final NumberFormat format = NumberFormat.getInstance();
-    private final SimpleRawhide simpleRawEntry = new SimpleRawhide();
+    private final Rawhide rawhide = LABRawhide.SINGLETON;
 
     @Test(enabled = false)
     public void stress() throws Exception {
@@ -38,7 +40,7 @@ public class IndexStressNGTest {
         Random rand = new Random(12345);
 
         long start = System.currentTimeMillis();
-        CompactableIndexes indexs = new CompactableIndexes(new SimpleRawhide());
+        CompactableIndexes indexs = new CompactableIndexes(rawhide);
         int count = 0;
 
         boolean fsync = true;
@@ -69,14 +71,14 @@ public class IndexStressNGTest {
                                 long m = merge.incrementAndGet();
                                 int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
-                                return new LABAppendableIndex(id, new IndexFile(mergingFile, "rw"),
-                                    maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+                                return new LABAppendableIndex(id, new AppendOnlyFile(mergingFile),
+                                    maxLeaps, entriesBetweenLeaps, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
                                 LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-                                return new ReadOnlyIndex(destroy, ids.get(0), new IndexFile(mergedFile, "r"), NoOpFormatTransformerProvider.NO_OP,
-                                    simpleRawEntry, leapsCache);
+                                return new ReadOnlyIndex(destroy, ids.get(0), new ReadOnlyFile(mergedFile), NoOpFormatTransformerProvider.NO_OP,
+                                    rawhide, leapsCache);
                             }));
                     if (compactor != null) {
                         waitForDebtToDrain.incrementAndGet();
@@ -134,7 +136,7 @@ public class IndexStressNGTest {
 
                         int longKey = rand.nextInt(maxKey.intValue());
                         UIO.longBytes(longKey, key, 0);
-                        getRaw.get(key, hitsAndMisses);
+                        getRaw.get(key, new BolBuffer(), hitsAndMisses);
 
                         if ((hits[0] + misses[0]) % logInterval == 0) {
                             return false;
@@ -176,7 +178,7 @@ public class IndexStressNGTest {
 
             long startMerge = System.currentTimeMillis();
             LABAppendableIndex write = new LABAppendableIndex(id,
-                new IndexFile(indexFiler, "rw"), maxLeaps, entriesBetweenLeaps, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
+                new AppendOnlyFile(indexFiler), maxLeaps, entriesBetweenLeaps, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
                 new RawEntryFormat(0, 0));
             BolBuffer keyBuffer = new BolBuffer();
             long lastKey = TestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null, keyBuffer);
@@ -185,7 +187,7 @@ public class IndexStressNGTest {
             maxKey.setValue(Math.max(maxKey.longValue(), lastKey));
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
             indexs.append(
-                new ReadOnlyIndex(destroy, id, new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry, leapsCache));
+                new ReadOnlyIndex(destroy, id, new ReadOnlyFile(indexFiler), NoOpFormatTransformerProvider.NO_OP, rawhide, leapsCache));
 
             count += batchSize;
 

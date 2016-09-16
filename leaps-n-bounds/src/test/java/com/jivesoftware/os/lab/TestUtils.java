@@ -3,27 +3,22 @@ package com.jivesoftware.os.lab;
 import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
-import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.CompactableIndexes;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
 import com.jivesoftware.os.lab.guts.PointGetRaw;
-import com.jivesoftware.os.lab.guts.SimpleRawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.testng.Assert;
-
-import static com.jivesoftware.os.lab.guts.SimpleRawhide.rawEntry;
-import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
-import static com.jivesoftware.os.lab.guts.SimpleRawhide.value;
-import static com.jivesoftware.os.lab.guts.SimpleRawhide.key;
-import static com.jivesoftware.os.lab.guts.SimpleRawhide.value;
 
 /**
  * @author jonathan.colt
@@ -32,7 +27,7 @@ public class TestUtils {
 
     private static final OrderIdProvider timeProvider = new OrderIdProviderImpl(new ConstantWriterIdProvider(1));
 
-    static public long append(Random rand,
+    public static long append(Random rand,
         RawAppendableIndex index,
         long start,
         int step,
@@ -70,7 +65,49 @@ public class TestUtils {
         return lastKey[0];
     }
 
-    static public void assertions(CompactableIndexes indexes,
+    public static byte[] rawEntry(long k, long time) {
+        BolBuffer bolBuffer = new BolBuffer();
+        try {
+            LABRawhide.SINGLETON.toRawEntry(UIO.longBytes(k), time, false, 0, UIO.longBytes(time), bolBuffer);
+        } catch (IOException ex) {
+            Assert.fail("barf", ex);
+        }
+        return bolBuffer.copy();
+    }
+
+    public static long key(byte[] entry) {
+        return UIO.bytesLong(entry, 4);
+    }
+
+    public static long key(BolBuffer entry) {
+        if (entry == null) {
+            return -1;
+        }
+        return entry.getLong(4);
+    }
+
+    public static long value(byte[] entry) {
+        return UIO.bytesLong(entry, 4 + 8 + 8 + 1 + 8 + 4);
+    }
+
+    public static long value(BolBuffer entry) {
+        if (entry == null) {
+            return -1;
+        }
+        return entry.getLong(4 + 8 + 8 + 1 + 8 + 4);
+    }
+
+    public static String toString(byte[] entry) {
+        return "key:" + key(entry) + " value:" + value(entry) + " timestamp:" + LABRawhide.SINGLETON.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP,
+            new BolBuffer(entry));
+    }
+
+    public static String toString(BolBuffer entry) {
+        return "key:" + key(entry) + " value:" + value(entry) + " timestamp:" + LABRawhide.SINGLETON.timestamp(FormatTransformer.NO_OP, FormatTransformer.NO_OP,
+            entry);
+    }
+
+    public static void assertions(CompactableIndexes indexes,
         int count, int step,
         ConcurrentSkipListMap<byte[], byte[]> desired) throws
         Exception {
@@ -79,9 +116,8 @@ public class TestUtils {
 
         int[] index = new int[1];
 
-        SimpleRawhide rawhide = new SimpleRawhide();
         indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
-            Scanner rowScan = new InterleaveStream(acquired, null, null, rawhide);
+            Scanner rowScan = new InterleaveStream(acquired, null, null, LABRawhide.SINGLETON);
             try {
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println("scanned:" + UIO.bytesLong(keys.get(index[0])) + " " + key(rawEntry));
@@ -112,7 +148,7 @@ public class TestUtils {
                     return true;
                 };
 
-                while (getRaw.get(UIO.longBytes(k, new byte[8], 0), stream)) {
+                while (getRaw.get(UIO.longBytes(k, new byte[8], 0), new BolBuffer(), stream)) {
                 }
             }
             System.out.println("gets PASSED");
@@ -133,7 +169,7 @@ public class TestUtils {
                 };
 
                 System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
-                Scanner rangeScan = new InterleaveStream(acquired, keys.get(_i), keys.get(_i + 3), rawhide);
+                Scanner rangeScan = new InterleaveStream(acquired, keys.get(_i), keys.get(_i + 3), LABRawhide.SINGLETON);
                 try {
                     while (rangeScan.next(stream) == Scanner.Next.more) {
                     }
@@ -158,7 +194,7 @@ public class TestUtils {
                     return true;
                 };
                 Scanner rangeScan = new InterleaveStream(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),
-                    rawhide);
+                    LABRawhide.SINGLETON);
                 try {
                     while (rangeScan.next(stream) == Scanner.Next.more) {
                     }

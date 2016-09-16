@@ -17,24 +17,21 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
     public static final long MAX_BUFFER_SEGMENT_SIZE = UIO.chunkLength(30);
     public static final long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
 
-    private final long initialBufferSegmentSize;
     private final long maxBufferSegmentSize;
     private final File file;
+    private final long length;
 
-    private ByteBuffer[] bbs;
+    private final ByteBuffer[] bbs;
 
     private final int fShift;
     private final long fseekMask;
 
-    public PointerReadableByteBufferFile(long initialBufferSegmentSize,
-        long maxBufferSegmentSize,
+    public PointerReadableByteBufferFile(long maxBufferSegmentSize,
         File file) throws IOException {
 
-        this.initialBufferSegmentSize = initialBufferSegmentSize > 0 ? UIO.chunkLength(UIO.chunkPower(initialBufferSegmentSize, 0)) : -1;
         this.maxBufferSegmentSize = Math.min(UIO.chunkLength(UIO.chunkPower(maxBufferSegmentSize, 0)), MAX_BUFFER_SEGMENT_SIZE);
 
         this.file = file;
-        this.bbs = new ByteBuffer[0];
 
         // test power of 2
         if ((this.maxBufferSegmentSize & (this.maxBufferSegmentSize - 1)) == 0) {
@@ -43,6 +40,26 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         } else {
             throw new IllegalArgumentException("It's hard to ensure powers of 2");
         }
+        this.length = file.length();
+        long position = length;
+        int filerIndex = (int) (position >> fShift);
+        long filerSeek = position & fseekMask;
+
+        int newLength = filerIndex + 1;
+        ByteBuffer[] newFilers = new ByteBuffer[newLength];
+        for (int n = 0; n < newLength; n++) {
+            if (n < newLength - 1) {
+                newFilers[n] = allocate(n, maxBufferSegmentSize);
+            } else {
+                newFilers[n] = allocate(n, filerSeek);
+            }
+        }
+        bbs = newFilers;
+    }
+
+    @Override
+    public long length() {
+        return length;
     }
 
     private ByteBuffer allocate(int index, long length) throws IOException {
@@ -61,15 +78,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         }
     }
 
-    private ByteBuffer reallocate(int index, long newSize) throws IOException {
-        return allocate(index, newSize);
-    }
-
-    private long nextLength(int index) {
-        long segmentOffset = maxBufferSegmentSize * index;
-        return Math.min(maxBufferSegmentSize, file.length() - segmentOffset);
-    }
-
     private void ensureDirectory(File directory) throws IOException {
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
@@ -80,75 +88,48 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         }
     }
 
-    private int position(int f, long fseek) throws IOException {
-
-        if (f >= bbs.length) {
-            int lastFilerIndex = bbs.length - 1;
-            if (lastFilerIndex > -1 && bbs[lastFilerIndex].capacity() < maxBufferSegmentSize) {
-                ByteBuffer reallocate = reallocate(lastFilerIndex, maxBufferSegmentSize);
-                bbs[lastFilerIndex] = reallocate;
-            }
-
-            int newLength = f + 1;
-            ByteBuffer[] newFilers = new ByteBuffer[newLength];
-            System.arraycopy(bbs, 0, newFilers, 0, bbs.length);
-            for (int n = bbs.length; n < newLength; n++) {
-                if (n < newLength - 1) {
-                    newFilers[n] = allocate(n, maxBufferSegmentSize);
-                } else {
-                    newFilers[n] = allocate(n, Math.max(fseek, initialBufferSegmentSize));
-                }
-            }
-            bbs = newFilers;
-
-        } else if (f == bbs.length - 1 && fseek > bbs[f].capacity()) {
-            long newSize = nextLength(f);
-            ByteBuffer reallocate = reallocate(f, Math.min(maxBufferSegmentSize, newSize));
-            bbs[f] = reallocate;
+    private int read(int bbIndex, int bbSeek) throws IOException {
+        if (!hasRemaining(bbIndex, bbSeek, 1)) {
+            return -1;
         }
-        return f;
-
+        byte b = bbs[bbIndex].get(bbSeek);
+        return b & 0xFF;
     }
 
     @Override
     public int read(long position) throws IOException {
-        if (position > MAX_POSITION) {
-            throw new IllegalStateException("Encountered a likely runaway file position! position=" + position);
-        }
-        int filerIndex = (int) (position >> fShift);
-        long filerSeek = position & fseekMask;
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
 
-        filerIndex = position(filerIndex, filerSeek);
-
-        int read = bbs[filerIndex].get((int) filerSeek);
-        while (read == -1 && filerIndex < bbs.length - 1) {
-            filerIndex++;
-            filerSeek = 0;
-            read = bbs[filerIndex].get((int) filerSeek);
+        int read = read(bbIndex, bbSeek);
+        while (read == -1 && bbIndex < bbs.length - 1) {
+            bbIndex++;
+            read = read(bbIndex, 0);
         }
         return read;
     }
 
     private int readAtleastOne(long position) throws IOException {
-        int r = read(position);
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+        int r = read(bbIndex, bbSeek);
         if (r == -1) {
             throw new EOFException("Failed to fully read 1 byte");
         }
         return r;
     }
 
+    private boolean hasRemaining(int bbIndex, int bbSeek, int length) {
+        return bbs[bbIndex].limit() - bbSeek >= length;
+    }
+
     @Override
     public int readInt(long position) throws IOException {
-        if (position > MAX_POSITION) {
-            throw new IllegalStateException("Encountered a likely runaway file position! position=" + position);
-        }
-        int filerIndex = (int) (position >> fShift);
-        long filerSeek = position & fseekMask;
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
 
-        filerIndex = position(filerIndex, filerSeek);
-
-        if (filerSeek + 4 < bbs[filerIndex].capacity()) {
-            return bbs[filerIndex].getInt((int) filerSeek);
+        if (hasRemaining(bbIndex, bbSeek, 4)) {
+            return bbs[bbIndex].getInt(bbSeek);
         } else {
             int b0 = readAtleastOne(position);
             int b1 = readAtleastOne(position + 1);
@@ -169,16 +150,11 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
 
     @Override
     public long readLong(long position) throws IOException {
-        if (position > MAX_POSITION) {
-            throw new IllegalStateException("Encountered a likely runaway file position! position=" + position);
-        }
-        int filerIndex = (int) (position >> fShift);
-        long filerSeek = position & fseekMask;
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
 
-        filerIndex = position(filerIndex, filerSeek);
-
-        if (filerSeek + 8 < bbs[filerIndex].capacity()) {
-            return bbs[(int) filerIndex].getLong((int) filerSeek);
+        if (hasRemaining(bbIndex, bbSeek, 8)) {
+            return bbs[bbIndex].getLong(bbSeek);
         } else {
             int b0 = readAtleastOne(position);
             int b1 = readAtleastOne(position + 1);
@@ -210,26 +186,30 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         }
     }
 
+    private int read(int bbIndex, int bbSeek, byte[] b, int _offset, int _len) throws IOException {
+        ByteBuffer bb = bbs[bbIndex];
+        int remaining = bb.limit() - bbSeek;
+        if (remaining <= 0) {
+            return -1;
+        }
+        int count = Math.min(_len, remaining);
+        for (int i = 0; i < count; i++) {
+            b[_offset + i] = bb.get(bbSeek + i);
+        }
+        return count;
+    }
+
     @Override
     public int read(long position, byte[] b, int offset, int len) throws IOException {
-        if (position > MAX_POSITION) {
-            throw new IllegalStateException("Encountered a likely runaway file position! position=" + position);
-        }
-        int bbIndex = (int) (position >> fShift);
-        long bbSeek = position & fseekMask;
-
-        bbIndex = position(bbIndex, bbSeek);
-
         if (len == 0) {
             return 0;
         }
+
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+
         int remaining = len;
-        int read = Math.max(-1, (int) (bbs[bbIndex].capacity() - bbSeek));
-        for (int i = 0; i < read; i++) {
-            b[offset] = bbs[bbIndex].get((int) bbSeek);
-            offset++;
-            bbSeek++;
-        }
+        int read = read(bbIndex, bbSeek, b, offset, remaining);
         if (read == -1) {
             read = 0;
         }
@@ -238,13 +218,7 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         while (remaining > 0 && bbIndex < bbs.length - 1) {
             bbIndex++;
             bbSeek = 0;
-
-            read = Math.max(-1, (int) (bbs[bbIndex].capacity() - bbSeek));
-            for (int i = 0; i < read; i++) {
-                b[offset] = bbs[bbIndex].get((int) bbSeek);
-                offset++;
-                bbSeek++;
-            }
+            read = read(bbIndex, bbSeek, b, offset, remaining);
             if (read == -1) {
                 read = 0;
             }
@@ -255,6 +229,21 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             return -1;
         }
         return offset;
+    }
+
+    @Override
+    public BolBuffer sliceIntoBuffer(long offset, int length, BolBuffer entryBuffer) throws IOException {
+
+        int bbIndex = (int) (offset >> fShift);
+        if (bbIndex == (int) (offset + length >> fShift)) {
+            int filerSeek = (int) (offset & fseekMask);
+            entryBuffer.force(bbs[bbIndex], filerSeek, length);
+        } else {
+            byte[] rawEntry = new byte[length]; // very rare only on bb boundaries
+            read(offset, rawEntry, 0, length);
+            entryBuffer.force(rawEntry, 0, length);
+        }
+        return entryBuffer;
     }
 
     @Override

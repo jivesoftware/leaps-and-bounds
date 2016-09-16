@@ -21,7 +21,6 @@ package com.jivesoftware.os.lab.io.api;
 
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
-import java.io.EOFException;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -97,56 +96,11 @@ public class UIO {
         _filer.append(array, _start, len);
     }
 
-    public static int readLength(IReadable _filer) throws IOException {
-        return _filer.readInt();
-    }
-
     public static int readLength(byte[] array, int _offset) throws IOException {
         return UIO.bytesInt(array, _offset);
     }
 
-    public static void read(IReadable _filer, byte[] array) throws IOException {
-        readFully(_filer, array, array.length);
-    }
-
     private static final byte[] EMPTY = new byte[0];
-
-    public static byte[] readByteArray(IReadable _filer, String fieldName) throws IOException {
-        int len = readLength(_filer);
-        if (len < 0) {
-            return null;
-        }
-        if (len == 0) {
-            return EMPTY;
-        }
-        byte[] array = new byte[len];
-        readFully(_filer, array, len);
-        return array;
-    }
-
-    public static boolean readBoolean(IReadable _filer, String fieldName) throws IOException {
-        int v = _filer.read();
-        if (v < 0) {
-            throw new EOFException();
-        }
-        return (v != 0);
-    }
-
-    public static byte readByte(IReadable _filer, String fieldName) throws IOException {
-        int v = _filer.read();
-        if (v < 0) {
-            throw new EOFException();
-        }
-        return (byte) v;
-    }
-
-    public static int readInt(IReadable _filer, String fieldName) throws IOException {
-        return _filer.readInt();
-    }
-
-    public static long readLong(IReadable _filer, String fieldName) throws IOException {
-        return _filer.readLong();
-    }
 
     public static boolean bytesBoolean(byte[] bytes, int _offset) {
         if (bytes == null) {
@@ -318,13 +272,6 @@ public class UIO {
 
     public static void readBytes(byte[] source, int offset, byte[] value) {
         System.arraycopy(source, offset, value, 0, value.length);
-    }
-
-    public static void readFully(IReadable readable, byte[] into, int length) throws IOException {
-        int read = readable.read(into, 0, length);
-        if (read != length) {
-            throw new EOFException("Failed to fully. Only had " + read + " needed " + length);
-        }
     }
 
     private static void readFully(byte[] from, int offset, byte[] into, int length) throws IOException {

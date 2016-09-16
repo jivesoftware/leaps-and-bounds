@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
@@ -19,10 +20,10 @@ public class PointGetRaw implements GetRaw {
     }
 
     @Override
-    public boolean get(byte[] key, RawEntryStream stream) throws Exception {
+    public boolean get(byte[] key, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
         for (ReadIndex index : indexs) {
             GetRaw pointGet = index.get();
-            if (pointGet.get(key, stream)) {
+            if (pointGet.get(key, entryBuffer, stream)) {
                 result = pointGet.result();
                 return result;
             }

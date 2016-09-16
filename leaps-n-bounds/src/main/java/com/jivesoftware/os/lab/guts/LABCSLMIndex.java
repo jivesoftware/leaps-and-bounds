@@ -15,14 +15,12 @@
  */
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.api.FormatTransformer;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
-import java.nio.ByteBuffer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -36,7 +34,7 @@ public class LABCSLMIndex implements LABIndex {
     private final ConcurrentSkipListMap<byte[], byte[]> map;
     private final StripingBolBufferLocks bolBufferLocks;
     private final int seed;
-    
+
     public LABCSLMIndex(Rawhide rawhide, StripingBolBufferLocks bolBufferLocks) {
         this.map = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
         this.bolBufferLocks = bolBufferLocks;
@@ -110,14 +108,18 @@ public class LABCSLMIndex implements LABIndex {
     }
 
     @Override
-    public Scanner scanner(byte[] from, byte[] to) {
-        Iterator<Map.Entry<byte[], byte[]>> iterator = subMap(from, to).entrySet().iterator();
+    public Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer) {
+        Iterator<Map.Entry<byte[], byte[]>> iterator = subMap(from != null ? from : null, to != null ? to : null)
+            .entrySet()
+            .iterator();
         return new Scanner() {
             @Override
             public Scanner.Next next(RawEntryStream stream) throws Exception {
                 if (iterator.hasNext()) {
                     Map.Entry<byte[], byte[]> next = iterator.next();
-                    boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(next.getValue()));
+                    byte[] value = next.getValue();
+                    entryBuffer.force(value, 0, value.length);
+                    boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, entryBuffer);
                     return more ? Scanner.Next.more : Scanner.Next.stopped;
                 }
                 return Scanner.Next.eos;

@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import java.util.Comparator;
 
 /**

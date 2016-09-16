@@ -1,22 +1,23 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LabHeapPressure;
-import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ import org.testng.annotations.Test;
  */
 public class IndexNGTest {
 
-    private final SimpleRawhide simpleRawEntry = new SimpleRawhide();
+    private final Rawhide rawhide = LABRawhide.SINGLETON;
 
     @Test(enabled = true)
     public void testLeapDisk() throws Exception {
@@ -42,15 +43,22 @@ public class IndexNGTest {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         File indexFiler = File.createTempFile("l-index", ".tmp");
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry.getKeyComparator());
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
-        int count = 100;
-        int step = 10;
+        int count = 16;
+        int step = 2;
 
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
-        LABAppendableIndex write = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
-            64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+        LABAppendableIndex write = new LABAppendableIndex(indexRangeId,
+            new AppendOnlyFile(indexFiler),
+            64,
+            10,
+            rawhide,
+            FormatTransformer.NO_OP,
+            FormatTransformer.NO_OP,
+            new RawEntryFormat(0, 0)
+        );
 
         BolBuffer keyBuffer = new BolBuffer();
         TestUtils.append(new Random(), write, 0, step, count, desired, keyBuffer);
@@ -59,17 +67,17 @@ public class IndexNGTest {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         ReadOnlyIndex leapsAndBoundsIndex = new ReadOnlyIndex(destroy,
             indexRangeId,
-            new IndexFile(indexFiler, "r"),
-            NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
+            new ReadOnlyFile(indexFiler),
+            NoOpFormatTransformerProvider.NO_OP, rawhide,
             leapsCache);
 
         assertions(leapsAndBoundsIndex, count, step, desired);
     }
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void testMemory() throws Exception {
 
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry.getKeyComparator());
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
         int count = 10;
         int step = 10;
@@ -77,7 +85,6 @@ public class IndexNGTest {
         ExecutorService destroy = Executors.newSingleThreadExecutor();
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
             new AtomicLong());
-        SimpleRawhide rawhide = new SimpleRawhide();
         LABMemoryIndex walIndex = new LABMemoryIndex(destroy,
             labHeapPressure,
             rawhide,
@@ -98,13 +105,12 @@ public class IndexNGTest {
     public void testMemoryToDisk() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(simpleRawEntry.getKeyComparator());
+        ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
         int count = 10;
         int step = 10;
         LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong());
 
-        SimpleRawhide rawhide = new SimpleRawhide();
         LABMemoryIndex memoryIndex = new LABMemoryIndex(destroy,
             labHeapPressure, rawhide,
             new LABConcurrentSkipListMap(
@@ -122,14 +128,14 @@ public class IndexNGTest {
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
-        LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new IndexFile(indexFiler, "rw"),
-            64, 10, simpleRawEntry, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+        LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new AppendOnlyFile(indexFiler),
+            64, 10, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
         disIndex.append((stream) -> {
             ReadIndex reader = memoryIndex.acquireReader();
             try {
-                Scanner rowScan = reader.rowScan();
+                Scanner rowScan = reader.rowScan(new BolBuffer());
                 RawEntryStream rawStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                    byte[] bytes = IndexUtil.toByteArray(rawEntry);
+                    byte[] bytes = rawEntry.copy();
                     return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, new BolBuffer(bytes));
                 };
                 while (rowScan.next(rawStream) == Scanner.Next.more) {
@@ -143,23 +149,22 @@ public class IndexNGTest {
         disIndex.closeAppendable(false);
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        assertions(new ReadOnlyIndex(destroy, indexRangeId, new IndexFile(indexFiler, "r"), NoOpFormatTransformerProvider.NO_OP, simpleRawEntry,
+        assertions(new ReadOnlyIndex(destroy, indexRangeId, new ReadOnlyFile(indexFiler), NoOpFormatTransformerProvider.NO_OP, rawhide,
             leapsCache), count, step, desired);
 
     }
 
-
-     private void assertions(LABMemoryIndex memoryIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
+    private void assertions(LABMemoryIndex memoryIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
         Exception {
         ArrayList<byte[]> keys = new ArrayList<>(desired.navigableKeySet());
 
         int[] index = new int[1];
         ReadIndex reader = memoryIndex.acquireReader();
         try {
-            Scanner rowScan = reader.rowScan();
+            Scanner rowScan = reader.rowScan(new BolBuffer());
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                System.out.println("rowScan:" + SimpleRawhide.key(rawEntry));
-                Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawhide.key(rawEntry));
+                System.out.println("rowScan:" + TestUtils.key(rawEntry));
+                Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), TestUtils.key(rawEntry));
                 index[0]++;
                 return true;
             };
@@ -178,15 +183,15 @@ public class IndexNGTest {
                 byte[] key = UIO.longBytes(k, new byte[8], 0);
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
 
-                    System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
+                    System.out.println("Got: " + TestUtils.toString(rawEntry));
                     if (rawEntry != null) {
-                        byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry), new byte[8], 0);
+                        byte[] rawKey = UIO.longBytes(TestUtils.key(rawEntry), new byte[8], 0);
                         Assert.assertEquals(rawKey, key);
                         byte[] d = desired.get(key);
                         if (d == null) {
                             Assert.fail();
                         } else {
-                            Assert.assertEquals(SimpleRawhide.value(rawEntry), SimpleRawhide.value(d));
+                            Assert.assertEquals(TestUtils.value(rawEntry), TestUtils.value(d));
                         }
                     } else {
                         Assert.assertFalse(desired.containsKey(key));
@@ -194,7 +199,7 @@ public class IndexNGTest {
                     return rawEntry != null;
                 };
 
-                Assert.assertEquals(getRaw.get(key, stream), desired.containsKey(key));
+                Assert.assertEquals(getRaw.get(key, new BolBuffer(), stream), desired.containsKey(key));
             } finally {
                 reader.release();
             }
@@ -207,7 +212,7 @@ public class IndexNGTest {
             int[] streamed = new int[1];
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
                 if (entry != null) {
-                    System.out.println("Streamed:" + SimpleRawhide.toString(entry));
+                    System.out.println("Streamed:" + TestUtils.toString(entry));
                     streamed[0]++;
                 }
                 return true;
@@ -216,7 +221,7 @@ public class IndexNGTest {
             System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
             reader = memoryIndex.acquireReader();
             try {
-                Scanner rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
+                Scanner rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3),new BolBuffer());
                 while (rangeScan.next(stream) == Scanner.Next.more) {
                 }
                 Assert.assertEquals(3, streamed[0]);
@@ -233,11 +238,11 @@ public class IndexNGTest {
                 if (entry != null) {
                     streamed[0]++;
                 }
-                return SimpleRawhide.value(entry) != -1;
+                return TestUtils.value(entry) != -1;
             };
             reader = memoryIndex.acquireReader();
             try {
-                Scanner rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3));
+                Scanner rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),new BolBuffer());
                 while (rangeScan.next(stream) == Scanner.Next.more) {
                 }
                 Assert.assertEquals(2, streamed[0]);
@@ -248,8 +253,6 @@ public class IndexNGTest {
         }
     }
 
-
-
     private void assertions(ReadOnlyIndex walIndex, int count, int step, ConcurrentSkipListMap<byte[], byte[]> desired) throws
         Exception {
         ArrayList<byte[]> keys = new ArrayList<>(desired.navigableKeySet());
@@ -257,10 +260,10 @@ public class IndexNGTest {
         int[] index = new int[1];
         ReadIndex reader = walIndex.acquireReader();
         try {
-            Scanner rowScan = reader.rowScan();
+            Scanner rowScan = reader.rowScan(new BolBuffer());
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                System.out.println("rowScan:" + SimpleRawhide.key(rawEntry));
-                Assert.assertEquals(UIO.bytesLong(keys.get(index[0])), SimpleRawhide.key(rawEntry));
+                System.out.println("rowScan: found:" + TestUtils.key(rawEntry) + " expected:" + UIO.bytesLong(keys.get(index[0])));
+                Assert.assertEquals(TestUtils.key(rawEntry), UIO.bytesLong(keys.get(index[0])));
                 index[0]++;
                 return true;
             };
@@ -279,15 +282,15 @@ public class IndexNGTest {
                 byte[] key = UIO.longBytes(k, new byte[8], 0);
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
 
-                    System.out.println("Got: " + SimpleRawhide.toString(rawEntry));
+                    System.out.println("Got: " + TestUtils.toString(rawEntry));
                     if (rawEntry != null) {
-                        byte[] rawKey = UIO.longBytes(SimpleRawhide.key(rawEntry), new byte[8], 0);
+                        byte[] rawKey = UIO.longBytes(TestUtils.key(rawEntry), new byte[8], 0);
                         Assert.assertEquals(rawKey, key);
                         byte[] d = desired.get(key);
                         if (d == null) {
                             Assert.fail();
                         } else {
-                            Assert.assertEquals(SimpleRawhide.value(rawEntry), SimpleRawhide.value(d));
+                            Assert.assertEquals(TestUtils.value(rawEntry), TestUtils.value(d));
                         }
                     } else {
                         Assert.assertFalse(desired.containsKey(key));
@@ -295,7 +298,7 @@ public class IndexNGTest {
                     return rawEntry != null;
                 };
 
-                Assert.assertEquals(getRaw.get(key, stream), desired.containsKey(key));
+                Assert.assertEquals(getRaw.get(key, new BolBuffer(), stream), desired.containsKey(key));
             } finally {
                 reader.release();
             }
@@ -308,7 +311,7 @@ public class IndexNGTest {
             int[] streamed = new int[1];
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
                 if (entry != null) {
-                    System.out.println("Streamed:" + SimpleRawhide.toString(entry));
+                    System.out.println("Streamed:" + TestUtils.toString(entry));
                     streamed[0]++;
                 }
                 return true;
@@ -317,7 +320,7 @@ public class IndexNGTest {
             System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
             reader = walIndex.acquireReader();
             try {
-                Scanner rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3));
+                Scanner rangeScan = reader.rangeScan(keys.get(_i), keys.get(_i + 3),new BolBuffer());
                 while (rangeScan.next(stream) == Scanner.Next.more) {
                 }
                 Assert.assertEquals(3, streamed[0]);
@@ -334,11 +337,11 @@ public class IndexNGTest {
                 if (entry != null) {
                     streamed[0]++;
                 }
-                return SimpleRawhide.value(entry) != -1;
+                return TestUtils.value(entry) != -1;
             };
             reader = walIndex.acquireReader();
             try {
-                Scanner rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3));
+                Scanner rangeScan = reader.rangeScan(UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),new BolBuffer());
                 while (rangeScan.next(stream) == Scanner.Next.more) {
                 }
                 Assert.assertEquals(2, streamed[0]);

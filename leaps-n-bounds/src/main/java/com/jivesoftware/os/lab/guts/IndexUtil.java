@@ -2,11 +2,8 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.primitives.UnsignedBytes;
 import com.google.common.primitives.UnsignedLongs;
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.io.api.IReadable;
-import java.io.IOException;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.lang.reflect.Field;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
@@ -19,28 +16,8 @@ import sun.misc.Unsafe;
  */
 public class IndexUtil {
 
-    public static String toString(ByteBuffer bb) {
-        return Arrays.toString(toByteArray(bb));
-    }
-
-    public static byte[] toByteArray(ByteBuffer bb) {
-        if (bb == null) {
-            return null;
-        }
-        bb.clear();
-        byte[] array = new byte[bb.capacity()];
-        bb.get(array);
-        return array;
-    }
-
-    public static void fillRawEntryBuffer(ByteBuffer bb, BolBuffer rawEntryBuffer) {
-        if (bb == null) {
-            rawEntryBuffer.length = -1;
-            return;
-        }
-        bb.clear();
-        rawEntryBuffer.allocate(bb.capacity());
-        bb.get(rawEntryBuffer.bytes, 0, rawEntryBuffer.length);
+    public static String toString(BolBuffer bb) {
+        return Arrays.toString(bb.copy());
     }
 
     /**
@@ -138,29 +115,29 @@ public class IndexUtil {
         return leftLength - rightLength;
     }
 
-    public static int compare(IReadable left, int leftLength, ByteBuffer right) throws IOException {
-//        if (left.canSlice(leftLength)) {
-//            return compare(left.slice(leftLength), right);
-//        } else {
-//            byte[] rawEntry = new byte[leftLength];
-//            left.read(rawEntry);
-//            return compare(ByteBuffer.wrap(rawEntry), right);
+//    public static int compare(IReadable left, int leftLength, BolBuffer right) throws IOException {
+////        if (left.canSlice(leftLength)) {
+////            return compare(left.slice(leftLength), right);
+////        } else {
+////            byte[] rawEntry = new byte[leftLength];
+////            left.read(rawEntry);
+////            return compare(ByteBuffer.wrap(rawEntry), right);
+////        }
+//
+//        int rightLength = right.length;
+//        int minLength = Math.min(leftLength, rightLength);
+//        for (int i = 0; i < minLength; i++) {
+//            int result = (left.read() & 0xFF) - (right.get(i) & 0xFF);
+//            if (result != 0) {
+//                return result;
+//            }
 //        }
+//        return leftLength - rightLength;
+//    }
 
-        int rightLength = right.capacity();
-        int minLength = Math.min(leftLength, rightLength);
-        for (int i = 0; i < minLength; i++) {
-            int result = (left.read() & 0xFF) - (right.get(i) & 0xFF);
-            if (result != 0) {
-                return result;
-            }
-        }
-        return leftLength - rightLength;
-    }
-
-    public static int compare(ByteBuffer left, ByteBuffer right) {
-        int leftLength = left.capacity();
-        int rightLength = right.capacity();
+    public static int compare(BolBuffer left, BolBuffer right) {
+        int leftLength = left.length;
+        int rightLength = right.length;
 
 //        int minLength = Math.min(leftLength, rightLength);
 //        for (int i = 0; i < minLength; i++) {
@@ -170,8 +147,6 @@ public class IndexUtil {
 //            }
 //        }
 //        return leftLength - rightLength;
-
-
         int minLength = Math.min(leftLength, rightLength);
         int minWords = minLength / 8;
 

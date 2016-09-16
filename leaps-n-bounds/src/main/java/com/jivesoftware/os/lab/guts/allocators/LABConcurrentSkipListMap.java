@@ -1,11 +1,11 @@
-package com.jivesoftware.os.lab;
+package com.jivesoftware.os.lab.guts.allocators;
 
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.LABIndex;
-import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
-import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
+import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
@@ -1024,7 +1024,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
             } finally {
                 growNodesArray.release();
             }
-            boolean more = entryStream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, valueBuffer.asByteBuffer());
+            boolean more = entryStream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, valueBuffer);
             return more;
         }
 
@@ -1155,7 +1155,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
             } finally {
                 m.growNodesArray.release();
             }
-            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, valueBuffer.asByteBuffer());
+            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, valueBuffer);
         }
 
         @Override
@@ -1352,22 +1352,21 @@ public class LABConcurrentSkipListMap implements LABIndex {
     }
 
     @Override
-    public Scanner scanner(byte[] from, byte[] to) throws Exception {
+    public Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
 
         EntryStream entryStream;
         growNodesArray.acquire();
         try {
-            entryStream = rangeMap(from, to);
+            entryStream = rangeMap(from != null ? from : null, to != null ? to : null);
         } finally {
             growNodesArray.release();
         }
         BolBuffer keyBuffer = new BolBuffer();
-        BolBuffer valueBuffer = new BolBuffer();
         return new Scanner() {
             @Override
             public Scanner.Next next(RawEntryStream stream) throws Exception {
                 if (entryStream.hasNext()) {
-                    boolean more = entryStream.next(stream, keyBuffer, valueBuffer);
+                    boolean more = entryStream.next(stream, keyBuffer, entryBuffer);
                     return more ? Scanner.Next.more : Scanner.Next.stopped;
                 }
                 return Scanner.Next.eos;

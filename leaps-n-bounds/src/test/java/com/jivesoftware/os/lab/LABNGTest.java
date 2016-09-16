@@ -1,5 +1,8 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.Keys;
@@ -7,12 +10,10 @@ import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
-import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -266,22 +267,15 @@ public class LABNGTest {
 
         long[] expectedValues = new long[]{-1, 7};
 
-        index.get(new Keys() {
-            @Override
-            public boolean keys(Keys.KeyStream keyStream) throws Exception {
-                for (int i = 1; i < 2; i++) {
-                    keyStream.key(i, UIO.longBytes(i), 0, 8);
-                }
-                return true;
+        index.get((keyStream) -> {
+            for (int i = 1; i < 2; i++) {
+                keyStream.key(i, UIO.longBytes(i), 0, 8);
             }
-        }, new ValueStream() {
-            @Override
-            public boolean stream(int index, ByteBuffer key, long timestamp, boolean tombstoned, long version, ByteBuffer payload) throws Exception {
-                System.out.println(IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
-
-                Assert.assertEquals(UIO.bytesLong(IndexUtil.toByteArray(payload)), expectedValues[index]);
-                return true;
-            }
+            return true;
+        }, (index1, key, timestamp, tombstoned, version, payload) -> {
+            System.out.println(IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
+            Assert.assertEquals(UIO.bytesLong(payload.copy()), expectedValues[index1]);
+            return true;
         }, true);
 
         env.shutdown();

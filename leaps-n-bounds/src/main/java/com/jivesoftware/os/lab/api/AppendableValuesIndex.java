@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.api;
 
-import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.util.List;
 import java.util.concurrent.Future;
 

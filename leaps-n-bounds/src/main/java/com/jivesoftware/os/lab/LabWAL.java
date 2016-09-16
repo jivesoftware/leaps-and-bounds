@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.api.exceptions.CorruptionDetectedException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -10,25 +12,23 @@ import com.jivesoftware.os.jive.utils.collections.bah.BAHash;
 import com.jivesoftware.os.jive.utils.collections.bah.BAHasher;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
-import com.jivesoftware.os.lab.api.LABFailedToInitializeWALException;
-import com.jivesoftware.os.lab.api.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABFailedToInitializeWALException;
+import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.guts.IndexFile;
-import com.jivesoftware.os.lab.guts.IndexUtil;
+import com.jivesoftware.os.lab.guts.AppendOnlyFile;
+import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IReadable;
-import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
@@ -112,7 +112,7 @@ public class LabWAL {
 
         Collections.sort(listWALFiles, (wal1, wal2) -> Long.compare(Long.parseLong(wal1.getName()), Long.parseLong(wal2.getName())));
 
-        List<IndexFile> deleteableIndexFiles = Lists.newArrayList();
+        List<ReadOnlyFile> deleteableIndexFiles = Lists.newArrayList();
         Map<String, ListMultimap<Long, byte[]>> allEntries = Maps.newHashMap();
 
         BAHash<ValueIndex> valueIndexes = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
@@ -120,45 +120,53 @@ public class LabWAL {
         BolBuffer keyBuffer = new BolBuffer();
         for (File walFile : listWALFiles) {
 
-            IndexFile indexFile = null;
+            ReadOnlyFile readOnlyFile = null;
             try {
-                indexFile = new IndexFile(walFile, "r");
-                deleteableIndexFiles.add(indexFile);
+                readOnlyFile = new ReadOnlyFile(walFile);
+                deleteableIndexFiles.add(readOnlyFile);
 
-                IReadable reader = indexFile.reader(null, indexFile.length());
-                reader.seek(0);
+                IPointerReadable reader = readOnlyFile.pointerReadable(-1);
+
+                long offset = 0;
                 try {
                     while (true) {
-                        int rowType = reader.read();
+                        int rowType = reader.read(offset);
+                        offset++;
                         if (rowType == -1) {
                             break; //EOF
                         }
                         if (rowType > 3) {
                             throw new CorruptionDetectedException("expected a row type greater than -1 and less than 128 but encountered " + rowType);
                         }
-                        int magic = reader.readInt();
+                        int magic = reader.readInt(offset);
+                        offset += 4;
                         if (magic != MAGIC[rowType]) {
                             throw new CorruptionDetectedException("expected a magic " + MAGIC[rowType] + " but encountered " + magic);
                         }
-                        int valueIndexIdLength = reader.readInt();
+                        int valueIndexIdLength = reader.readInt(offset);
+                        offset += 4;
                         if (valueIndexIdLength >= maxEntrySizeInBytes) {
                             throw new CorruptionDetectedException("valueIndexId length corruption" + valueIndexIdLength + ">=" + maxEntrySizeInBytes);
                         }
 
                         byte[] valueIndexId = new byte[valueIndexIdLength];
-                        reader.read(valueIndexId, 0, valueIndexIdLength);
+                        reader.read(offset, valueIndexId, 0, valueIndexIdLength);
+                        offset += valueIndexIdLength;
 
                         String valueIndexKey = new String(valueIndexId, StandardCharsets.UTF_8);
-                        long appendVersion = reader.readLong();
+                        long appendVersion = reader.readLong(offset);
+                        offset += 8;
 
                         if (rowType == ENTRY) {
-                            int entryLength = reader.readInt();
+                            int entryLength = reader.readInt(offset);
+                            offset += 4;
                             if (entryLength >= maxEntrySizeInBytes) {
                                 throw new CorruptionDetectedException("entryLength length corruption" + entryLength + ">=" + maxEntrySizeInBytes);
                             }
 
                             byte[] entry = new byte[entryLength];
-                            reader.read(entry, 0, entryLength);
+                            reader.read(offset, entry, 0, entryLength);
+                            offset += entryLength;
 
                             ListMultimap<Long, byte[]> valueIndexVersionedEntries = allEntries.computeIfAbsent(valueIndexKey,
                                 (k) -> ArrayListMultimap.create());
@@ -180,12 +188,12 @@ public class LabWAL {
                                 appendToValueIndex.append((stream) -> {
 
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
-                                        return stream.stream(index, IndexUtil.toByteArray(key), timestamp, tombstoned, version, IndexUtil.toByteArray(payload));
+                                        return stream.stream(index, key.copy(), timestamp, tombstoned, version, payload.copy());
                                     };
 
                                     for (byte[] entry : valueIndexVersionedEntries.get(appendVersion)) {
 
-                                        if (!rawhide.streamRawEntry(-1, readKey, readValue, ByteBuffer.wrap(entry), valueStream, true)) {
+                                        if (!rawhide.streamRawEntry(-1, readKey, readValue, new BolBuffer(entry), valueStream, true)) {
                                             return false;
                                         }
                                     }
@@ -197,18 +205,17 @@ public class LabWAL {
                         }
                     }
                 } catch (CorruptionDetectedException | EOFException x) {
-                    LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", reader.getFilePointer(), reader.length(), walFile, x.getClass());
+                    LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", offset, reader.length(), walFile, x.getClass());
                 } catch (Exception x) {
                     LOG.error("Encountered an issue that requires intervention at fp:{} length:{} for file:{}",
-                        new Object[]{reader.getFilePointer(), reader.length(), walFile}, x);
+                        new Object[]{offset, reader.length(), walFile}, x);
                     throw new LABFailedToInitializeWALException("Encountered an issue in " + walFile + " please help.", x);
                 }
             } finally {
-                if (indexFile != null) {
-                    indexFile.close();
+                if (readOnlyFile != null) {
+                    readOnlyFile.close();
                 }
             }
-
         }
 
         try {
@@ -220,7 +227,7 @@ public class LabWAL {
             throw new LABFailedToInitializeWALException("Encountered an issue while commiting and closing. Please help.", x);
         }
 
-        for (IndexFile deletableIndexFile : deleteableIndexFiles) {
+        for (ReadOnlyFile deletableIndexFile : deleteableIndexFiles) {
             try {
                 deletableIndexFile.delete();
             } catch (Exception x) {
@@ -230,13 +237,6 @@ public class LabWAL {
         }
     }
 
-    static class CorruptionDetectedException extends Exception {
-
-        CorruptionDetectedException(String cause) {
-            super(cause);
-        }
-
-    }
 
     private ValueIndex openValueIndex(LABEnvironment environment, byte[] valueIndexId, BAHash<ValueIndex> valueIndexes) throws Exception {
         ValueIndex valueIndex = valueIndexes.get(valueIndexId, 0, valueIndexId.length);
@@ -369,21 +369,21 @@ public class LabWAL {
         ActiveWAL wal;
         File file = new File(walRoot, String.valueOf(walIdProvider.incrementAndGet()));
         file.getParentFile().mkdirs();
-        IndexFile walFile = new IndexFile(file, "rw");
-        wal = new ActiveWAL(walFile);
+        AppendOnlyFile appendOnlyFile = new AppendOnlyFile(file);
+        wal = new ActiveWAL(appendOnlyFile);
         return wal;
     }
 
     private static final class ActiveWAL {
 
-        private final IndexFile wal;
+        private final AppendOnlyFile wal;
         private final IAppendOnly appendOnly;
         private final BAHash<Long> appendVersions;
         private final AtomicLong entryCount = new AtomicLong();
         private final AtomicLong sizeInBytes = new AtomicLong();
         private final Object oneWriteAtTimeLock = new Object();
 
-        public ActiveWAL(IndexFile wal) throws Exception {
+        public ActiveWAL(AppendOnlyFile wal) throws Exception {
             this.wal = wal;
             this.appendVersions = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
             this.appendOnly = wal.appender();
@@ -394,7 +394,8 @@ public class LabWAL {
             sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8 + entry.length);
             synchronized (oneWriteAtTimeLock) {
                 append(appendableHeap, ENTRY, valueIndexId, appendVersion);
-                UIO.writeByteArray(appendableHeap, entry.bytes, 0, entry.length, "entry");
+                appendableHeap.appendInt(entry.length);
+                appendableHeap.append(entry.bytes, entry.offset, entry.length);
             }
         }
 
@@ -414,7 +415,8 @@ public class LabWAL {
         private void append(AppendableHeap appendableHeap, byte type, byte[] valueIndexId, long appendVersion) throws IOException {
             appendableHeap.appendByte(type);
             appendableHeap.appendInt(MAGIC[type]);
-            UIO.writeByteArray(appendableHeap, valueIndexId, "valueIndexId");
+            appendableHeap.appendInt(valueIndexId.length);
+            appendableHeap.append(valueIndexId, 0, valueIndexId.length);
             appendableHeap.appendLong(appendVersion);
         }
 

@@ -1,18 +1,17 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.api.FormatTransformer;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
-import com.jivesoftware.os.lab.guts.api.StreamRawEntry;
-import java.nio.ByteBuffer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.util.PriorityQueue;
 
 /**
  * @author jonathan.colt
  */
-public class InterleaveStream implements StreamRawEntry, Scanner {
+public class InterleaveStream implements Scanner {
 
     private final Rawhide rawhide;
     private final PriorityQueue<Feed> feeds = new PriorityQueue<>();
@@ -25,9 +24,9 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
         for (int i = 0; i < indexs.length; i++) {
             Scanner scanner;
             if (rowScan) {
-                scanner = indexs[i].rowScan();
+                scanner = indexs[i].rowScan(new BolBuffer());
             } else {
-                scanner = indexs[i].rangeScan(from, to);
+                scanner = indexs[i].rangeScan(from, to, new BolBuffer());
             }
             Feed feed = new Feed(i, scanner, rawhide);
             feed.feedNext();
@@ -45,7 +44,6 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
         }
     }
 
-    @Override
     public boolean stream(RawEntryStream stream) throws Exception {
 
         Next more = Next.more;
@@ -109,8 +107,12 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
     }
 
     private int compare(Feed left, Feed right) {
-        return rawhide.compareKey(left.nextReadKeyFormatTransformer, left.nextReadValueFormatTransformer, left.nextRawEntry,
-            right.nextReadKeyFormatTransformer, right.nextReadValueFormatTransformer, right.nextRawEntry);
+        return rawhide.compareKey(left.nextReadKeyFormatTransformer,
+            left.nextReadValueFormatTransformer,
+            left.nextRawEntry,
+            right.nextReadKeyFormatTransformer,
+            right.nextReadValueFormatTransformer,
+            right.nextRawEntry);
     }
 
     private static class Feed implements Comparable<Feed>, RawEntryStream {
@@ -121,7 +123,7 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
 
         private FormatTransformer nextReadKeyFormatTransformer;
         private FormatTransformer nextReadValueFormatTransformer;
-        private ByteBuffer nextRawEntry;
+        private BolBuffer nextRawEntry;
 
         public Feed(int index, Scanner scanner, Rawhide rawhide) {
             this.index = index;
@@ -129,7 +131,7 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
             this.rawhide = rawhide;
         }
 
-        private ByteBuffer feedNext() throws Exception {
+        private BolBuffer feedNext() throws Exception {
             Next hadNext = scanner.next(this);
             if (hadNext != Next.more) {
                 nextRawEntry = null;
@@ -138,7 +140,7 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
         }
 
         @Override
-        public boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, ByteBuffer rawEntry) throws Exception {
+        public boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, BolBuffer rawEntry) throws Exception {
             nextRawEntry = rawEntry;
             nextReadKeyFormatTransformer = readKeyFormatTransformer;
             nextReadValueFormatTransformer = readValueFormatTransformer;
@@ -147,13 +149,18 @@ public class InterleaveStream implements StreamRawEntry, Scanner {
 
         @Override
         public int compareTo(Feed o) {
-            int c = rawhide.mergeCompare(nextReadKeyFormatTransformer, nextReadValueFormatTransformer, nextRawEntry,
-                o.nextReadKeyFormatTransformer, o.nextReadValueFormatTransformer, o.nextRawEntry);
+            int c = rawhide.mergeCompare(nextReadKeyFormatTransformer,
+                nextReadValueFormatTransformer,
+                nextRawEntry,
+                o.nextReadKeyFormatTransformer,
+                o.nextReadValueFormatTransformer,
+                o.nextRawEntry);
 
             if (c != 0) {
                 return c;
             }
-            return Integer.compare(index, o.index);
+            c = Integer.compare(index, o.index);
+            return c;
         }
 
         private void close() throws Exception {

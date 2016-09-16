@@ -8,13 +8,7 @@ import com.jivesoftware.os.lab.io.api.UIO;
  */
 public class LABUtils {
 
-    public static int compare(long timestamp, long timestampVersion, long otherTimestamp, long otherTimestampVersion) {
-        int c = Long.compare(timestamp, otherTimestamp);
-        if (c != 0) {
-            return c;
-        }
-        return Long.compare(timestampVersion, otherTimestampVersion);
-    }
+
 
     public static int rawArrayLength(byte[] bytes) {
         return 4 + ((bytes == null) ? 0 : bytes.length);

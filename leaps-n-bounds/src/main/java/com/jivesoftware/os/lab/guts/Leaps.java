@@ -1,13 +1,13 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.base.Preconditions;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IReadable;
-import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
+import java.util.Arrays;
 
 /**
  *
@@ -16,18 +16,17 @@ import java.nio.LongBuffer;
 public class Leaps {
 
     private final int index;
-    final ByteBuffer lastKey;
+    final BolBuffer lastKey;
     final long[] fps;
-    final ByteBuffer[] keys;
+    final BolBuffer[] keys;
     final StartOfEntry startOfEntry;
-    //final long[] startOfEntryIndex;
 
     public interface StartOfEntry {
 
-        LongBuffer get(IReadable readable) throws IOException;
+        LongBuffer get(IPointerReadable readable) throws IOException;
     }
 
-    public Leaps(int index, ByteBuffer lastKey, long[] fpIndex, ByteBuffer[] keys, StartOfEntry startOfEntry) {
+    public Leaps(int index, BolBuffer lastKey, long[] fpIndex, BolBuffer[] keys, StartOfEntry startOfEntry) {
         this.index = index;
         this.lastKey = lastKey;
         Preconditions.checkArgument(fpIndex.length == keys.length, "fpIndex and keys misalignment, %s != %s", fpIndex.length, keys.length);
@@ -36,71 +35,105 @@ public class Leaps {
         this.startOfEntry = startOfEntry;
     }
 
-    void write(FormatTransformer keyFormatTransformer, IAppendOnly writeable) throws Exception {
-        ByteBuffer writeLastKey = keyFormatTransformer.transform(lastKey);
-        ByteBuffer[] writeKeys = keyFormatTransformer.transform(keys);
+    public String toString(IPointerReadable pointerReadable) throws IOException {
+        StringBuilder startOfEntryString = new StringBuilder();
+        LongBuffer longBuffer = startOfEntry.get(pointerReadable);
+        for (int i = 0; i < fps.length; i++) {
+            if (i > 0) {
+                startOfEntryString.append(", ");
+            }
+            startOfEntryString.append(longBuffer.get(i));
+        }
+
+        StringBuilder keyString = new StringBuilder();
+        for (int i = 0; i < keys.length; i++) {
+            if (i > 0) {
+                keyString.append(", ");
+            }
+            byte[] copy = keys[i].copy();
+            keyString.append(Arrays.toString(copy));
+        }
+
+        return "Leaps{"
+            + "index=" + index
+            + ", lastKey=" + Arrays.toString(lastKey.copy())
+            + ", fps=" + Arrays.toString(fps)
+            + ", keys=" + keyString.toString()
+            + ", startOfEntry=" + startOfEntryString.toString()
+            + '}';
+    }
+
+    public void write(FormatTransformer keyFormatTransformer, IAppendOnly writeable) throws Exception {
+        BolBuffer writeLastKey = keyFormatTransformer.transform(lastKey);
+        BolBuffer[] writeKeys = keyFormatTransformer.transform(keys);
 
         LongBuffer startOfEntryBuffer = startOfEntry.get(null);
-        int entryLength = 4 + 4 + 4 + writeLastKey.capacity() + 4 + (startOfEntryBuffer.limit() * 8) + 4;
+        int entryLength = 4 + 4 + 4 + writeLastKey.length + 4 + (startOfEntryBuffer.limit() * 8) + 4;
         for (int i = 0; i < fps.length; i++) {
-            entryLength += 8 + 4 + writeKeys[i].capacity();
+            entryLength += 8 + 4 + writeKeys[i].length;
         }
         entryLength += 4;
-        UIO.writeInt(writeable, entryLength, "entryLength");
-        UIO.writeInt(writeable, index, "index");
-        UIO.writeInt(writeable, writeLastKey.capacity(), "lastKeyLength");
 
-        writeLastKey.clear();
-        byte[] array = new byte[writeLastKey.capacity()];
-        writeLastKey.get(array);
-        writeable.append(array, 0, array.length);
+        writeable.appendInt(entryLength);
+        writeable.appendInt(index);
+        writeable.appendInt(writeLastKey.length);
 
-        UIO.writeInt(writeable, fps.length, "fpIndexLength");
+        writeable.append(writeLastKey);
+
+        writeable.appendInt(fps.length);
         for (int i = 0; i < fps.length; i++) {
             writeable.appendLong(fps[i]);
-            UIO.writeByteArray(writeable, writeKeys[i], "key");
+            writeable.appendInt(writeKeys[i].length);
+            writeable.append(writeKeys[i]);
         }
         int startOfEntryLength = startOfEntryBuffer.limit();
-        UIO.writeInt(writeable, startOfEntryLength, "startOfEntryLength");
+         writeable.appendInt(startOfEntryLength);
         for (int i = 0; i < startOfEntryLength; i++) {
             writeable.appendLong(startOfEntryBuffer.get(i));
         }
-        UIO.writeInt(writeable, entryLength, "entryLength");
+        writeable.appendInt(entryLength);
     }
 
-    static Leaps read(FormatTransformer keyFormatTransformer, IReadable readable) throws Exception {
-        int entryLength = UIO.readInt(readable, "entryLength");
-        int index = UIO.readInt(readable, "index");
-        int lastKeyLength = UIO.readInt(readable, "lastKeyLength");
+    static Leaps read(FormatTransformer keyFormatTransformer, IPointerReadable readable, long offset) throws Exception {
+        int entryLength = readable.readInt(offset);
+        offset += 4;
+        int index = readable.readInt(offset);
+        offset += 4;
+        int lastKeyLength = readable.readInt(offset);
+        offset += 4;
+
         byte[] lastKey = new byte[lastKeyLength];
-        UIO.read(readable, lastKey);
-        int fpIndexLength = UIO.readInt(readable, "fpIndexLength");
+        readable.read(offset, lastKey, 0, lastKeyLength);
+        offset += lastKeyLength;
+
+        int fpIndexLength = readable.readInt(offset);
+        offset += 4;
+
         long[] fpIndex = new long[fpIndexLength];
-        ByteBuffer[] keys = new ByteBuffer[fpIndexLength];
+        BolBuffer[] keys = new BolBuffer[fpIndexLength];
         for (int i = 0; i < fpIndexLength; i++) {
-            fpIndex[i] = UIO.readLong(readable, "fpIndex");
-            keys[i] = ByteBuffer.wrap(UIO.readByteArray(readable, "keyLength"));
+
+            fpIndex[i] = readable.readLong(offset);
+            offset += 8;
+            int keyLength = readable.readInt(offset);
+            offset += 4;
+            keys[i] = readable.sliceIntoBuffer(offset, keyLength, new BolBuffer());
+            offset += keyLength;
         }
-        int startOfEntryLength = UIO.readInt(readable, "startOfEntryLength");
+        int startOfEntryLength = readable.readInt(offset);
+        offset += 4;
+        long startOfEntryOffset = offset;
         int startOfEntryNumBytes = startOfEntryLength * 8;
-        StartOfEntry startOfEntry;
-        if (readable.canSlice(startOfEntryNumBytes)) {
-            long startOfEntryFp = readable.getFilePointer();
-            readable.seek(startOfEntryFp + startOfEntryNumBytes);
-            startOfEntry = readable1 -> {
-                readable1.seek(startOfEntryFp);
-                return readable1.slice(startOfEntryNumBytes).asLongBuffer();
-            };
-        } else {
-            byte[] startOfEntryBytes = new byte[startOfEntryNumBytes];
-            readable.read(startOfEntryBytes, 0, startOfEntryBytes.length);
-            LongBuffer startOfEntryBuffer = ByteBuffer.wrap(startOfEntryBytes).asLongBuffer();
-            startOfEntry = readable1 -> startOfEntryBuffer;
-        }
-        if (UIO.readInt(readable, "entryLength") != entryLength) {
+        StartOfEntry startOfEntry = (readable1) -> {
+            BolBuffer sliceIntoBuffer = readable1.sliceIntoBuffer(startOfEntryOffset, startOfEntryNumBytes, new BolBuffer());
+            return sliceIntoBuffer.asLongBuffer();
+        };
+
+        offset += startOfEntryNumBytes;
+        if (readable.readInt(offset) != entryLength) {
             throw new RuntimeException("Encountered length corruption. ");
         }
-        return new Leaps(index, keyFormatTransformer.transform(ByteBuffer.wrap(lastKey)), fpIndex, keyFormatTransformer.transform(keys), startOfEntry);
+        return new Leaps(index, keyFormatTransformer.transform(new BolBuffer(lastKey)), fpIndex, keyFormatTransformer.transform(keys), startOfEntry);
     }
 
 }

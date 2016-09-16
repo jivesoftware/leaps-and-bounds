@@ -15,8 +15,8 @@
  */
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
 import org.testng.Assert;
@@ -51,7 +51,7 @@ public class IndexUtilNGTest {
         Arrays.sort(sort, new Comparator<Long>() {
             @Override
             public int compare(Long o1, Long o2) {
-                return IndexUtil.compare(ByteBuffer.wrap(UIO.longBytes(o1)), ByteBuffer.wrap(UIO.longBytes(o2)));
+                return IndexUtil.compare(new BolBuffer(UIO.longBytes(o1)), new BolBuffer(UIO.longBytes(o2)));
             }
         });
 

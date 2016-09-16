@@ -136,6 +136,17 @@ public class AppendableHeap implements IAppendOnly {
     }
 
     @Override
+    public void append(BolBuffer bolBuffer) throws IOException {
+        if (bolBuffer.bb != null) {
+            for (int i = 0; i < bolBuffer.length; i++) {
+                appendByte(bolBuffer.bb.get(bolBuffer.offset + i));
+            }
+        } else {
+            append(bolBuffer.bytes, bolBuffer.offset, bolBuffer.length);
+        }
+    }
+
+    @Override
     public long getFilePointer() throws IOException {
         return fp;
     }

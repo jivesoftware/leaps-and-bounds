@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab.guts.api;
 
+import com.jivesoftware.os.lab.io.BolBuffer;
+
 /**
  *
  * @author jonathan.colt
@@ -10,9 +12,9 @@ public interface ReadIndex {
 
     GetRaw get() throws Exception;
 
-    Scanner rangeScan(byte[] from, byte[] to) throws Exception;
+    Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception;
 
-    Scanner rowScan() throws Exception;
+    Scanner rowScan(BolBuffer entryBuffer) throws Exception;
 
     void close() throws Exception;
 

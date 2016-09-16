@@ -1,20 +1,18 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.api.ConcurrentSplitException;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.exceptions.ConcurrentSplitException;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.SplitterBuilder;
-import com.jivesoftware.os.lab.io.AppendableHeap;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -95,13 +93,6 @@ public class CompactableIndexes {
         return maxTimestampAndVersion;
     }
 
-//    public int debt(int mergableIfDebtLargerThan) {
-//        if (disposed) {
-//            return 0;
-//        }
-//        int debt = merging.length - mergableIfDebtLargerThan;
-//        return debt < 0 ? 0 : debt + 1;
-//    }
     public int debt() {
         if (disposed) {
             return 0;
@@ -257,10 +248,8 @@ public class CompactableIndexes {
 
         @Override
         public Void call() throws Exception {
-            BolBuffer rawEntryBuffer = new BolBuffer();
             BolBuffer leftKeyBuffer = new BolBuffer();
             BolBuffer rightKeyBuffer = new BolBuffer();
-            AppendableHeap appendableHeap = new AppendableHeap(8192);
             Comparator<byte[]> comparator = rawhide.getKeyComparator();
             while (true) {
                 ReadIndex[] readers = new ReadIndex[all.length];
@@ -299,7 +288,7 @@ public class CompactableIndexes {
                         return null;
                     } else {
                         byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1, rawhide.getKeyComparator())).get(1);
-                        ByteBuffer bbMiddle = ByteBuffer.wrap(middle);
+                        BolBuffer bbMiddle = new BolBuffer(middle);
                         LABAppendableIndex leftAppenableIndex = null;
                         LABAppendableIndex rightAppenableIndex = null;
                         try {
@@ -315,12 +304,11 @@ public class CompactableIndexes {
                                             int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
                                                 bbMiddle);
 
-                                            IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
                                             if (c < 0) {
-                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
+                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
                                                     return false;
                                                 }
-                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
+                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
                                                 return false;
                                             }
                                             return true;
@@ -413,13 +401,12 @@ public class CompactableIndexes {
                                                 return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
                                                     return catchupFeedInterleaver.stream(
                                                         (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                                                            IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
                                                             if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
                                                                 bbMiddle) < 0) {
-                                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
+                                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
                                                                     return false;
                                                                 }
-                                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer)) {
+                                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
                                                                 return false;
                                                             }
                                                             return true;
@@ -564,7 +551,6 @@ public class CompactableIndexes {
 
         @Override
         public Void call() throws Exception {
-            BolBuffer rawEntryBuffer = new BolBuffer();
             BolBuffer keyBuffer = new BolBuffer();
             ReadOnlyIndex index = null;
             ReadIndex[] readers = new ReadIndex[mergeSet.length];
@@ -585,8 +571,7 @@ public class CompactableIndexes {
                     try {
                         appendableIndex.append((stream) -> {
                             return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                                IndexUtil.fillRawEntryBuffer(rawEntry, rawEntryBuffer);
-                                return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer);
+                                return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
                             });
                         }, keyBuffer);
                     } finally {

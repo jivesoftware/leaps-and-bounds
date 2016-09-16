@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IReadable;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 import java.util.Arrays;
@@ -63,7 +63,7 @@ public class Footer {
             + '}';
     }
 
-    void write(IAppendOnly writeable) throws IOException {
+    public void write(IAppendOnly writeable) throws IOException {
         int entryLength = 4 + 4 + 8 + 8 + 8 + 4 + (minKey == null ? 0 : minKey.length) + 4 + (maxKey == null ? 0 : maxKey.length) + 8 + 8 + 8 + 8 + 4;
         writeable.appendInt(entryLength);
         writeable.appendInt(leapCount);
@@ -79,34 +79,46 @@ public class Footer {
         writeable.appendInt(entryLength);
     }
 
-    static Footer read(IReadable readable) throws IOException {
-        int entryLength = readable.readInt();
-        int read = 4;
-        int leapCount = readable.readInt();
-        read += 4;
-        long count = readable.readLong();
-        read += 8;
-        long keysSizeInBytes = readable.readLong();
-        read += 8;
-        long valuesSizeInBytes = readable.readLong();
-        read += 8;
-        byte[] minKey = UIO.readByteArray(readable, "minKey");
-        read += 4 + minKey.length;
-        byte[] maxKey = UIO.readByteArray(readable, "maxKey");
-        read += 4 + maxKey.length;
-        long maxTimestamp = readable.readLong();
-        read += 8;
-        long maxTimestampVersion = readable.readLong();
-        read += 8;
+    static Footer read(IPointerReadable readable, long offset) throws IOException {
+        long initialOffset = offset;
+        int entryLength = readable.readInt(offset);
+        offset += 4;
+        int leapCount = readable.readInt(offset);
+        offset += 4;
+        long count = readable.readLong(offset);
+        offset += 8;
+        long keysSizeInBytes = readable.readLong(offset);
+        offset += 8;
+        long valuesSizeInBytes = readable.readLong(offset);
+        offset += 8;
+
+        int minKeyLength = readable.readInt(offset);
+        offset += 4;
+        byte[] minKey = new byte[minKeyLength];
+        readable.read(offset, minKey, 0, minKeyLength);
+        offset += minKeyLength;
+
+        int maxKeyLength = readable.readInt(offset);
+        offset += 4;
+        byte[] maxKey = new byte[maxKeyLength];
+        readable.read(offset, maxKey, 0, maxKeyLength);
+        offset += maxKeyLength;
+
+        long maxTimestamp = readable.readLong(offset);
+        offset += 8;
+        long maxTimestampVersion = readable.readLong(offset);
+        offset += 8;
 
         long keyFormat = 0;
         long valueFormat = 0;
-        if (entryLength == read + 8 + 8 + 4) {
-            keyFormat = readable.readLong();
-            valueFormat = readable.readLong();
+        if (entryLength == (offset - initialOffset) + 8 + 8 + 4) {
+            keyFormat = readable.readLong(offset);
+            offset += 8;
+            valueFormat = readable.readLong(offset);
+            offset += 8;
         }
 
-        long el = readable.readInt();
+        long el = readable.readInt(offset);
         if (el != entryLength) {
             throw new RuntimeException("Encountered length corruption. " + el + " vs " + entryLength);
         }

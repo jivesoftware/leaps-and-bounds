@@ -5,13 +5,13 @@ import com.jivesoftware.os.lab.api.AppendValues;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
-import com.jivesoftware.os.lab.api.LABIndexClosedException;
-import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
 import com.jivesoftware.os.lab.api.Ranges;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
-import com.jivesoftware.os.lab.api.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
+import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.LABMemoryIndex;
@@ -24,6 +24,7 @@ import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.Scanner.Next;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
@@ -49,6 +50,7 @@ public class LAB implements ValueIndex {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final static byte[] SMALLEST_POSSIBLE_KEY = new byte[0];
+    private final static BolBuffer SMALLES_POSSIBLE_BOL_BUFFER_KEY = new BolBuffer(SMALLEST_POSSIBLE_KEY);
 
     private final ExecutorService schedule;
     private final ExecutorService compact;
@@ -140,13 +142,14 @@ public class LAB implements ValueIndex {
     @Override
     public boolean get(Keys keys, ValueStream stream, boolean hydrateValues) throws Exception {
         int[] count = {0};
+        BolBuffer entryBuffer = new BolBuffer();
         boolean b = pointTx(keys,
             -1,
             -1,
             (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
                 GetRaw getRaw = new PointGetRaw(readIndexes);
                 count[0]++;
-                return rawToReal(index, fromKey, getRaw, stream, hydrateValues1);
+                return rawToReal(index, fromKey, getRaw, entryBuffer, stream, hydrateValues1);
             },
             hydrateValues
         );
@@ -171,7 +174,7 @@ public class LAB implements ValueIndex {
 
     @Override
     public boolean rangesScan(Ranges ranges, ValueStream stream, boolean hydrateValues) throws Exception {
-        return ranges.ranges((int index, byte[] from, byte[] to) -> {
+        return ranges.ranges((index, from, to) -> {
             return rangeTx(true, index, from, to, -1, -1,
                 (index1, fromKey, toKey, readIndexes, hydrateValues1) -> {
                     InterleaveStream interleaveStream = new InterleaveStream(readIndexes, fromKey, toKey, rawhide);
@@ -418,7 +421,6 @@ public class LAB implements ValueIndex {
 //            newerThanTimestamp,
 //            newerThanTimestampVersion);
 //    }
-
     @Override
     public boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
@@ -504,7 +506,7 @@ public class LAB implements ValueIndex {
             throw new LABIndexClosedException();
         }
 
-        if (!internalCommit(fsync, new BolBuffer(), new BolBuffer())) {
+        if (!internalCommit(fsync, new BolBuffer(), new BolBuffer())) { // grr
             return Collections.emptyList();
         }
         if (waitIfToFarBehind) {
@@ -514,7 +516,7 @@ public class LAB implements ValueIndex {
         }
     }
 
-    private boolean internalCommit(boolean fsync, BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception, InterruptedException {
+    private boolean internalCommit(boolean fsync, BolBuffer keyBuffer, BolBuffer entryBuffer) throws Exception, InterruptedException {
         commitSemaphore.acquire(Short.MAX_VALUE);
         try {
             LABMemoryIndex stackCopy = memoryIndex;
@@ -524,7 +526,7 @@ public class LAB implements ValueIndex {
             LOG.inc("commit>count", stackCopy.count());
             flushingMemoryIndex = stackCopy;
             memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, rawhide, indexProvider.create(rawhide));
-            rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, rawEntryBuffer, keyBuffer);
+            rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, keyBuffer, entryBuffer);
             flushingMemoryIndex = null;
             stackCopy.destroy();
             wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
@@ -605,7 +607,7 @@ public class LAB implements ValueIndex {
         }
 
         if (flushUncommited) {
-            internalCommit(fsync, new BolBuffer(), new BolBuffer());
+            internalCommit(fsync, new BolBuffer(), new BolBuffer()); // grr
         }
 
         synchronized (compactLock) {
@@ -637,8 +639,9 @@ public class LAB implements ValueIndex {
             + '}';
     }
 
-    private boolean rawToReal(int index, byte[] key, GetRaw getRaw, ValueStream valueStream, boolean hydrateValues) throws Exception {
+    private boolean rawToReal(int index, byte[] key, GetRaw getRaw, BolBuffer entryBuffer, ValueStream valueStream, boolean hydrateValues) throws Exception {
         return getRaw.get(key,
+            entryBuffer,
             (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 return rawhide.streamRawEntry(index, readKeyFormatTransformer, readValueFormatTransformer, rawEntry, valueStream, hydrateValues);
             }

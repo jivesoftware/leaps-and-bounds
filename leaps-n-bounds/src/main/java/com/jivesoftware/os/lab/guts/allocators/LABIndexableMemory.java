@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 
@@ -14,10 +14,10 @@ public class LABIndexableMemory {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final String name;
-    private final LABMemoryAllocator memoryAllocator;
+    private final LABAppendOnlyAllocator memoryAllocator;
 
     public LABIndexableMemory(String name,
-        LABMemoryAllocator memoryAllocator) {
+        LABAppendOnlyAllocator memoryAllocator) {
 
         this.name = name;
         this.memoryAllocator = memoryAllocator;

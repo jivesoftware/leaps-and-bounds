@@ -1,14 +1,11 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
-import com.jivesoftware.os.lab.StripingBolBufferLocks;
-import com.jivesoftware.os.lab.api.FixedWidthRawhide;
 import com.jivesoftware.os.lab.api.FormatTransformer;
-import com.jivesoftware.os.lab.guts.IndexUtil;
+import com.jivesoftware.os.lab.api.rawhide.FixedWidthRawhide;
+import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
-import java.nio.ByteBuffer;
 import org.testng.annotations.Test;
 
 /**
@@ -40,9 +37,9 @@ public class LABConcurrentSkipListMapNGTest {
         System.out.println("first:" + UIO.bytesLong(map.firstKey()));
         System.out.println("last:" + UIO.bytesLong(map.lastKey()));
 
-        Scanner scanner = map.scanner(null, null);
-        while (scanner.next((FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, ByteBuffer rawEntry) -> {
-            System.out.println("Keys:" + UIO.bytesLong(IndexUtil.toByteArray(rawEntry)));
+        Scanner scanner = map.scanner(null, null, new BolBuffer());
+        while (scanner.next((FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, BolBuffer rawEntry) -> {
+            System.out.println("Keys:" + UIO.bytesLong(rawEntry.copy()));
             return true;
         }) == Scanner.Next.more) {
         }

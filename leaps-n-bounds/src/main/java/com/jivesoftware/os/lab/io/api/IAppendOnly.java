@@ -1,12 +1,13 @@
 package com.jivesoftware.os.lab.io.api;
 
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.io.IOException;
 
 /**
  *
  * @author jonathan.colt
  */
-public interface IAppendOnly extends ICloseable, IFilePointer {
+public interface IAppendOnly {
 
     void appendByte(byte b) throws IOException;
 
@@ -18,6 +19,14 @@ public interface IAppendOnly extends ICloseable, IFilePointer {
 
     void append(byte b[], int _offset, int _len) throws IOException;
 
+    void append(BolBuffer bolBuffer) throws IOException;
+
     void flush(boolean fsync) throws IOException;
+
+    void close() throws IOException;
+
+    long length() throws IOException;
+
+    long getFilePointer() throws IOException;
 
 }

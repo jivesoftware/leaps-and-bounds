@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 
 /**
  *

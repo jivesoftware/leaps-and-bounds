@@ -1,15 +1,12 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.FormatTransformer;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.Scanner.Next;
-import com.jivesoftware.os.lab.io.api.IReadable;
-import java.nio.ByteBuffer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
@@ -20,32 +17,17 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     private final Semaphore hideABone;
     private final Rawhide rawhide;
-    private final FormatTransformer readKeyFormatTransormer;
-    private final FormatTransformer readValueFormatTransormer;
-    private final Leaps leaps;
-    private final long cacheKey;
-    private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final Footer footer;
-    private final Callable<IReadable> readable;
+    private final Callable<ActiveScan> activeScan;
 
     public ReadLeapsAndBoundsIndex(Semaphore hideABone,
         Rawhide rawhide,
-        FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        Leaps leaps,
-        long cacheKey,
-        LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         Footer footer,
-        Callable<IReadable> readable) {
+        Callable<ActiveScan> activeScan) {
         this.hideABone = hideABone;
         this.rawhide = rawhide;
-        this.readKeyFormatTransormer = readKeyFormatTransormer;
-        this.readValueFormatTransormer = readValueFormatTransormer;
-        this.leaps = leaps;
-        this.cacheKey = cacheKey;
-        this.leapsCache = leapsCache;
         this.footer = footer;
-        this.readable = readable;
+        this.activeScan = activeScan;
     }
 
     @Override
@@ -60,17 +42,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public GetRaw get() throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide,
-            readKeyFormatTransormer,
-            readValueFormatTransormer,
-            leaps,
-            cacheKey,
-            leapsCache,
-            footer,
-            readable.call(),
-            new byte[16]);
-        // TODO re-eval if we need to do the readabe.call() and the ActiveScan initialization
-        return new Gets(activeScan);
+        return new Gets(activeScan.call());
     }
 
     private static final Scanner eos = new Scanner() {
@@ -85,32 +57,29 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     };
 
     @Override
-    public Scanner rangeScan(byte[] from, byte[] to) throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide,
-            readKeyFormatTransormer,
-            readValueFormatTransormer,
-            leaps,
-            cacheKey,
-            leapsCache,
-            footer,
-            readable.call(),
-            new byte[16]);
-        activeScan.reset();
-        long fp = activeScan.getInclusiveStartOfRow(from, false);
+    public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
+
+        BolBuffer bbFrom = from == null ? null : new BolBuffer(from);
+        BolBuffer bbTo = to == null ? null : new BolBuffer(to);
+
+        ActiveScan scan = activeScan.call();
+        long fp = scan.getInclusiveStartOfRow(from, entryBuffer, false);
         if (fp < 0) {
             return eos;
         }
         return new Scanner() {
             @Override
             public Next next(RawEntryStream stream) throws Exception {
+                BolBuffer entryBuffer = new BolBuffer();
                 boolean[] once = new boolean[]{false};
                 boolean more = true;
                 while (!once[0] && more) {
-                    more = activeScan.next(fp,
+                    more = scan.next(fp,
+                        entryBuffer,
                         (readKeyFormatTransormer, readValueFormatTransormer, rawEntry) -> {
-                            int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(from));
+                            int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, bbFrom);
                             if (c >= 0) {
-                                c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, ByteBuffer.wrap(to));
+                                c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, bbTo);
                                 if (c < 0) {
                                     once[0] = true;
                                 }
@@ -120,7 +89,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
                             }
                         });
                 }
-                more = activeScan.result();
+                more = scan.result();
                 return more ? Next.more : Next.stopped;
             }
 
@@ -132,23 +101,13 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     }
 
     @Override
-    public Scanner rowScan() throws Exception {
-        ActiveScan activeScan = new ActiveScan(rawhide,
-            readKeyFormatTransormer,
-            readValueFormatTransormer,
-            leaps,
-            cacheKey,
-            leapsCache,
-            footer,
-            readable.call(),
-            new byte[16]);
-        activeScan.reset();
-
+    public Scanner rowScan(BolBuffer entryBuffer) throws Exception {
+        ActiveScan scan = activeScan.call();
         return new Scanner() {
             @Override
             public Next next(RawEntryStream stream) throws Exception {
-                activeScan.next(0, stream);
-                boolean more = activeScan.result();
+                scan.next(0, entryBuffer, stream);
+                boolean more = scan.result();
                 return more ? Next.more : Next.stopped;
             }
 

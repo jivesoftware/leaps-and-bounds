@@ -1,10 +1,11 @@
-package com.jivesoftware.os.lab.api;
+package com.jivesoftware.os.lab.api.rawhide;
 
-import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.ValueStream;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IReadable;
-import java.nio.ByteBuffer;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.util.Comparator;
 
 /**
@@ -22,17 +23,17 @@ public interface Rawhide {
         FormatTransformer mergedReadKeyFormatTransormer,
         FormatTransformer mergedReadValueFormatTransormer);
 
-     int mergeCompare(FormatTransformer aReadKeyFormatTransormer,
+    int mergeCompare(FormatTransformer aReadKeyFormatTransormer,
         FormatTransformer aReadValueFormatTransormer,
-        ByteBuffer aRawEntry,
+        BolBuffer aRawEntry,
         FormatTransformer bReadKeyFormatTransormer,
         FormatTransformer bReadValueFormatTransormer,
-        ByteBuffer bRawEntry);
+        BolBuffer bRawEntry);
 
     boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry,
+        BolBuffer rawEntry,
         ValueStream stream,
         boolean hydrateValues) throws Exception;
 
@@ -43,7 +44,7 @@ public interface Rawhide {
         byte[] value,
         BolBuffer rawEntryBuffer) throws Exception;
 
-    int rawEntryLength(IReadable readable) throws Exception;
+    int rawEntryToBuffer(IPointerReadable readable, long offset, BolBuffer entryBuffer) throws Exception;
 
     void writeRawEntry(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
@@ -57,27 +58,21 @@ public interface Rawhide {
         BolBuffer rawEntry,
         BolBuffer keyBuffer) throws Exception;
 
-    ByteBuffer key(FormatTransformer readKeyFormatTransormer,
+    BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry) throws Exception;
+        BolBuffer rawEntry) throws Exception;
 
     int compareKey(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry,
-        ByteBuffer compareKey);
-
-    int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        IReadable readable,
-        ByteBuffer compareKey)
-        throws Exception;
+        BolBuffer rawEntry,
+        BolBuffer compareKey);
 
     int compareKey(FormatTransformer aReadKeyFormatTransormer,
         FormatTransformer aReadValueFormatTransormer,
-        ByteBuffer aRawEntry,
+        BolBuffer aRawEntry,
         FormatTransformer bReadKeyFormatTransormer,
         FormatTransformer bReadValueFormatTransormer,
-        ByteBuffer bRawEntry);
+        BolBuffer bRawEntry);
 
     long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
@@ -87,14 +82,14 @@ public interface Rawhide {
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntry);
 
-    default int compareKeys(ByteBuffer aKey, ByteBuffer bKey) {
+    default int compareKeys(BolBuffer aKey, BolBuffer bKey) {
         return IndexUtil.compare(aKey, bKey);
     }
 
-    final Comparator<ByteBuffer> byteBufferKeyComparator = IndexUtil::compare;
+    final Comparator<BolBuffer> bolBufferKeyComparator = IndexUtil::compare;
 
-    default Comparator<ByteBuffer> getByteBufferKeyComparator() {
-        return byteBufferKeyComparator;
+    default Comparator<BolBuffer> getBolBufferKeyComparator() {
+        return bolBufferKeyComparator;
     }
 
     final Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
@@ -122,4 +117,5 @@ public interface Rawhide {
     default int compareBB(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {
         return IndexUtil.compare(left, leftOffset, leftLength, right, rightOffset, rightLength);
     }
+
 }

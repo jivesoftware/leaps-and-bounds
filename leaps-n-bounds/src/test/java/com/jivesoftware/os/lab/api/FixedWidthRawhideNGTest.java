@@ -1,7 +1,8 @@
 package com.jivesoftware.os.lab.api;
 
+import com.jivesoftware.os.lab.api.rawhide.FixedWidthRawhide;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
 import org.testng.Assert;
@@ -38,18 +39,18 @@ public class FixedWidthRawhideNGTest {
     @Test
     public void compareKeyTest() {
         FixedWidthRawhide rawhide = new FixedWidthRawhide(8, 8);
-        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(1)), ByteBuffer.wrap(UIO
+        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(1)), new BolBuffer(UIO
             .longBytes(1))), 0);
-        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(0)), ByteBuffer.wrap(UIO
+        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(0)), new BolBuffer(UIO
             .longBytes(1))), -1);
-        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(1)), ByteBuffer.wrap(UIO
+        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(1)), new BolBuffer(UIO
             .longBytes(0))), 1);
 
         Long[] sort = new Long[]{new Long(9), new Long(5), new Long(6), new Long(3), new Long(4), new Long(5), new Long(1), new Long(2), new Long(9)};
         Arrays.sort(sort, new Comparator<Long>() {
             @Override
             public int compare(Long o1, Long o2) {
-                return rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(o1)), ByteBuffer.wrap(UIO
+                return rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(o1)), new BolBuffer(UIO
                     .longBytes(o2)));
             }
         });
@@ -63,19 +64,19 @@ public class FixedWidthRawhideNGTest {
     @Test
     public void compareKey2Test() {
         FixedWidthRawhide rawhide = new FixedWidthRawhide(8, 8);
-        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(1)),
-            FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(1))), 0);
-        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(0)),
-            FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(1))), -1);
-        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(1)),
-            FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(0))), 1);
+        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(1)),
+            FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(1))), 0);
+        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(0)),
+            FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(1))), -1);
+        Assert.assertEquals(rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(1)),
+            FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(0))), 1);
 
         Long[] sort = new Long[]{new Long(9), new Long(5), new Long(6), new Long(3), new Long(4), new Long(5), new Long(1), new Long(2), new Long(9)};
         Arrays.sort(sort, new Comparator<Long>() {
             @Override
             public int compare(Long o1, Long o2) {
-                return rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(o1)),
-                    FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(UIO.longBytes(o2)));
+                return rawhide.compareKey(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(o1)),
+                    FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(UIO.longBytes(o2)));
             }
         });
 

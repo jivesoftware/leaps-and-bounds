@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jivesoftware.os.lab;
+package com.jivesoftware.os.lab.guts;
+
+import com.jivesoftware.os.lab.io.BolBuffer;
 
 /**
  *

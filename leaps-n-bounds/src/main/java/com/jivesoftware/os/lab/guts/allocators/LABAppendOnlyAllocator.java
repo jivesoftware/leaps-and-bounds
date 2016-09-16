@@ -1,14 +1,14 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.io.api.UIO;
 
 /**
  *
  * @author jonathan.colt
  */
-public class LABAppendOnlyAllocator implements LABMemoryAllocator {
+public class LABAppendOnlyAllocator {
 
     private volatile byte[][] memory = null;
     private final int powerSize;
@@ -21,7 +21,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         this.powerMask = (1 << powerSize) - 1;
     }
 
-    @Override
     public long sizeInBytes() {
         byte[][] stackCopy = memory;
         if (stackCopy == null) {
@@ -34,7 +33,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         return size;
     }
 
-    @Override
     public boolean acquireBytes(long address, BolBuffer bolBuffer) {
         int index = (int) (address >>> powerSize);
         byte[] stackCopy = memory[index];
@@ -46,7 +44,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         return true;
     }
 
-    @Override
     public byte[] bytes(long address) {
         if (address == -1) {
             return null;
@@ -77,7 +74,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         return allocate(bytes, 0, bytes.length, costInBytes);
     }
 
-    @Override
     public long allocate(byte[] bytes, int offset, int length, LABCostChangeInBytes costInBytes) throws Exception {
         if (bytes == null) {
             return -1;
@@ -142,11 +138,9 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         }
     }
 
-    @Override
     public void release(long address) throws InterruptedException {
     }
 
-    @Override
     public int compare(Rawhide rawhide, long leftAddress, long rightAddress
     ) {
 
@@ -181,7 +175,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         }
     }
 
-    @Override
     public int compare(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength
     ) {
         if (leftAddress == -1) {
@@ -196,7 +189,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         }
     }
 
-    @Override
     public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, long rightAddress
     ) {
         if (rightAddress == -1) {
@@ -212,7 +204,6 @@ public class LABAppendOnlyAllocator implements LABMemoryAllocator {
         }
     }
 
-    @Override
     public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, byte[] rightBytes, int rightOffset, int rightLength
     ) {
         return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);

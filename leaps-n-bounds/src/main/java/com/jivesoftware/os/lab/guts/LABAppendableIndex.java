@@ -1,14 +1,13 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.io.AppendableHeap;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 
 /**
@@ -21,7 +20,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     public static final byte FOOTER = 2;
 
     private final IndexRangeId indexRangeId;
-    private final IndexFile index;
+    private final AppendOnlyFile index;
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
     private final Rawhide rawhide;
@@ -46,7 +45,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private volatile IAppendOnly appendOnly;
 
     public LABAppendableIndex(IndexRangeId indexRangeId,
-        IndexFile index,
+        AppendOnlyFile index,
         int maxLeaps,
         int updatesBetweenLeaps,
         Rawhide rawhide,
@@ -76,10 +75,11 @@ public class LABAppendableIndex implements RawAppendableIndex {
             //entryBuffer.reset();
             long fp = appendOnly.getFilePointer();
             startOfEntryIndex[updatesSinceLeap] = fp + appendableHeap.length();
-            UIO.writeByte(appendableHeap, ENTRY, "type");
+            appendableHeap.appendByte(ENTRY);
 
             rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer,
                 writeKeyFormatTransormer, writeValueFormatTransormer, appendableHeap);
+            
 
             BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, keyBuffer);
             int keyLength = key.length;
@@ -145,7 +145,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 leapCount++;
             }
 
-            UIO.writeByte(appendableHeap, FOOTER, "type");
+            appendableHeap.appendByte(FOOTER);
             Footer footer = new Footer(leapCount,
                 count,
                 keysSizeInBytes,
@@ -197,7 +197,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         long[] startOfEntryIndex) throws Exception {
 
         Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
-        UIO.writeByte(appendableHeap, LEAP, "type");
+        appendableHeap.appendByte(LEAP);
         long startOfLeapFp = appendableHeap.getFilePointer() + writeIndex.getFilePointer();
         nextLeaps.write(writeKeyFormatTransormer, appendableHeap);
         return new LeapFrog(startOfLeapFp, nextLeaps);

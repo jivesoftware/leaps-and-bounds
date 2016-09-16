@@ -1,7 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.BolBuffer;
-import java.nio.ByteBuffer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import java.nio.LongBuffer;
 
 /**
@@ -19,21 +18,21 @@ class LeapFrog {
 
     static public Leaps computeNextLeaps(int index, BolBuffer lastKey, LeapFrog latest, int maxLeaps, long[] startOfEntryIndex) {
         long[] fpIndex;
-        ByteBuffer[] keys;
+        BolBuffer[] keys;
         if (latest == null) {
             fpIndex = new long[0];
-            keys = new ByteBuffer[0];
+            keys = new BolBuffer[0];
         } else if (latest.leaps.fps.length < maxLeaps) {
             int numLeaps = latest.leaps.fps.length + 1;
             fpIndex = new long[numLeaps];
-            keys = new ByteBuffer[numLeaps];
+            keys = new BolBuffer[numLeaps];
             System.arraycopy(latest.leaps.fps, 0, fpIndex, 0, latest.leaps.fps.length);
             System.arraycopy(latest.leaps.keys, 0, keys, 0, latest.leaps.keys.length);
             fpIndex[numLeaps - 1] = latest.fp;
             keys[numLeaps - 1] = latest.leaps.lastKey;
         } else {
             fpIndex = new long[0];
-            keys = new ByteBuffer[maxLeaps];
+            keys = new BolBuffer[maxLeaps];
 
             long[] idealFpIndex = new long[maxLeaps];
             // b^n = fp
@@ -65,7 +64,9 @@ class LeapFrog {
                 }
             }
         }
-        return new Leaps(index, ByteBuffer.wrap(lastKey.copy()), fpIndex, keys, readable1 -> LongBuffer.wrap(startOfEntryIndex));
+        return new Leaps(index, new BolBuffer(lastKey.copy()), fpIndex, keys, readable1 -> {
+            return LongBuffer.wrap(startOfEntryIndex);
+        });
     }
 
     static private double euclidean(long[] a, long[] b) {

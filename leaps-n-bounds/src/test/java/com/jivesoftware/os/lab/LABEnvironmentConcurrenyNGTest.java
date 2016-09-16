@@ -7,7 +7,10 @@ import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.Leaps;
+import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.ArrayList;
@@ -123,7 +126,7 @@ public class LABEnvironmentConcurrenyNGTest {
                                 return true;
                             }, fsync, rawEntryBuffer, keyBuffer);
                             index.commit(fsync, true);
-                            System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt());
+                            System.out.println((c + 1) + " out of " + commitCount + " gets:" + hits.get() + " debt:" + index.debt() + ".");
                         }
                         return null;
                     } catch (Exception x) {

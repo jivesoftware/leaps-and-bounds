@@ -1,9 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
-import com.jivesoftware.os.lab.api.Rawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.LABIndex.Compute;
 import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
@@ -13,6 +12,7 @@ import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.util.concurrent.ExecutorService;
@@ -96,12 +96,12 @@ public class LABMemoryIndex implements RawAppendableIndex {
                     private boolean result;
 
                     @Override
-                    public boolean get(byte[] key, RawEntryStream stream) throws Exception {
-                        BolBuffer rawEntry = index.get(new BolBuffer(key), new BolBuffer()); // Grrr
+                    public boolean get(byte[] key, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
+                        BolBuffer rawEntry = index.get(new BolBuffer(key), entryBuffer);
                         if (rawEntry == null) {
                             return false;
                         } else {
-                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry.asByteBuffer());
+                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry);
                             return true;
                         }
                     }
@@ -114,13 +114,13 @@ public class LABMemoryIndex implements RawAppendableIndex {
             }
 
             @Override
-            public Scanner rangeScan(byte[] from, byte[] to) throws Exception {
-                return index.scanner(from, to);
+            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
+                return index.scanner(from, to, entryBuffer);
             }
 
             @Override
-            public Scanner rowScan() throws Exception {
-                return index.scanner(null, null);
+            public Scanner rowScan(BolBuffer entryBuffer) throws Exception {
+                return index.scanner(null, null, entryBuffer);
             }
 
             @Override

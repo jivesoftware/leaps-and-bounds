@@ -1,10 +1,11 @@
-package com.jivesoftware.os.lab.api;
+package com.jivesoftware.os.lab.api.rawhide;
 
-import com.jivesoftware.os.lab.BolBuffer;
+import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.IndexUtil;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IReadable;
-import java.nio.ByteBuffer;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
 
 /**
  *
@@ -33,8 +34,8 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public int mergeCompare(FormatTransformer aReadKeyFormatTransormer, FormatTransformer aReadValueFormatTransormer, ByteBuffer aRawEntry,
-        FormatTransformer bReadKeyFormatTransormer, FormatTransformer bReadValueFormatTransormer, ByteBuffer bRawEntry) {
+    public int mergeCompare(FormatTransformer aReadKeyFormatTransormer, FormatTransformer aReadValueFormatTransormer, BolBuffer aRawEntry,
+        FormatTransformer bReadKeyFormatTransormer, FormatTransformer bReadValueFormatTransormer, BolBuffer bRawEntry) {
 
         return compareKey(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry);
 
@@ -44,21 +45,17 @@ public class FixedWidthRawhide implements Rawhide {
     public boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry,
+        BolBuffer rawEntry,
         ValueStream stream,
         boolean hydrateValues) throws Exception {
         if (rawEntry == null) {
             return stream.stream(index, null, -1, false, -1, null);
         }
 
-        rawEntry.clear();
-        rawEntry.limit(keyLength);
-        ByteBuffer key = rawEntry.slice();
-        ByteBuffer payload = null;
+        BolBuffer key = rawEntry.slice(0, keyLength);
+        BolBuffer payload = null;
         if (hydrateValues) {
-            rawEntry.position(keyLength);
-            rawEntry.limit(keyLength + payloadLength);
-            payload = rawEntry.slice();
+            payload = rawEntry.slice(keyLength, keyLength + payloadLength);
         }
         return stream.stream(index, key, 0, false, 0, payload);
     }
@@ -76,7 +73,8 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public int rawEntryLength(IReadable readable) throws Exception {
+    public int rawEntryToBuffer(IPointerReadable readable, long offset, BolBuffer entryBuffer) throws Exception {
+        readable.sliceIntoBuffer(offset, keyLength + payloadLength, entryBuffer);
         return keyLength + payloadLength;
     }
 
@@ -87,7 +85,7 @@ public class FixedWidthRawhide implements Rawhide {
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
         IAppendOnly appendOnly) throws Exception {
-        appendOnly.append(rawEntryBuffer.bytes, rawEntryBuffer.offset, rawEntryBuffer.length);
+        appendOnly.append(rawEntryBuffer);
     }
 
     @Override
@@ -100,47 +98,34 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public ByteBuffer key(FormatTransformer readKeyFormatTransormer,
+    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry) {
-        rawEntry.clear();
-        rawEntry.limit(keyLength);
-        return rawEntry.slice();
+        BolBuffer rawEntry) {
+        return rawEntry.slice(0, keyLength);
     }
 
     @Override
     public int compareKey(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
-        ByteBuffer rawEntry,
-        ByteBuffer compareKey) {
-        rawEntry.clear();
-        rawEntry.limit(keyLength);
-        return IndexUtil.compare(rawEntry.slice(), compareKey);
-    }
-
-    @Override
-    public int compareKeyFromEntry(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        IReadable readable,
-        ByteBuffer compareKey) throws Exception {
-
-        return IndexUtil.compare(readable, keyLength, compareKey);
+        BolBuffer rawEntry,
+        BolBuffer compareKey) {
+        return IndexUtil.compare(rawEntry.slice(0, keyLength), compareKey);
     }
 
     @Override
     public int compareKey(FormatTransformer aReadKeyFormatTransormer,
         FormatTransformer aReadValueFormatTransormer,
-        ByteBuffer aRawEntry,
+        BolBuffer aRawEntry,
         FormatTransformer bReadKeyFormatTransormer,
         FormatTransformer bReadValueFormatTransormer,
-        ByteBuffer bRawEntry) {
+        BolBuffer bRawEntry) {
 
         if (aRawEntry == null && bRawEntry == null) {
             return 0;
         } else if (aRawEntry == null) {
-            return -bRawEntry.capacity();
+            return -bRawEntry.length;
         } else if (bRawEntry == null) {
-            return aRawEntry.capacity();
+            return aRawEntry.length;
         } else {
             return IndexUtil.compare(
                 key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry),
@@ -168,4 +153,5 @@ public class FixedWidthRawhide implements Rawhide {
     public boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
         return (timestamp != -1 && timestampVersion != -1);
     }
+
 }

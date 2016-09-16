@@ -1,9 +1,9 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.BolBuffer;
 
 /**
  *
@@ -31,7 +31,7 @@ public interface LABIndex {
 
     boolean contains(byte[] from, byte[] to) throws Exception;
 
-    Scanner scanner(byte[] from, byte[] to) throws Exception;
+    Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception;
 
     void clear() throws Exception;
 

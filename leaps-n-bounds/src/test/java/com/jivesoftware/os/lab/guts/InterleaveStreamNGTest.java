@@ -1,13 +1,13 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.BolBuffer;
-import com.jivesoftware.os.lab.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LabHeapPressure;
-import com.jivesoftware.os.lab.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
@@ -15,8 +15,8 @@ import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.Scanner.Next;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +39,7 @@ public class InterleaveStreamNGTest {
 
         InterleaveStream ips = new InterleaveStream(new ReadIndex[]{
             sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3})
-        }, null, null, new SimpleRawhide());
+        }, null, null, LABRawhide.SINGLETON);
 
         List<Expected> expected = new ArrayList<>();
         expected.add(new Expected(1, 3));
@@ -59,7 +59,7 @@ public class InterleaveStreamNGTest {
             sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3}),
             sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{2, 2, 2, 2, 2}),
             sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{1, 1, 1, 1, 1})
-        }, null, null, new SimpleRawhide());
+        }, null, null, LABRawhide.SINGLETON);
 
         List<Expected> expected = new ArrayList<>();
         expected.add(new Expected(1, 3));
@@ -79,7 +79,7 @@ public class InterleaveStreamNGTest {
             sequenceIndex(new long[]{10, 21, 29, 41, 50}, new long[]{1, 0, 0, 0, 1}),
             sequenceIndex(new long[]{10, 21, 29, 40, 50}, new long[]{0, 0, 0, 1, 0}),
             sequenceIndex(new long[]{10, 20, 30, 39, 50}, new long[]{0, 1, 1, 0, 0})
-        }, null, null, new SimpleRawhide());
+        }, null, null, LABRawhide.SINGLETON);
 
         List<Expected> expected = new ArrayList<>();
         expected.add(new Expected(10, 1));
@@ -110,12 +110,12 @@ public class InterleaveStreamNGTest {
             }
 
             @Override
-            public Scanner rangeScan(byte[] from, byte[] to) throws Exception {
+            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
                 throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
             }
 
             @Override
-            public Scanner rowScan() throws Exception {
+            public Scanner rowScan(BolBuffer entryBuffer) throws Exception {
                 return nextEntrySequence(keys, values);
             }
 
@@ -145,7 +145,7 @@ public class InterleaveStreamNGTest {
 
         Random rand = new Random(123);
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        SimpleRawhide rawhide = new SimpleRawhide();
+        Rawhide rawhide = LABRawhide.SINGLETON;
 
         ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
@@ -173,9 +173,9 @@ public class InterleaveStreamNGTest {
                 System.out.println("Index " + i);
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
-                Scanner nextRawEntry = readerIndexs[wi].rowScan();
+                Scanner nextRawEntry = readerIndexs[wi].rowScan(new BolBuffer());
                 while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                    System.out.println(SimpleRawhide.toString(rawEntry));
+                    System.out.println(TestUtils.toString(rawEntry));
                     return true;
                 }) == Scanner.Next.more) {
                 }
@@ -190,7 +190,7 @@ public class InterleaveStreamNGTest {
             System.out.println("Expected:");
             for (Map.Entry<byte[], byte[]> entry : desired.entrySet()) {
                 long key = UIO.bytesLong(entry.getKey());
-                long value = SimpleRawhide.value(entry.getValue());
+                long value = TestUtils.value(entry.getValue());
                 expected.add(new Expected(key, value));
                 System.out.println(key + " timestamp:" + value);
             }
@@ -207,18 +207,24 @@ public class InterleaveStreamNGTest {
     }
 
     private void assertExpected(InterleaveStream ips, List<Expected> expected) throws Exception {
+        boolean[] passed = {true};
         while (ips.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
             Expected expect = expected.remove(0);
-            long key = SimpleRawhide.key(rawEntry);
-            long value = SimpleRawhide.value(rawEntry);
+            long key = TestUtils.key(rawEntry);
+            long value = TestUtils.value(rawEntry);
 
             System.out.println("key:" + key + " vs " + expect.key + " value:" + value + " vs " + expect.value);
-            Assert.assertEquals(key, expect.key, "unexpected key ");
-            Assert.assertEquals(value, expect.value, key + " unexpected value ");
+            if (key != expect.key) {
+                passed[0] = false;
+            }
+            if (value != expect.value) {
+                passed[0] = false;
+            }
             return true;
         }) == Scanner.Next.more) {
         }
-        Assert.assertTrue(expected.isEmpty());
+        Assert.assertTrue(passed[0], "key or value miss match");
+        Assert.assertTrue(expected.isEmpty(), "failed to remove all");
     }
 
 
@@ -249,8 +255,8 @@ public class InterleaveStreamNGTest {
             @Override
             public Next next(RawEntryStream stream) throws Exception {
                 if (index[0] < keys.length) {
-                    byte[] rawEntry = SimpleRawhide.rawEntry(keys[index[0]], values[index[0]]);
-                    if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, ByteBuffer.wrap(rawEntry))) {
+                    byte[] rawEntry = TestUtils.rawEntry(keys[index[0]], values[index[0]]);
+                    if (!stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(rawEntry))) {
                         return Next.stopped;
                     }
                 }

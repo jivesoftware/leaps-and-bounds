@@ -1,4 +1,4 @@
-package com.jivesoftware.os.lab.api;
+package com.jivesoftware.os.lab.api.exceptions;
 
 /**
  *
@@ -7,6 +7,7 @@ package com.jivesoftware.os.lab.api;
 public class LABFailedToInitializeWALException extends Exception {
 
     public LABFailedToInitializeWALException(String string, Exception x) {
+        super(string, x);
     }
 
 }

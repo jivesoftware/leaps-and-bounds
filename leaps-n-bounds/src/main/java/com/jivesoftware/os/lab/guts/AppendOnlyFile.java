@@ -1,10 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.LABIndexClosedException;
-import com.jivesoftware.os.lab.io.ByteBufferBackedReadable;
+import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.ICloseable;
-import com.jivesoftware.os.lab.io.api.IReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.DataOutputStream;
@@ -19,33 +17,22 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * @author jonathan.colt
  */
-public class IndexFile implements ICloseable {
+public class AppendOnlyFile {
 
     private final static MetricLogger LOG = MetricLoggerFactory.getLogger();
 
-    static private class MemMapLock {
-    }
-
-    private static final long BUFFER_SEGMENT_SIZE = 1024L * 1024 * 1024;
-
     private final File file;
-    private final String mode;
     private RandomAccessFile randomAccessFile;
     private FileChannel channel;
     private final AtomicLong size;
 
-    private final ByteBufferBackedReadable memMapFiler;
-    private final AtomicLong memMapFilerLength = new AtomicLong(-1);
-
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public IndexFile(File file, String mode) throws IOException {
+    public AppendOnlyFile(File file) throws IOException {
         this.file = file;
-        this.mode = mode;
-        this.randomAccessFile = new RandomAccessFile(file, mode);
+        this.randomAccessFile = new RandomAccessFile(file, "rw");
         this.channel = randomAccessFile.getChannel();
         this.size = new AtomicLong(randomAccessFile.length());
-        this.memMapFiler = createMemMap();
     }
 
     public String getFileName() {
@@ -58,26 +45,6 @@ public class IndexFile implements ICloseable {
 
     public boolean isClosed() {
         return closed.get();
-    }
-
-    public IReadable reader(IReadable current, long requiredLength) throws Exception {
-        if (closed.get()) {
-            throw new LABIndexClosedException("Cannot get a reader from an index that is already closed.");
-        }
-
-        if (current != null && current.length() >= requiredLength) {
-            return current;
-        }
-
-        long memMapSize = memMapFilerLength.get();
-        if (requiredLength > memMapSize) {
-            synchronized (memMapFiler) {
-                long length = size.get();
-                memMapFiler.seek(length);
-                memMapFilerLength.set(length);
-            }
-        }
-        return memMapFiler.duplicateAll();
     }
 
     public void flush(boolean fsync) throws IOException {
@@ -123,8 +90,15 @@ public class IndexFile implements ICloseable {
             }
 
             @Override
+            public void append(BolBuffer bolBuffer) throws IOException {
+                byte[] copy = bolBuffer.copy();
+                append(copy, 0, copy.length);
+            }
+
+            @Override
             public void flush(boolean fsync) throws IOException {
-                IndexFile.this.flush(fsync);
+                writer.flush();
+                AppendOnlyFile.this.flush(fsync);
             }
 
             @Override
@@ -134,7 +108,7 @@ public class IndexFile implements ICloseable {
 
             @Override
             public long length() throws IOException {
-                return IndexFile.this.length();
+                return AppendOnlyFile.this.length();
             }
 
             @Override
@@ -145,10 +119,6 @@ public class IndexFile implements ICloseable {
         };
     }
 
-    private ByteBufferBackedReadable createMemMap() throws IOException {
-        return new ByteBufferBackedReadable(-1L, BUFFER_SEGMENT_SIZE, file);
-    }
-
     @Override
     public String toString() {
         return "IndexFile{"
@@ -157,14 +127,10 @@ public class IndexFile implements ICloseable {
             + '}';
     }
 
-    @Override
     public void close() throws IOException {
         synchronized (closed) {
             if (closed.compareAndSet(false, true)) {
                 randomAccessFile.close();
-                if (memMapFiler != null) {
-                    memMapFiler.close();
-                }
             }
         }
     }
@@ -188,7 +154,7 @@ public class IndexFile implements ICloseable {
                     } catch (IOException e) {
                         LOG.error("Failed to close existing random access file while reacquiring channel");
                     }
-                    randomAccessFile = new RandomAccessFile(file, mode);
+                    randomAccessFile = new RandomAccessFile(file, "rw");
                     channel = randomAccessFile.getChannel();
                 }
             }

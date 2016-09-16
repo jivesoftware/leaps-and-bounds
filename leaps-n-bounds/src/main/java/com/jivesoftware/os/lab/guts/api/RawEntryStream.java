@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.api;
 
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
-import java.nio.ByteBuffer;
 
 /**
  *
@@ -9,5 +9,5 @@ import java.nio.ByteBuffer;
  */
 public interface RawEntryStream {
 
-    boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, ByteBuffer rawEntry) throws Exception;
+    boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, BolBuffer rawEntry) throws Exception;
 }

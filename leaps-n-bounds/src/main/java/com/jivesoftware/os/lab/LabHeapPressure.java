@@ -1,8 +1,9 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.USort;
 import com.google.common.base.Preconditions;
-import com.jivesoftware.os.lab.api.LABIndexClosedException;
-import com.jivesoftware.os.lab.api.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABIndexCorruptedException;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;

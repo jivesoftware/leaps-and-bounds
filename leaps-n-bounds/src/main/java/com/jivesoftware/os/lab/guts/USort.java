@@ -1,64 +1,14 @@
-package com.jivesoftware.os.lab;
+package com.jivesoftware.os.lab.guts;
 
 /**
  *
  */
 public class USort {
 
-
-    /*
-    These sorters mirror the manipulation of the sorted array onto a secondary array
-     */
-
-    /**
-     * @param _sort
-     * @param _keys
-     */
-    public static void mirrorSort(double[] _sort, double[] _keys) {
-        sortDD(_sort, _keys, 0, _sort.length);
-    }
-
-    /**
-     * @param _sort
-     * @param _keys
-     */
-    public static void mirrorSort(long[] _sort, long[] _keys) {
-        sortLL(_sort, _keys, 0, _sort.length);
-    }
-
-    /**
-     * @param _sort
-     * @param _keys
-     */
-    public static void mirrorSort(long[] _sort, double[] _keys) {
-        sortLD(_sort, _keys, 0, _sort.length);
-    }
-
-    /**
-     * @param _sort
-     * @param _keys
-     */
-    public static void mirrorSort(double[] _sort, long[] _keys) {
-        sortDL(_sort, _keys, 0, _sort.length);
-    }
-
-    /**
-     * @param _sort
-     * @param _keys
-     */
-    public static void mirrorSort(double[] _sort, Object[] _keys) {
-        sortDO(_sort, _keys, 0, _sort.length);
-    }
-
-    /**
-     * @param _sort
-     * @param _keys
-     */
     public static void mirrorSort(long[] _sort, Object[] _keys) {
         sortLO(_sort, _keys, 0, _sort.length);
     }
 
-    //  PRIVATE STATIC HELPERS FROM THIS POINT ON
     private static void sortLO(long[] x, Object[] keys, int off, int len) {
         // Insertion sort on smallest arrays
         if (len < 7) {
@@ -231,7 +181,6 @@ public class USort {
         }
     }
 
-
     private static void sortDD(double[] x, double[] keys, int off, int len) {
         // Insertion sort on smallest arrays
         if (len < 7) {
@@ -318,7 +267,6 @@ public class USort {
         }
     }
 
-
     private static void sortLL(long[] x, long[] keys, int off, int len) {
         // Insertion sort on smallest arrays
         if (len < 7) {
@@ -404,7 +352,6 @@ public class USort {
             swapLL(x, keys, a, b);
         }
     }
-
 
     private static void sortLD(long[] x, double[] keys, int off, int len) {
         // Insertion sort on smallest arrays
@@ -498,7 +445,6 @@ public class USort {
     private static int med3L(long x[], int a, int b, int c) {
         return (x[a] < x[b] ? (x[b] < x[c] ? b : x[a] < x[c] ? c : a) : (x[b] > x[c] ? b : x[a] > x[c] ? c : a));
     }
-
 
     private static void sortDL(double[] x, long[] keys, int off, int len) {
         // Insertion sort on smallest arrays

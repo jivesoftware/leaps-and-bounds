@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.api;
 
-import java.nio.ByteBuffer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 
 /**
  *
@@ -8,5 +8,5 @@ import java.nio.ByteBuffer;
  */
 public interface ValueStream {
 
-    boolean stream(int index, ByteBuffer key, long timestamp, boolean tombstoned, long version, ByteBuffer payload) throws Exception;
+    boolean stream(int index, BolBuffer key, long timestamp, boolean tombstoned, long version, BolBuffer payload) throws Exception;
 }

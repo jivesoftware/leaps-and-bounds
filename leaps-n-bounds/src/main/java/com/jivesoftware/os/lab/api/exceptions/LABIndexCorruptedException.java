@@ -1,4 +1,4 @@
-package com.jivesoftware.os.lab.api;
+package com.jivesoftware.os.lab.api.exceptions;
 
 /**
  *
