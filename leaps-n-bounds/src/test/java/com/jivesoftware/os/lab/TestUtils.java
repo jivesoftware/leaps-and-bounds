@@ -148,7 +148,7 @@ public class TestUtils {
                     return true;
                 };
 
-                while (getRaw.get(UIO.longBytes(k, new byte[8], 0), new BolBuffer(), stream)) {
+                while (getRaw.get(UIO.longBytes(k, new byte[8], 0), new BolBuffer(), new BolBuffer(), stream)) {
                 }
             }
             System.out.println("gets PASSED");

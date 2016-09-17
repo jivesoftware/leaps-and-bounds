@@ -12,14 +12,10 @@ public interface ReadIndex {
 
     GetRaw get() throws Exception;
 
-    Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception;
+    Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception;
 
-    Scanner rowScan(BolBuffer entryBuffer) throws Exception;
-
-    void close() throws Exception;
+    Scanner rowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception;
 
     long count() throws Exception;
-
-    boolean isEmpty() throws Exception;
 
 }

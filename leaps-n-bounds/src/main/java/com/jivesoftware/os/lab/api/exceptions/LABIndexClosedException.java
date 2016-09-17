@@ -12,8 +12,4 @@ public class LABIndexClosedException extends Exception {
     public LABIndexClosedException(String message) {
         super(message);
     }
-
-    public LABIndexClosedException(String message, Throwable cause) {
-        super(message, cause);
-    }
 }

@@ -356,7 +356,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
                         r = indexRight(q);         // reread r
                         continue;
                     }
-                    if (memory.compare(key.bytes, key.offset, key.length, k) > 0) {
+                    if (memory.compareBL(key.bytes, key.offset, key.length, k) > 0) {
                         q = r;
                         r = indexRight(r);
                         continue;
@@ -440,7 +440,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
                 {
                     break;
                 }
-                if ((c = memory.compare(key.bytes, key.offset, key.length, nodeKey(n))) == 0) {
+                if ((c = memory.compareBL(key.bytes, key.offset, key.length, nodeKey(n))) == 0) {
                     return n;
                 }
                 if (c < 0) {
@@ -488,7 +488,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
                 {
                     break;
                 }
-                if ((c = memory.compare(key.bytes, key.offset, key.length, nodeKey(n))) == 0) {
+                if ((c = memory.compareBL(key.bytes, key.offset, key.length, nodeKey(n))) == 0) {
                     return v;
                 }
                 if (c < 0) {
@@ -609,7 +609,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
                 {
                     break;
                 }
-                int c = memory.compare(key.bytes, key.offset, key.length, nodeKey(n));
+                int c = memory.compareBL(key.bytes, key.offset, key.length, nodeKey(n));
                 if ((c == 0 && (rel & EQ) != 0)
                     || (c < 0 && (rel & LT) == 0)) {
                     return n;
@@ -771,7 +771,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
                     {
                         break;
                     }
-                    if ((c = memory.compare(keyBytes.bytes, keyBytes.offset, keyBytes.length, nodeKey(n))) > 0) {
+                    if ((c = memory.compareBL(keyBytes.bytes, keyBytes.offset, keyBytes.length, nodeKey(n))) > 0) {
                         b = n;
                         n = f;
                         continue;
@@ -885,7 +885,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
                     if (r != NIL) {
                         int n = indexNode(r);
                         // compare before deletion check avoids needing recheck
-                        int c = memory.compare(keyBytes.bytes, keyBytes.offset, keyBytes.length, nodeKey(n));
+                        int c = memory.compareBL(keyBytes.bytes, keyBytes.offset, keyBytes.length, nodeKey(n));
                         if (nodeValue(n) == NIL) {
                             if (!unlink(q, r)) {
                                 break;
@@ -1092,7 +1092,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
             byte[] toKey, boolean toInclusive) throws Exception {
 
             if (fromKey != null && toKey != null) {
-                if (map.memory.compare(fromKey, 0, fromKey.length, toKey, 0, toKey.length) > 0) {
+                if (map.memory.compareBB(fromKey, 0, fromKey.length, toKey, 0, toKey.length) > 0) {
                     throw new IllegalArgumentException("inconsistent range");
                 }
             }
@@ -1197,7 +1197,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
             int c;
 
             if (lo != null) {
-                return ((c = m.memory.compare(key, lo.bytes, lo.offset, lo.length)) < 0 || (c == 0 && !loInclusive));
+                return ((c = m.memory.compareLB(key, lo.bytes, lo.offset, lo.length)) < 0 || (c == 0 && !loInclusive));
 
             } else {
                 return false;
@@ -1208,7 +1208,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
         boolean tooHigh(long key) {
             int c;
             if (hi != null) {
-                return ((c = m.memory.compare(key, hi.bytes, hi.offset, hi.length)) > 0 || (c == 0 && !hiInclusive));
+                return ((c = m.memory.compareLB(key, hi.bytes, hi.offset, hi.length)) > 0 || (c == 0 && !hiInclusive));
             } else {
                 return false;
             }
@@ -1223,7 +1223,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
             int c;
 
             if (lo != null) {
-                return ((c = m.memory.compare(key.bytes, key.offset, key.length, lo.bytes, lo.offset, lo.length)) < 0 || (c == 0 && !loInclusive));
+                return ((c = m.memory.compareBB(key.bytes, key.offset, key.length, lo.bytes, lo.offset, lo.length)) < 0 || (c == 0 && !loInclusive));
 
             } else {
                 return false;
@@ -1234,7 +1234,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
         boolean tooHigh(BolBuffer key) {
             int c;
             if (hi != null) {
-                return ((c = m.memory.compare(key.bytes, key.offset, key.length, hi.bytes, hi.offset, hi.length)) > 0 || (c == 0 && !hiInclusive));
+                return ((c = m.memory.compareBB(key.bytes, key.offset, key.length, hi.bytes, hi.offset, hi.length)) > 0 || (c == 0 && !hiInclusive));
             } else {
                 return false;
             }
@@ -1260,7 +1260,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
             {
                 return true;
             }
-            int c = m.memory.compare(k, hi.bytes, hi.offset, hi.length);
+            int c = m.memory.compareLB(k, hi.bytes, hi.offset, hi.length);
             if (c > 0 || (c == 0 && !hiInclusive)) {
                 return false;
             }
@@ -1352,7 +1352,7 @@ public class LABConcurrentSkipListMap implements LABIndex {
     }
 
     @Override
-    public Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
+    public Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
 
         EntryStream entryStream;
         growNodesArray.acquire();

@@ -287,6 +287,7 @@ public class CompactableIndexes {
                         LOG.warn("Trying to split a single key." + Arrays.toString(minKey));
                         return null;
                     } else {
+                        BolBuffer entryKeyBuffer = new BolBuffer();
                         byte[] middle = Lists.newArrayList(UIO.iterateOnSplits(minKey, maxKey, true, 1, rawhide.getKeyComparator())).get(1);
                         BolBuffer bbMiddle = new BolBuffer(middle);
                         LABAppendableIndex leftAppenableIndex = null;
@@ -298,17 +299,18 @@ public class CompactableIndexes {
                             InterleaveStream feedInterleaver = new InterleaveStream(readers, null, null, rawhide);
                             try {
                                 LOG.debug("Splitting with a middle of:{}", Arrays.toString(middle));
+                                
                                 leftAppenableIndex.append((leftStream) -> {
                                     return effectiveFinalRightAppenableIndex.append((rightStream) -> {
-                                        return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                                            int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
+                                        return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
+                                            int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entry, entryKeyBuffer,
                                                 bbMiddle);
 
                                             if (c < 0) {
-                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
+                                                if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, entry)) {
                                                     return false;
                                                 }
-                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
+                                            } else if (!rightStream.stream(readKeyFormatTransformer, readValueFormatTransformer, entry)) {
                                                 return false;
                                             }
                                             return true;
@@ -401,8 +403,12 @@ public class CompactableIndexes {
                                                 return effectivelyFinalCatchupRightAppenableIndex.append((rightStream) -> {
                                                     return catchupFeedInterleaver.stream(
                                                         (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                                                            if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry,
+                                                            if (rawhide.compareKey(readKeyFormatTransformer,
+                                                                readValueFormatTransformer,
+                                                                rawEntry,
+                                                                entryKeyBuffer,
                                                                 bbMiddle) < 0) {
+                                                                
                                                                 if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
                                                                     return false;
                                                                 }
@@ -740,7 +746,7 @@ public class CompactableIndexes {
 
     public boolean isEmpty() throws Exception {
         for (ReadOnlyIndex g : grab()) {
-            if (!g.isEmpty()) {
+            if (g.count() > 0) {
                 return false;
             }
         }

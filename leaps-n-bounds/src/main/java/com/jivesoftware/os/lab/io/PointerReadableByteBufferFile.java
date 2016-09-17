@@ -63,7 +63,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
     }
 
     private ByteBuffer allocate(int index, long length) throws IOException {
-        ensureDirectory(file.getParentFile());
         long segmentOffset = maxBufferSegmentSize * index;
         long requiredLength = segmentOffset + length;
         try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
@@ -74,16 +73,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             raf.seek(segmentOffset);
             try (FileChannel channel = raf.getChannel()) {
                 return channel.map(FileChannel.MapMode.READ_WRITE, segmentOffset, Math.min(maxBufferSegmentSize, channel.size() - segmentOffset));
-            }
-        }
-    }
-
-    private void ensureDirectory(File directory) throws IOException {
-        if (!directory.exists()) {
-            if (!directory.mkdirs()) {
-                if (!directory.exists()) {
-                    throw new IOException("Failed to create directory: " + directory);
-                }
             }
         }
     }

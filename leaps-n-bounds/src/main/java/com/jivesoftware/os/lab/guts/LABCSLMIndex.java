@@ -108,7 +108,7 @@ public class LABCSLMIndex implements LABIndex {
     }
 
     @Override
-    public Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer) {
+    public Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) {
         Iterator<Map.Entry<byte[], byte[]>> iterator = subMap(from != null ? from : null, to != null ? to : null)
             .entrySet()
             .iterator();

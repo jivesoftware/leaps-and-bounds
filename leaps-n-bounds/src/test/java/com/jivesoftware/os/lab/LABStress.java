@@ -1,17 +1,17 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.rawhide.FixedWidthRawhide;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.api.rawhide.FixedWidthRawhide;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
+import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -33,7 +33,7 @@ public class LABStress {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     @Test(enabled = true)
-    public void stressWrites() throws Exception {
+    public void stressWritesTest() throws Exception {
 
         File root = Files.createTempDir();
         ValueIndex index = createIndex(root);
@@ -81,7 +81,7 @@ public class LABStress {
             index,
             totalCardinality,
             800_000, // writesPerSecond
-            50_000_000, //writeCount
+            1_000_000, //writeCount
             true, // writeMonotonicly
             0, //readForNSeconds
             0, // readCount
@@ -118,7 +118,7 @@ public class LABStress {
             0, //writeCount
             false, // writeMonotonicly
             10, //readForNSeconds
-            50_000_000, // readCount
+            1_000_000, // readCount
             false); // removes
 
         System.out.println("\n\n");
@@ -162,7 +162,7 @@ public class LABStress {
         System.out.println("Created env");
         ValueIndex index = env.open(new ValueIndexConfig("foo",
             4096, // entriesBetweenLeaps
-            1024 * 1024 * 512, // maxHeapPressureInBytes
+            1024 * 1024, // maxHeapPressureInBytes
             -1, // splitWhenKeysTotalExceedsNBytes
             -1, // splitWhenValuesTotalExceedsNBytes
             1024 * 1024 * 10, // splitWhenValuesAndKeysTotalExceedsNBytes

@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.io.IOException;
-import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -203,10 +202,6 @@ public class ReadOnlyIndex {
         }
     }
 
-    public boolean isEmpty() throws IOException {
-        return footer.count == 0;
-    }
-
     public long count() throws IOException {
         return footer.count;
     }
@@ -233,11 +228,6 @@ public class ReadOnlyIndex {
 
     public Footer footer() {
         return footer;
-    }
-
-    public boolean containsKeyInRange(byte[] from, byte[] to) {
-        Comparator<byte[]> keyComparator = rawhide.getKeyComparator();
-        return keyComparator.compare(footer.minKey, from) <= 0 && keyComparator.compare(footer.maxKey, to) >= 0;
     }
 
     @Override

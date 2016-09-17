@@ -8,7 +8,7 @@ import com.jivesoftware.os.lab.io.BolBuffer;
  */
 public interface GetRaw {
 
-    boolean get(byte[] key, BolBuffer entryBuffer, RawEntryStream stream) throws Exception;
+    boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception;
 
     boolean result();
 }

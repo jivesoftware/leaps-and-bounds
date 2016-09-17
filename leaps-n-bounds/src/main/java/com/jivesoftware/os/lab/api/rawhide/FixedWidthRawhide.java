@@ -2,7 +2,6 @@ package com.jivesoftware.os.lab.api.rawhide;
 
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
@@ -22,40 +21,22 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public BolBuffer merge(FormatTransformer currentReadKeyFormatTransormer,
-        FormatTransformer currentReadValueFormatTransormer,
-        BolBuffer currentRawEntry,
-        FormatTransformer addingReadKeyFormatTransormer,
-        FormatTransformer addingReadValueFormatTransormer,
-        BolBuffer addingRawEntry,
-        FormatTransformer mergedReadKeyFormatTransormer,
-        FormatTransformer mergedReadValueFormatTransormer) {
-        return addingRawEntry;
-    }
-
-    @Override
-    public int mergeCompare(FormatTransformer aReadKeyFormatTransormer, FormatTransformer aReadValueFormatTransormer, BolBuffer aRawEntry,
-        FormatTransformer bReadKeyFormatTransormer, FormatTransformer bReadValueFormatTransormer, BolBuffer bRawEntry) {
-
-        return compareKey(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry);
-
-    }
-
-    @Override
     public boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntry,
-        ValueStream stream,
-        boolean hydrateValues) throws Exception {
+        BolBuffer keyBuffer,
+        BolBuffer valueBuffer,
+        ValueStream stream) throws Exception {
+
         if (rawEntry == null) {
             return stream.stream(index, null, -1, false, -1, null);
         }
 
-        BolBuffer key = rawEntry.slice(0, keyLength);
+        BolBuffer key = rawEntry.sliceInto(0, keyLength, keyBuffer);
         BolBuffer payload = null;
-        if (hydrateValues) {
-            payload = rawEntry.slice(keyLength, keyLength + payloadLength);
+        if (valueBuffer != null) {
+            payload = rawEntry.sliceInto(keyLength, keyLength + payloadLength, valueBuffer);
         }
         return stream.stream(index, key, 0, false, 0, payload);
     }
@@ -97,42 +78,6 @@ public class FixedWidthRawhide implements Rawhide {
         return keyBuffer;
     }
 
-    @Override
-    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry) {
-        return rawEntry.slice(0, keyLength);
-    }
-
-    @Override
-    public int compareKey(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry,
-        BolBuffer compareKey) {
-        return IndexUtil.compare(rawEntry.slice(0, keyLength), compareKey);
-    }
-
-    @Override
-    public int compareKey(FormatTransformer aReadKeyFormatTransormer,
-        FormatTransformer aReadValueFormatTransormer,
-        BolBuffer aRawEntry,
-        FormatTransformer bReadKeyFormatTransormer,
-        FormatTransformer bReadValueFormatTransormer,
-        BolBuffer bRawEntry) {
-
-        if (aRawEntry == null && bRawEntry == null) {
-            return 0;
-        } else if (aRawEntry == null) {
-            return -bRawEntry.length;
-        } else if (bRawEntry == null) {
-            return aRawEntry.length;
-        } else {
-            return IndexUtil.compare(
-                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry),
-                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry)
-            );
-        }
-    }
 
     @Override
     public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {

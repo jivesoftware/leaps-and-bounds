@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 
 /**
@@ -19,18 +19,6 @@ public class LABAppendOnlyAllocator {
     public LABAppendOnlyAllocator(int powerSize) {
         this.powerSize = powerSize;
         this.powerMask = (1 << powerSize) - 1;
-    }
-
-    public long sizeInBytes() {
-        byte[][] stackCopy = memory;
-        if (stackCopy == null) {
-            return 0;
-        }
-        long size = 0;
-        for (byte[] bs : stackCopy) {
-            size += (bs != null) ? bs.length : 0;
-        }
-        return size;
     }
 
     public boolean acquireBytes(long address, BolBuffer bolBuffer) {
@@ -61,17 +49,6 @@ public class LABAppendOnlyAllocator {
             throw new IllegalStateException("Address:" + address + " length=" + length);
         }
 
-    }
-
-    public long allocate(BolBuffer bytes, LABCostChangeInBytes costInBytes) throws Exception {
-        if (bytes == null || bytes.length == -1) {
-            return -1;
-        }
-        return allocate(bytes.bytes, bytes.offset, bytes.length, costInBytes);
-    }
-
-    public long allocate(byte[] bytes, LABCostChangeInBytes costInBytes) throws Exception {
-        return allocate(bytes, 0, bytes.length, costInBytes);
     }
 
     public long allocate(byte[] bytes, int offset, int length, LABCostChangeInBytes costInBytes) throws Exception {
@@ -141,41 +118,7 @@ public class LABAppendOnlyAllocator {
     public void release(long address) throws InterruptedException {
     }
 
-    public int compare(Rawhide rawhide, long leftAddress, long rightAddress
-    ) {
-
-        if (leftAddress == -1 && rightAddress == -1) {
-            return rawhide.compareBB(null, -1, -1, null, -1, -1);
-        } else if (leftAddress == -1) {
-            int rightIndex = (int) (rightAddress >>> powerSize);
-            rightAddress &= powerMask;
-            byte[] rightCopy = memory[rightIndex];
-
-            int rightLength = UIO.bytesInt(rightCopy, (int) rightAddress);
-            return rawhide.compareBB(null, -1, -1, rightCopy, (int) rightAddress + 4, rightLength);
-        } else if (rightAddress == -1) {
-            int leftIndex = (int) (leftAddress >>> powerSize);
-            leftAddress &= powerMask;
-            byte[] leftCopy = memory[leftIndex];
-
-            int leftLength = UIO.bytesInt(leftCopy, (int) leftAddress);
-            return rawhide.compareBB(leftCopy, (int) leftAddress + 4, leftLength, null, -1, -1);
-        } else {
-            int leftIndex = (int) (leftAddress >>> powerSize);
-            leftAddress &= powerMask;
-            byte[] leftCopy = memory[leftIndex];
-
-            int rightIndex = (int) (rightAddress >>> powerSize);
-            rightAddress &= powerMask;
-            byte[] rightCopy = memory[rightIndex];
-
-            int leftLength = UIO.bytesInt(leftCopy, (int) leftAddress);
-            int rightLength = UIO.bytesInt(rightCopy, (int) rightAddress);
-            return rawhide.compareBB(leftCopy, (int) leftAddress + 4, leftLength, rightCopy, (int) rightAddress + 4, rightLength);
-        }
-    }
-
-    public int compare(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength
+    public int compareLB(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength
     ) {
         if (leftAddress == -1) {
             return rawhide.compareBB(null, -1, -1, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
@@ -189,7 +132,7 @@ public class LABAppendOnlyAllocator {
         }
     }
 
-    public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, long rightAddress
+    public int compareBL(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, long rightAddress
     ) {
         if (rightAddress == -1) {
             return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, null, -1, -1);
@@ -204,7 +147,7 @@ public class LABAppendOnlyAllocator {
         }
     }
 
-    public int compare(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, byte[] rightBytes, int rightOffset, int rightLength
+    public int compareBB(Rawhide rawhide, byte[] leftBytes, int leftOffset, int leftLength, byte[] rightBytes, int rightOffset, int rightLength
     ) {
         return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
     }

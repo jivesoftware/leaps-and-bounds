@@ -23,7 +23,6 @@ import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Iterator;
 
@@ -31,53 +30,11 @@ public class UIO {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
-    private UIO() {
-    }
-
-    public static void write(IAppendOnly _filer, byte[] bytes, String fieldName) throws IOException {
-        _filer.append(bytes, 0, bytes.length);
-    }
-
-    /**
-     *
-     * @param _filer
-     * @param v
-     * @param fieldName
-     * @throws IOException
-     */
-    public static void writeByte(IAppendOnly _filer, byte v, String fieldName) throws IOException {
-        _filer.appendByte(v);
-    }
-
-    /**
-     *
-     * @param _filer
-     * @param v
-     * @param fieldName
-     * @throws IOException
-     */
-    public static void writeInt(IAppendOnly _filer, int v, String fieldName) throws IOException {
-        _filer.appendInt(v);
-    }
-
-    /**
-     *
-     * @param _filer
-     * @param l
-     * @throws IOException
-     */
     private static void writeLength(IAppendOnly _filer, int l) throws IOException {
         _filer.appendInt(l);
     }
 
     public static void writeByteArray(IAppendOnly _filer, byte[] array, String fieldName) throws IOException {
-        writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName);
-    }
-
-    public static void writeByteArray(IAppendOnly _filer, ByteBuffer bytes, String fieldName) throws IOException {
-        bytes.clear();
-        byte[] array = new byte[bytes.capacity()];
-        bytes.get(array);
         writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName);
     }
 
@@ -94,19 +51,6 @@ public class UIO {
             return;
         }
         _filer.append(array, _start, len);
-    }
-
-    public static int readLength(byte[] array, int _offset) throws IOException {
-        return UIO.bytesInt(array, _offset);
-    }
-
-    private static final byte[] EMPTY = new byte[0];
-
-    public static boolean bytesBoolean(byte[] bytes, int _offset) {
-        if (bytes == null) {
-            return false;
-        }
-        return bytes[_offset] != 0;
     }
 
     public static byte[] intBytes(int v, byte[] _bytes, int _offset) {
@@ -155,12 +99,6 @@ public class UIO {
         return v;
     }
 
-    /**
-     *
-     * @param bytes
-     * @param _offset
-     * @return
-     */
     public static short bytesShort(byte[] bytes, int _offset) {
         short v = 0;
         v |= (bytes[_offset + 0] & 0xFF);
@@ -169,11 +107,6 @@ public class UIO {
         return v;
     }
 
-    /**
-     *
-     * @param _longs
-     * @return
-     */
     public static byte[] longsBytes(long[] _longs) {
         int len = _longs.length;
         byte[] bytes = new byte[len * 8];
@@ -183,22 +116,10 @@ public class UIO {
         return bytes;
     }
 
-    /**
-     *
-     * @param _v
-     * @return
-     */
     public static byte[] longBytes(long _v) {
         return longBytes(_v, new byte[8], 0);
     }
 
-    /**
-     *
-     * @param v
-     * @param _bytes
-     * @param _offset
-     * @return
-     */
     public static byte[] longBytes(long v, byte[] _bytes, int _offset) {
         _bytes[_offset + 0] = (byte) (v >>> 56);
         _bytes[_offset + 1] = (byte) (v >>> 48);
@@ -270,13 +191,6 @@ public class UIO {
         return 0;
     }
 
-    public static void readBytes(byte[] source, int offset, byte[] value) {
-        System.arraycopy(source, offset, value, 0, value.length);
-    }
-
-    private static void readFully(byte[] from, int offset, byte[] into, int length) throws IOException {
-        System.arraycopy(from, offset, into, 0, length);
-    }
 
     /**
      * Lex key range splittting Copied from HBase

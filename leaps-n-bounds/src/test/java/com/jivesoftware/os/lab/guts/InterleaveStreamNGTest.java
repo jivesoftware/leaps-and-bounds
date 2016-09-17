@@ -110,27 +110,17 @@ public class InterleaveStreamNGTest {
             }
 
             @Override
-            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
+            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
             }
 
             @Override
-            public Scanner rowScan(BolBuffer entryBuffer) throws Exception {
+            public Scanner rowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 return nextEntrySequence(keys, values);
             }
 
             @Override
-            public void close() throws Exception {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-            }
-
-            @Override
             public long count() throws Exception {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-            }
-
-            @Override
-            public boolean isEmpty() throws Exception {
                 throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
             }
         };
@@ -173,7 +163,7 @@ public class InterleaveStreamNGTest {
                 System.out.println("Index " + i);
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
-                Scanner nextRawEntry = readerIndexs[wi].rowScan(new BolBuffer());
+                Scanner nextRawEntry = readerIndexs[wi].rowScan(new BolBuffer(), new BolBuffer());
                 while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(TestUtils.toString(rawEntry));
                     return true;

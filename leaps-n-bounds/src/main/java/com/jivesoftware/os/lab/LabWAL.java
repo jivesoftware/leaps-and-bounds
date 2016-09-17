@@ -185,6 +185,8 @@ public class LabWAL {
                                 FormatTransformer readKey = formatTransformerProvider.read(rawEntryFormat.getKeyFormat());
                                 FormatTransformer readValue = formatTransformerProvider.read(rawEntryFormat.getValueFormat());
 
+                                BolBuffer kb = new BolBuffer();
+                                BolBuffer vb = new BolBuffer();
                                 appendToValueIndex.append((stream) -> {
 
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
@@ -194,7 +196,7 @@ public class LabWAL {
 
                                     for (byte[] entry : valueIndexVersionedEntries.get(appendVersion)) {
 
-                                        if (!rawhide.streamRawEntry(-1, readKey, readValue, new BolBuffer(entry), valueStream, true)) {
+                                        if (!rawhide.streamRawEntry(-1, readKey, readValue, new BolBuffer(entry), kb, vb, valueStream)) {
                                             return false;
                                         }
                                     }

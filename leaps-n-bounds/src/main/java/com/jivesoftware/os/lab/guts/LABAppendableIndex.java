@@ -20,7 +20,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     public static final byte FOOTER = 2;
 
     private final IndexRangeId indexRangeId;
-    private final AppendOnlyFile index;
+    private final AppendOnlyFile appendOnlyFile;
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
     private final Rawhide rawhide;
@@ -45,7 +45,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private volatile IAppendOnly appendOnly;
 
     public LABAppendableIndex(IndexRangeId indexRangeId,
-        AppendOnlyFile index,
+        AppendOnlyFile appendOnlyFile,
         int maxLeaps,
         int updatesBetweenLeaps,
         Rawhide rawhide,
@@ -54,7 +54,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         RawEntryFormat rawhideFormat) {
 
         this.indexRangeId = indexRangeId;
-        this.index = index;
+        this.appendOnlyFile = appendOnlyFile;
         this.maxLeaps = maxLeaps;
         this.updatesBetweenLeaps = updatesBetweenLeaps;
         this.rawhide = rawhide;
@@ -67,7 +67,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     @Override
     public boolean append(AppendEntries appendEntries, BolBuffer keyBuffer) throws Exception {
         if (appendOnly == null) {
-            appendOnly = index.appender();
+            appendOnly = appendOnlyFile.appender();
         }
         AppendableHeap appendableHeap = new AppendableHeap(1024);
         appendEntries.consume((readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer) -> {
@@ -134,7 +134,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
             }
 
             if (appendOnly == null) {
-                appendOnly = index.appender();
+                appendOnly = appendOnlyFile.appender();
             }
 
             AppendableHeap appendableHeap = new AppendableHeap(8192);
@@ -166,21 +166,21 @@ public class LABAppendableIndex implements RawAppendableIndex {
     }
 
     public void close() throws IOException {
-        index.close();
+        appendOnlyFile.close();
         if (appendOnly != null) {
             appendOnly.close();
         }
     }
 
     public void delete() {
-        index.delete();
+        appendOnlyFile.delete();
     }
 
     @Override
     public String toString() {
         return "LABAppendableIndex{"
             + "indexRangeId=" + indexRangeId
-            + ", index=" + index
+            + ", index=" + appendOnlyFile
             + ", maxLeaps=" + maxLeaps
             + ", updatesBetweenLeaps=" + updatesBetweenLeaps
             + ", updatesSinceLeap=" + updatesSinceLeap

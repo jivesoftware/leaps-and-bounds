@@ -96,7 +96,7 @@ public class LABMemoryIndex implements RawAppendableIndex {
                     private boolean result;
 
                     @Override
-                    public boolean get(byte[] key, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
+                    public boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception {
                         BolBuffer rawEntry = index.get(new BolBuffer(key), entryBuffer);
                         if (rawEntry == null) {
                             return false;
@@ -114,27 +114,17 @@ public class LABMemoryIndex implements RawAppendableIndex {
             }
 
             @Override
-            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
-                return index.scanner(from, to, entryBuffer);
+            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+                return index.scanner(from, to, entryBuffer, entryKeyBuffer);
             }
 
             @Override
-            public Scanner rowScan(BolBuffer entryBuffer) throws Exception {
-                return index.scanner(null, null, entryBuffer);
-            }
-
-            @Override
-            public void close() {
-                throw new UnsupportedOperationException("NOPE");
+            public Scanner rowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+                return index.scanner(null, null, entryBuffer, entryKeyBuffer);
             }
 
             @Override
             public long count() {
-                throw new UnsupportedOperationException("NOPE");
-            }
-
-            @Override
-            public boolean isEmpty() {
                 throw new UnsupportedOperationException("NOPE");
             }
 

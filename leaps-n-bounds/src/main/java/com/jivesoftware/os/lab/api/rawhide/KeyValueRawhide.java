@@ -3,11 +3,9 @@ package com.jivesoftware.os.lab.api.rawhide;
 import com.jivesoftware.os.lab.LABUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
-import com.jivesoftware.os.lab.io.api.UIO;
 
 /**
  *
@@ -23,43 +21,24 @@ public class KeyValueRawhide implements Rawhide {
     }
 
     @Override
-    public BolBuffer merge(FormatTransformer currentReadKeyFormatTransormer,
-        FormatTransformer currentReadValueFormatTransormer,
-        BolBuffer currentRawEntry,
-        FormatTransformer addingReadKeyFormatTransormer,
-        FormatTransformer addingReadValueFormatTransormer,
-        BolBuffer addingRawEntry,
-        FormatTransformer mergedReadKeyFormatTransormer,
-        FormatTransformer mergedReadValueFormatTransormer) {
-        return addingRawEntry;
-    }
-
-    @Override
-    public int mergeCompare(FormatTransformer aReadKeyFormatTransormer, FormatTransformer aReadValueFormatTransormer, BolBuffer aRawEntry,
-        FormatTransformer bReadKeyFormatTransormer, FormatTransformer bReadValueFormatTransormer, BolBuffer bRawEntry) {
-
-        return compareKey(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry);
-
-    }
-
-    @Override
     public boolean streamRawEntry(int index,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntry,
-        ValueStream stream,
-        boolean hydrateValues) throws Exception {
+        BolBuffer keyBuffer,
+        BolBuffer valueBuffer,
+        ValueStream stream) throws Exception {
+
         if (rawEntry == null) {
             return stream.stream(index, null, -1, false, -1, null);
         }
         int keyLength = rawEntry.getInt(0);
-        BolBuffer key = rawEntry.slice(4, keyLength);
-
+        BolBuffer key = rawEntry.sliceInto(4, keyLength, keyBuffer);
         BolBuffer payload = null;
-        if (hydrateValues) {
+        if (valueBuffer != null) {
             int payloadLength = rawEntry.getInt(4 + keyLength);
             if (payloadLength >= 0) {
-                payload = rawEntry.slice(4 + keyLength + 4, payloadLength);
+                payload = rawEntry.sliceInto(4 + keyLength + 4, payloadLength, valueBuffer);
             }
         }
         return stream.stream(index, key, 0, false, 0, payload);
@@ -88,7 +67,8 @@ public class KeyValueRawhide implements Rawhide {
         FormatTransformer writeKeyFormatTransormer,
         FormatTransformer writeValueFormatTransormer,
         IAppendOnly appendOnly) throws Exception {
-        UIO.writeByteArray(appendOnly, rawEntryBuffer.bytes, rawEntryBuffer.offset, rawEntryBuffer.length, "entry");
+        appendOnly.appendInt(rawEntryBuffer.length);
+        appendOnly.append(rawEntryBuffer);
     }
 
     @Override
@@ -99,46 +79,7 @@ public class KeyValueRawhide implements Rawhide {
         rawEntry.sliceInto(4, rawEntry.getInt(0), keyBuffer);
         return keyBuffer;
     }
-
-    @Override
-    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry
-    ) {
-        int keyLength = rawEntry.getInt(0);
-        return rawEntry.slice(4, keyLength);
-    }
-
-    @Override
-    public int compareKey(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry,
-        BolBuffer compareKey
-    ) {
-        return IndexUtil.compare(key(readKeyFormatTransormer, readValueFormatTransormer, rawEntry), compareKey);
-    }
-
-    @Override
-    public int compareKey(FormatTransformer aReadKeyFormatTransormer,
-        FormatTransformer aReadValueFormatTransormer,
-        BolBuffer aRawEntry,
-        FormatTransformer bReadKeyFormatTransormer,
-        FormatTransformer bReadValueFormatTransormer,
-        BolBuffer bRawEntry) {
-
-        if (aRawEntry == null && bRawEntry == null) {
-            return 0;
-        } else if (aRawEntry == null) {
-            return -bRawEntry.length;
-        } else if (bRawEntry == null) {
-            return aRawEntry.length;
-        } else {
-            return IndexUtil.compare(
-                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry),
-                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry)
-            );
-        }
-    }
+    
 
     @Override
     public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {

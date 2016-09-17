@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -23,28 +22,17 @@ public class AppendOnlyFile {
 
     private final File file;
     private RandomAccessFile randomAccessFile;
-    private FileChannel channel;
     private final AtomicLong size;
-
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public AppendOnlyFile(File file) throws IOException {
         this.file = file;
         this.randomAccessFile = new RandomAccessFile(file, "rw");
-        this.channel = randomAccessFile.getChannel();
         this.size = new AtomicLong(randomAccessFile.length());
-    }
-
-    public String getFileName() {
-        return file.toString();
     }
 
     public void delete() {
         file.delete();
-    }
-
-    public boolean isClosed() {
-        return closed.get();
     }
 
     public void flush(boolean fsync) throws IOException {
@@ -119,14 +107,6 @@ public class AppendOnlyFile {
         };
     }
 
-    @Override
-    public String toString() {
-        return "IndexFile{"
-            + "fileName=" + file
-            + ", size=" + size
-            + '}';
-    }
-
     public void close() throws IOException {
         synchronized (closed) {
             if (closed.compareAndSet(false, true)) {
@@ -139,30 +119,12 @@ public class AppendOnlyFile {
         return size.get();
     }
 
-    private void ensureOpen() throws IOException {
-        if (closed.get()) {
-            throw new IOException("Cannot ensureOpen on an index that is already closed.");
-        }
-        if (!channel.isOpen()) {
-            synchronized (closed) {
-                if (closed.get()) {
-                    throw new IOException("Cannot ensureOpen on an index that is already closed.");
-                }
-                if (!channel.isOpen()) {
-                    try {
-                        randomAccessFile.close();
-                    } catch (IOException e) {
-                        LOG.error("Failed to close existing random access file while reacquiring channel");
-                    }
-                    randomAccessFile = new RandomAccessFile(file, "rw");
-                    channel = randomAccessFile.getChannel();
-                }
-            }
-        }
+    @Override
+    public String toString() {
+        return "IndexFile{"
+            + "fileName=" + file
+            + ", size=" + size
+            + '}';
     }
 
-    FileChannel getFileChannel() throws IOException {
-        ensureOpen();
-        return channel;
-    }
 }

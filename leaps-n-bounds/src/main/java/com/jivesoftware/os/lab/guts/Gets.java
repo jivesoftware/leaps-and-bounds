@@ -20,8 +20,8 @@ public class Gets implements GetRaw, RawEntryStream {
     }
 
     @Override
-    public boolean get(byte[] key, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
-        long activeFp = activeScan.getInclusiveStartOfRow(key, entryBuffer, true);
+    public boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception {
+        long activeFp = activeScan.getInclusiveStartOfRow(key, entryBuffer, entryKeyBuffer, true);
         if (activeFp < 0) {
             return false;
         }

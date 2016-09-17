@@ -88,7 +88,7 @@ public class CompactableIndexsNGTest {
                 for (ReadIndex raw : readIndexs) {
                     //System.out.println("\tIndex:" + raw);
                     GetRaw getRaw = raw.get();
-                    getRaw.get(k, new BolBuffer(),
+                    getRaw.get(k, new BolBuffer(), new BolBuffer(),
                         (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                             //System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry.copy(), 4));
                             if (UIO.bytesLong(rawEntry.copy(), 4) == g) {
@@ -207,12 +207,11 @@ public class CompactableIndexsNGTest {
             TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
             write.closeAppendable(fsync);
 
-
             ReadOnlyFile readOnlyFile = new ReadOnlyFile(file);
             LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
             ReadOnlyIndex readOnlyIndex = new ReadOnlyIndex(destroy, indexRangeId, readOnlyFile, NoOpFormatTransformerProvider.NO_OP, rawhide, leapsCache);
             ReadIndex readIndex = readOnlyIndex.acquireReader();
-            Scanner scanner = readIndex.rowScan(new BolBuffer());
+            Scanner scanner = readIndex.rowScan(new BolBuffer(), new BolBuffer());
             RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 System.out.println(" Dump:" + TestUtils.toString(rawEntry));
                 return true;
@@ -226,7 +225,7 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs, hydrateValues) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
-                Scanner rowScan = readIndex.rowScan(new BolBuffer());
+                Scanner rowScan = readIndex.rowScan(new BolBuffer(), new BolBuffer());
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(" Found:" + TestUtils.toString(rawEntry));
                     return true;
@@ -265,7 +264,7 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, readIndexs, hydrateValues) -> {
             for (ReadIndex readIndex : readIndexs) {
                 System.out.println("---------------------");
-                Scanner rowScan = readIndex.rowScan(new BolBuffer());
+                Scanner rowScan = readIndex.rowScan(new BolBuffer(), new BolBuffer());
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(" Found:" + TestUtils.toString(rawEntry));
                     return true;
@@ -340,7 +339,7 @@ public class CompactableIndexsNGTest {
                     }
                     return rawEntry != null;
                 };
-                getRaw.get(key, new BolBuffer(), stream);
+                getRaw.get(key, new BolBuffer(), new BolBuffer(), stream);
             }
             System.out.println("gets PASSED");
             return true;

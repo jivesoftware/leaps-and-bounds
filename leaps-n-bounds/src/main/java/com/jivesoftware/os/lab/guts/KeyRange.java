@@ -52,15 +52,4 @@ public class KeyRange implements Comparable<KeyRange> {
     private byte[] max(byte[] a, byte[] b) {
         return keyComparator.compare(a, b) > 0 ? a : b;
     }
-
-    @Override
-    public int hashCode() {
-        throw new IllegalAccessError("nope");
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        throw new IllegalAccessError("nope");
-    }
-
 }

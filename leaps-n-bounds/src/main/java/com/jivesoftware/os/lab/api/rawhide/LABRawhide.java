@@ -52,16 +52,20 @@ public class LABRawhide implements Rawhide {
     public int mergeCompare(FormatTransformer aReadKeyFormatTransormer,
         FormatTransformer aReadValueFormatTransormer,
         BolBuffer aRawEntry,
+        BolBuffer aKeyBuffer,
         FormatTransformer bReadKeyFormatTransormer,
         FormatTransformer bReadValueFormatTransormer,
-        BolBuffer bRawEntry) {
+        BolBuffer bRawEntry,
+        BolBuffer bKeyBuffer) throws Exception {
 
         int c = compareKey(aReadKeyFormatTransormer,
             aReadValueFormatTransormer,
             aRawEntry,
+            aKeyBuffer,
             bReadKeyFormatTransormer,
             bReadValueFormatTransormer,
-            bRawEntry);
+            bRawEntry,
+            bKeyBuffer);
         if (c != 0) {
             return c;
         }
@@ -113,27 +117,28 @@ public class LABRawhide implements Rawhide {
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntry,
-        ValueStream valueStream,
-        boolean hydrateValues) throws Exception {
+        BolBuffer keyBuffer,
+        BolBuffer valueBuffer,
+        ValueStream stream) throws Exception {
 
         if (rawEntry == null) {
-            return valueStream.stream(index, null, -1, false, -1, null);
+            return stream.stream(index, null, -1, false, -1, null);
         }
         int keyLength = rawEntry.getInt(0);
-        BolBuffer key = rawEntry.slice(4, keyLength);
+        BolBuffer key = rawEntry.sliceInto(4, keyLength, keyBuffer);
 
         long timestamp = rawEntry.getLong(4 + keyLength);
         boolean tombstone = rawEntry.get(4 + keyLength + 8) != 0;
         long version = rawEntry.getLong(4 + keyLength + 8 + 1);
 
         BolBuffer payload = null;
-        if (hydrateValues) {
+        if (valueBuffer != null) {
             int payloadLength = rawEntry.getInt(4 + keyLength + 8 + 1 + 8);
             if (payloadLength >= 0) {
-                payload = rawEntry.slice(4 + keyLength + 8 + 1 + 8 + 4, payloadLength);
+                payload = rawEntry.sliceInto(4 + keyLength + 8 + 1 + 8 + 4, payloadLength,valueBuffer);
             }
         }
-        return valueStream.stream(index, readKeyFormatTransormer.transform(key), timestamp, tombstone, version, readValueFormatTransormer.transform(payload));
+        return stream.stream(index, readKeyFormatTransormer.transform(key), timestamp, tombstone, version, readValueFormatTransormer.transform(payload));
     }
 
     @Override
@@ -190,42 +195,13 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
-    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        BolBuffer rawEntry
-    ) {
-        return rawEntry.slice(4, rawEntry.getInt(0));
-    }
-
-    @Override
     public int compareKey(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntry,
+        BolBuffer keyBuffer,
         BolBuffer compareKey
     ) {
-        return IndexUtil.compare(key(readKeyFormatTransormer, readValueFormatTransormer, rawEntry), compareKey);
-    }
-
-    @Override
-    public int compareKey(FormatTransformer aReadKeyFormatTransormer,
-        FormatTransformer aReadValueFormatTransormer,
-        BolBuffer aRawEntry,
-        FormatTransformer bReadKeyFormatTransormer,
-        FormatTransformer bReadValueFormatTransormer,
-        BolBuffer bRawEntry) {
-
-        if (aRawEntry == null && bRawEntry == null) {
-            return 0;
-        } else if (aRawEntry == null) {
-            return -bRawEntry.length;
-        } else if (bRawEntry == null) {
-            return aRawEntry.length;
-        } else {
-            return IndexUtil.compare(
-                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry),
-                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry)
-            );
-        }
+        return IndexUtil.compare(key(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, keyBuffer), compareKey);
     }
 
     @Override

@@ -1,9 +1,9 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.USort;
 import com.google.common.base.Preconditions;
 import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.guts.USort;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -44,10 +44,6 @@ public class LabHeapPressure {
 
         Preconditions.checkArgument(maxHeapPressureInBytes <= blockOnHeapPressureInBytes,
             "maxHeapPressureInBytes must be less than or equal to blockOnHeapPressureInBytes");
-    }
-
-    public AtomicLong globalHeapCostInBytes() {
-        return globalHeapCostInBytes;
     }
 
     public void change(long delta) {

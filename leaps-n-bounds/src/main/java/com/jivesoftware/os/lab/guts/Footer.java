@@ -94,16 +94,21 @@ public class Footer {
 
         int minKeyLength = readable.readInt(offset);
         offset += 4;
-        byte[] minKey = new byte[minKeyLength];
-        readable.read(offset, minKey, 0, minKeyLength);
-        offset += minKeyLength;
+        byte[] minKey = null;
+        if (minKeyLength > -1) {
+            minKey = new byte[minKeyLength];
+            readable.read(offset, minKey, 0, minKeyLength);
+            offset += minKeyLength;
+        }
 
         int maxKeyLength = readable.readInt(offset);
         offset += 4;
-        byte[] maxKey = new byte[maxKeyLength];
-        readable.read(offset, maxKey, 0, maxKeyLength);
-        offset += maxKeyLength;
-
+        byte[] maxKey = null;
+        if (maxKeyLength > -1) {
+            maxKey = new byte[maxKeyLength];
+            readable.read(offset, maxKey, 0, maxKeyLength);
+            offset += maxKeyLength;
+        }
         long maxTimestamp = readable.readLong(offset);
         offset += 8;
         long maxTimestampVersion = readable.readLong(offset);

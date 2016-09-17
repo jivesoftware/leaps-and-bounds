@@ -45,23 +45,12 @@ public class BolBuffer {
 
     public BolBuffer(byte[] bytes) {
         this(bytes, 0, bytes == null ? -1 : bytes.length);
-        if (bytes == null) {
-            new RuntimeException().printStackTrace();
-            System.exit(1);
-        }
     }
 
     public BolBuffer(byte[] bytes, int offet, int length) {
         this.bytes = bytes;
         this.offset = offet;
         this.length = length;
-    }
-
-    public byte[] leakOrCopy() {
-        if (bb != null) {
-            return copy();
-        }
-        return (offset == 0 && bytes.length == length) ? bytes : copy();
     }
 
     public byte get(int offset) {
@@ -85,18 +74,15 @@ public class BolBuffer {
         return UIO.bytesLong(bytes, this.offset + offset);
     }
 
-    public BolBuffer slice(int offset, int length) {
-        if (bb != null) {
-            return new BolBuffer(bb, this.offset + offset, length);
+    public BolBuffer sliceInto(int offset, int length, BolBuffer bolBuffer) {
+        if (bolBuffer == null) {
+            return null;
         }
-        return new BolBuffer(bytes, this.offset + offset, length);
-    }
-
-    public void sliceInto(int offset, int length, BolBuffer bolBuffer) {
         bolBuffer.bb = bb;
         bolBuffer.bytes = bytes;
         bolBuffer.offset = this.offset + offset;
         bolBuffer.length = length;
+        return bolBuffer;
 
     }
 

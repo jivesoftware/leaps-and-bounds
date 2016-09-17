@@ -57,13 +57,13 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     };
 
     @Override
-    public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer) throws Exception {
+    public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
 
         BolBuffer bbFrom = from == null ? null : new BolBuffer(from);
         BolBuffer bbTo = to == null ? null : new BolBuffer(to);
 
         ActiveScan scan = activeScan.call();
-        long fp = scan.getInclusiveStartOfRow(from, entryBuffer, false);
+        long fp = scan.getInclusiveStartOfRow(from, entryBuffer, entryKeyBuffer, false);
         if (fp < 0) {
             return eos;
         }
@@ -77,9 +77,9 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
                     more = scan.next(fp,
                         entryBuffer,
                         (readKeyFormatTransormer, readValueFormatTransormer, rawEntry) -> {
-                            int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, bbFrom);
+                            int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, entryKeyBuffer, bbFrom);
                             if (c >= 0) {
-                                c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, bbTo);
+                                c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, entryKeyBuffer, bbTo);
                                 if (c < 0) {
                                     once[0] = true;
                                 }
@@ -101,7 +101,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     }
 
     @Override
-    public Scanner rowScan(BolBuffer entryBuffer) throws Exception {
+    public Scanner rowScan(BolBuffer entryBuffer,BolBuffer entryKeyBuffer) throws Exception {
         ActiveScan scan = activeScan.call();
         return new Scanner() {
             @Override
@@ -119,17 +119,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     }
 
     @Override
-    public void close() throws Exception {
-    }
-
-    @Override
     public long count() throws Exception {
         return footer.count;
     }
-
-    @Override
-    public boolean isEmpty() throws Exception {
-        return footer.count == 0;
-    }
-
 }

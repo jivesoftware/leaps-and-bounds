@@ -122,7 +122,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                     try {
 
                         UIO.longBytes(longKey, key, 0);
-                        getRaw.get(key,new BolBuffer(), hitsAndMisses);
+                        getRaw.get(key, new BolBuffer(), new BolBuffer(), hitsAndMisses);
 
                         if ((hits[0] + misses[0]) % logInterval == 0) {
                             return true;
@@ -160,6 +160,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
         ExecutorService compact = Executors.newCachedThreadPool();
         BolBuffer keyBuffer = new BolBuffer();
         BolBuffer entryBuffer = new BolBuffer();
+        BolBuffer entryKeyBuffer = new BolBuffer();
+
         for (int b = 0; b < numBatches; b++) {
             LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
                 new AtomicLong());
@@ -176,7 +178,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                     new StripingBolBufferLocks(1024)
                 ));
             long lastKey = TestUtils.append(rand, index, 0, maxKeyIncrement, batchSize, null, keyBuffer);
-            indexs.append("test", index, fsync, keyBuffer, entryBuffer);
+            indexs.append("test", index, fsync, keyBuffer, entryBuffer, entryKeyBuffer);
 
             int debt = indexs.debt();
             if (debt < minMergeDebt) {

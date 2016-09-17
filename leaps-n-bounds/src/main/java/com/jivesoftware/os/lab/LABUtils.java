@@ -14,19 +14,6 @@ public class LABUtils {
         return 4 + ((bytes == null) ? 0 : bytes.length);
     }
 
-    public static byte[] readByteArray(byte[] source, int offset) {
-        int o = offset;
-        byte[] bytes = null;
-        int bytesLength = UIO.bytesInt(source, o);
-        o += 4;
-        if (bytesLength > -1) {
-            bytes = new byte[bytesLength];
-            UIO.readBytes(source, o, bytes);
-            o += bytes.length;
-        }
-        return bytes;
-    }
-
     public static int writeByteArray(byte[] bytes, byte[] destination, int offset) {
         int o = offset;
         if (bytes != null) {

@@ -12,12 +12,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ReadOnlyFile {
 
-//    private final static MetricLogger LOG = MetricLoggerFactory.getLogger();
     private static final long BUFFER_SEGMENT_SIZE = 1024L * 1024 * 1024;
 
     private final File file;
     private final RandomAccessFile randomAccessFile;
-//    private FileChannel channel;
     private final long size;
 
     private volatile IPointerReadable pointerReadable;
@@ -26,7 +24,6 @@ public class ReadOnlyFile {
     public ReadOnlyFile(File file) throws IOException {
         this.file = file;
         this.randomAccessFile = new RandomAccessFile(file, "r");
-//        this.channel = randomAccessFile.getChannel();
         this.size = randomAccessFile.length();
     }
 
@@ -77,31 +74,4 @@ public class ReadOnlyFile {
     public long length() throws IOException {
         return size;
     }
-
-//    private void ensureOpen() throws IOException {
-//        if (closed.get()) {
-//            throw new IOException("Cannot ensureOpen on an index that is already closed.");
-//        }
-//        if (!channel.isOpen()) {
-//            synchronized (closed) {
-//                if (closed.get()) {
-//                    throw new IOException("Cannot ensureOpen on an index that is already closed.");
-//                }
-//                if (!channel.isOpen()) {
-//                    try {
-//                        randomAccessFile.close();
-//                    } catch (IOException e) {
-//                        LOG.error("Failed to close existing random access file while reacquiring channel");
-//                    }
-//                    randomAccessFile = new RandomAccessFile(file, "r");
-//                    channel = randomAccessFile.getChannel();
-//                }
-//            }
-//        }
-//    }
-//
-//    FileChannel getFileChannel() throws IOException {
-//        ensureOpen();
-//        return channel;
-//    }
 }

@@ -77,7 +77,7 @@ public class ActiveScan {
                 return false;
             } else if (type == LEAP) {
                 int length = readable.readInt(activeOffset); // entryLength
-                activeOffset += (length );
+                activeOffset += (length);
             } else {
                 throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
             }
@@ -95,12 +95,12 @@ public class ActiveScan {
         activeResult = false;
     }
 
-    public long getInclusiveStartOfRow(byte[] key, BolBuffer entryBuffer, boolean exact) throws Exception {
+    public long getInclusiveStartOfRow(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, boolean exact) throws Exception {
         Leaps l = leaps;
         long rowIndex = -1;
 
         BolBuffer bbKey = new BolBuffer(key);
-        
+
         if (rawhide.compareKeys(l.lastKey, bbKey) < 0) {
             return rowIndex;
         }
@@ -111,7 +111,15 @@ public class ActiveScan {
             Leaps next;
             int index = Arrays.binarySearch(l.keys, bbKey, byteBufferKeyComparator);
             if (index == -(l.fps.length + 1)) {
-                rowIndex = binarySearchClosestFP(rawhide, readKeyFormatTransormer, readValueFormatTransormer, readable, l, bbKey, entryBuffer, exact);
+                rowIndex = binarySearchClosestFP(rawhide,
+                    readKeyFormatTransormer,
+                    readValueFormatTransormer,
+                    readable,
+                    l,
+                    bbKey,
+                    entryBuffer,
+                    entryKeyBuffer,
+                    exact);
                 break;
             } else {
                 if (index < 0) {
@@ -150,6 +158,7 @@ public class ActiveScan {
         Leaps leaps,
         BolBuffer key,
         BolBuffer entryBuffer,
+        BolBuffer entryKeyBuffer,
         boolean exact) throws Exception {
 
         LongBuffer startOfEntryBuffer = leaps.startOfEntry.get(readable);
@@ -162,7 +171,7 @@ public class ActiveScan {
             long fp = startOfEntryBuffer.get(mid);
 
             rawhide.rawEntryToBuffer(readable, fp + 1, entryBuffer);
-            int cmp = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer, key);
+            int cmp = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer, entryKeyBuffer, key);
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {
@@ -180,9 +189,5 @@ public class ActiveScan {
                 throw x;
             }
         }
-    }
-
-    long count() {
-        return footer.count;
     }
 }

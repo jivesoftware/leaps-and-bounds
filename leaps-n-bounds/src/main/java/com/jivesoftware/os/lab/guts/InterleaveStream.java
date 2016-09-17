@@ -24,9 +24,9 @@ public class InterleaveStream implements Scanner {
         for (int i = 0; i < indexs.length; i++) {
             Scanner scanner;
             if (rowScan) {
-                scanner = indexs[i].rowScan(new BolBuffer());
+                scanner = indexs[i].rowScan(new BolBuffer(), new BolBuffer());
             } else {
-                scanner = indexs[i].rangeScan(from, to, new BolBuffer());
+                scanner = indexs[i].rangeScan(from, to, new BolBuffer(), new BolBuffer());
             }
             Feed feed = new Feed(i, scanner, rawhide);
             feed.feedNext();
@@ -106,13 +106,15 @@ public class InterleaveStream implements Scanner {
         }
     }
 
-    private int compare(Feed left, Feed right) {
+    private int compare(Feed left, Feed right) throws Exception {
         return rawhide.compareKey(left.nextReadKeyFormatTransformer,
             left.nextReadValueFormatTransformer,
             left.nextRawEntry,
+            left.entryKeyBuffer,
             right.nextReadKeyFormatTransformer,
             right.nextReadValueFormatTransformer,
-            right.nextRawEntry);
+            right.nextRawEntry,
+            right.entryKeyBuffer);
     }
 
     private static class Feed implements Comparable<Feed>, RawEntryStream {
@@ -120,6 +122,7 @@ public class InterleaveStream implements Scanner {
         private final int index;
         private final Scanner scanner;
         private final Rawhide rawhide;
+        private final BolBuffer entryKeyBuffer = new BolBuffer();
 
         private FormatTransformer nextReadKeyFormatTransformer;
         private FormatTransformer nextReadValueFormatTransformer;
@@ -149,18 +152,24 @@ public class InterleaveStream implements Scanner {
 
         @Override
         public int compareTo(Feed o) {
-            int c = rawhide.mergeCompare(nextReadKeyFormatTransformer,
-                nextReadValueFormatTransformer,
-                nextRawEntry,
-                o.nextReadKeyFormatTransformer,
-                o.nextReadValueFormatTransformer,
-                o.nextRawEntry);
+            try {
+                int c = rawhide.mergeCompare(nextReadKeyFormatTransformer,
+                    nextReadValueFormatTransformer,
+                    nextRawEntry,
+                    entryKeyBuffer,
+                    o.nextReadKeyFormatTransformer,
+                    o.nextReadValueFormatTransformer,
+                    o.nextRawEntry,
+                    o.entryKeyBuffer);
 
-            if (c != 0) {
+                if (c != 0) {
+                    return c;
+                }
+                c = Integer.compare(index, o.index);
                 return c;
+            } catch (Exception x) {
+                throw new RuntimeException(x);
             }
-            c = Integer.compare(index, o.index);
-            return c;
         }
 
         private void close() throws Exception {

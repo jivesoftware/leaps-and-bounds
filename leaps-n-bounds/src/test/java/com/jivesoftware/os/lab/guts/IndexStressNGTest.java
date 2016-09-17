@@ -45,8 +45,8 @@ public class IndexStressNGTest {
 
         boolean fsync = true;
         boolean concurrentReads = true;
-        int numBatches = 1000;
-        int batchSize = 10_000;
+        int numBatches = 100;
+        int batchSize = 1000;
         int maxKeyIncrement = 2000;
         int entriesBetweenLeaps = 1024;
         int minMergeDebt = 4;
@@ -136,7 +136,7 @@ public class IndexStressNGTest {
 
                         int longKey = rand.nextInt(maxKey.intValue());
                         UIO.longBytes(longKey, key, 0);
-                        getRaw.get(key, new BolBuffer(), hitsAndMisses);
+                        getRaw.get(key, new BolBuffer(), new BolBuffer(), hitsAndMisses);
 
                         if ((hits[0] + misses[0]) % logInterval == 0) {
                             return false;

@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 
@@ -23,16 +23,12 @@ public class LABIndexableMemory {
         this.memoryAllocator = memoryAllocator;
     }
 
-    long sizeInBytes() {
-        return memoryAllocator.sizeInBytes();
-    }
-
-    void acquireBytes(long chunkAddress, BolBuffer bolBuffer) throws Exception {
-        if (chunkAddress == -1) {
+    void acquireBytes(long address, BolBuffer bolBuffer) throws Exception {
+        if (address == -1) {
             bolBuffer.allocate(-1);
             return;
         }
-        memoryAllocator.acquireBytes(chunkAddress, bolBuffer);
+        memoryAllocator.acquireBytes(address, bolBuffer);
     }
 
     public byte[] bytes(long address) throws InterruptedException {
@@ -49,12 +45,6 @@ public class LABIndexableMemory {
         return memoryAllocator.allocate(bolBuffer.bytes, bolBuffer.offset, bolBuffer.length, costInBytes);
     }
 
-    public long allocate(byte[] bytes, LABCostChangeInBytes costInBytes) throws Exception {
-        if (bytes == null) {
-            throw new IllegalStateException();
-        }
-        return memoryAllocator.allocate(bytes, 0, bytes.length, costInBytes);
-    }
 
     public void release(long address) throws Exception {
         if (address == -1) {
@@ -63,20 +53,17 @@ public class LABIndexableMemory {
         memoryAllocator.release(address);
     }
 
-    public int compare(Rawhide rawhide, long left, long right) {
-        return memoryAllocator.compare(rawhide, left, right);
+
+    public int compareLB(Rawhide rawhide, long left, byte[] right, int rightOffset, int rightLength) {
+        return memoryAllocator.compareLB(rawhide, left, right, rightOffset, rightLength);
     }
 
-    public int compare(Rawhide rawhide, long left, byte[] right, int rightOffset, int rightLength) {
-        return memoryAllocator.compare(rawhide, left, right, rightOffset, rightLength);
+    public int compareBL(Rawhide rawhide, byte[] left, int leftOffset, int leftLength, long right) {
+        return memoryAllocator.compareBL(rawhide, left, leftOffset, leftLength, right);
     }
 
-    public int compare(Rawhide rawhide, byte[] left, int leftOffset, int leftLength, long right) {
-        return memoryAllocator.compare(rawhide, left, leftOffset, leftLength, right);
-    }
-
-    public int compare(Rawhide rawhide, byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {
-        return memoryAllocator.compare(rawhide, left, leftOffset, leftLength, right, rightOffset, rightLength);
+    public int compareBB(Rawhide rawhide, byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {
+        return memoryAllocator.compareBB(rawhide, left, leftOffset, leftLength, right, rightOffset, rightLength);
     }
 
 }
