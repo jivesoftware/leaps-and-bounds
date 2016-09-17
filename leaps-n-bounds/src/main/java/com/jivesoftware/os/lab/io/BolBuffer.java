@@ -143,20 +143,30 @@ public class BolBuffer {
     }
 
     public LongBuffer asLongBuffer() {
+        return asByteBuffer().asLongBuffer();
+    }
+
+    public ByteBuffer asByteBuffer() {
+        if (length == -1) {
+            return null;
+        }
         if (bb != null) {
             ByteBuffer duplicate = bb.duplicate();
             duplicate.position(offset);
             duplicate.limit(offset + length);
-            return duplicate.slice().asLongBuffer();
+            return duplicate.slice();
         }
-        return asByteBuffer().asLongBuffer();
+        return ByteBuffer.wrap(copy());
     }
 
-    private ByteBuffer asByteBuffer() {
-        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-        byteBuffer.position(offset);
-        byteBuffer.limit(offset + length);
-        return byteBuffer.slice();
+    public void get(int offset, byte[] copyInto, int o, int l) {
+        if (bb != null) {
+            for (int i = 0; i < copyInto.length; i++) {
+                copyInto[o + i] = bb.get(o + i);
+            }
+        } else {
+            System.arraycopy(bytes, offset, copyInto, o, l);
+        }
     }
 
     @Override
