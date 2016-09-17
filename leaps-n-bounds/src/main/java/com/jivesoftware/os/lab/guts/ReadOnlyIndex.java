@@ -3,7 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
@@ -51,7 +51,7 @@ public class ReadOnlyIndex {
         this.hideABone = new Semaphore(Short.MAX_VALUE, true);
         long length = readOnlyFile.length();
         if (length == 0) {
-            throw new LABIndexCorruptedException("Trying to construct an index with an empy file.");
+            throw new LABCorruptedException("Trying to construct an index with an empy file.");
         }
         this.footer = readFooter(readOnlyFile.pointerReadable(-1));
         this.rawhide = rawhide;
@@ -60,25 +60,25 @@ public class ReadOnlyIndex {
         this.leapsCache = leapsCache;
     }
 
-    private Footer readFooter(IPointerReadable readable) throws IOException, LABIndexCorruptedException {
+    private Footer readFooter(IPointerReadable readable) throws IOException, LABCorruptedException {
         long indexLength = readable.length();
         long seekTo = indexLength - 4;
         if (seekTo < 0 || seekTo > indexLength) {
-            throw new LABIndexCorruptedException(
+            throw new LABCorruptedException(
                 "1. Footer Corruption! trying to seek to: " + seekTo + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length());
         }
         int footerLength = readable.readInt(indexLength - 4);
 
         seekTo = indexLength - (1 + footerLength);
         if (seekTo < 0 || seekTo > indexLength) {
-            throw new LABIndexCorruptedException(
+            throw new LABCorruptedException(
                 "2. Footer Corruption! trying to seek to: " + seekTo + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length());
         }
 
         int type = readable.read(seekTo);
         seekTo++;
         if (type != FOOTER) {
-            throw new LABIndexCorruptedException(
+            throw new LABCorruptedException(
                 "4. Footer Corruption! Found " + type + " expected " + FOOTER + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length());
         }
         return Footer.read(readable, seekTo);
@@ -107,14 +107,14 @@ public class ReadOnlyIndex {
 
                 long offset = indexLength - 4;
                 if (offset < 0 || offset > indexLength) {
-                    throw new LABIndexCorruptedException(
+                    throw new LABCorruptedException(
                         "1. Leaps Corruption! trying to seek to: " + offset + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
                     );
                 }
                 int footerLength = readableIndex.readInt(offset);
                 offset = indexLength - (footerLength + 1 + 4);
                 if (offset < 0 || offset > indexLength) {
-                    throw new LABIndexCorruptedException(
+                    throw new LABCorruptedException(
                         "2. Leaps Corruption! trying to seek to: " + offset + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
                     );
                 }
@@ -122,7 +122,7 @@ public class ReadOnlyIndex {
 
                 offset = indexLength - (1 + leapLength + 1 + footerLength);
                 if (offset < 0 || offset > indexLength) {
-                    throw new LABIndexCorruptedException(
+                    throw new LABCorruptedException(
                         "3. Leaps Corruption! trying to seek to: " + offset + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
                     );
                 }
@@ -131,7 +131,7 @@ public class ReadOnlyIndex {
                 int type = readableIndex.read(offset);
                 offset++;
                 if (type != LEAP) {
-                    throw new LABIndexCorruptedException(
+                    throw new LABCorruptedException(
                         "4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
                     );
                 }

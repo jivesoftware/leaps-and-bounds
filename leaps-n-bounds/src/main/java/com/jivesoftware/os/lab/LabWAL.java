@@ -14,9 +14,9 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.api.exceptions.CorruptionDetectedException;
 import com.jivesoftware.os.lab.api.exceptions.LABFailedToInitializeWALException;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
@@ -136,17 +136,17 @@ public class LabWAL {
                             break; //EOF
                         }
                         if (rowType > 3) {
-                            throw new CorruptionDetectedException("expected a row type greater than -1 and less than 128 but encountered " + rowType);
+                            throw new LABCorruptedException("expected a row type greater than -1 and less than 128 but encountered " + rowType);
                         }
                         int magic = reader.readInt(offset);
                         offset += 4;
                         if (magic != MAGIC[rowType]) {
-                            throw new CorruptionDetectedException("expected a magic " + MAGIC[rowType] + " but encountered " + magic);
+                            throw new LABCorruptedException("expected a magic " + MAGIC[rowType] + " but encountered " + magic);
                         }
                         int valueIndexIdLength = reader.readInt(offset);
                         offset += 4;
                         if (valueIndexIdLength >= maxEntrySizeInBytes) {
-                            throw new CorruptionDetectedException("valueIndexId length corruption" + valueIndexIdLength + ">=" + maxEntrySizeInBytes);
+                            throw new LABCorruptedException("valueIndexId length corruption" + valueIndexIdLength + ">=" + maxEntrySizeInBytes);
                         }
 
                         byte[] valueIndexId = new byte[valueIndexIdLength];
@@ -161,7 +161,7 @@ public class LabWAL {
                             int entryLength = reader.readInt(offset);
                             offset += 4;
                             if (entryLength >= maxEntrySizeInBytes) {
-                                throw new CorruptionDetectedException("entryLength length corruption" + entryLength + ">=" + maxEntrySizeInBytes);
+                                throw new LABCorruptedException("entryLength length corruption" + entryLength + ">=" + maxEntrySizeInBytes);
                             }
 
                             byte[] entry = new byte[entryLength];
@@ -207,7 +207,7 @@ public class LabWAL {
                             }
                         }
                     }
-                } catch (CorruptionDetectedException | EOFException x) {
+                } catch (LABCorruptedException | EOFException x) {
                     LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", offset, reader.length(), walFile, x.getClass());
                 } catch (Exception x) {
                     LOG.error("Encountered an issue that requires intervention at fp:{} length:{} for file:{}",
@@ -273,7 +273,7 @@ public class LabWAL {
         semaphore.acquire();
         try {
             if (closed.get()) {
-                throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+                throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
             }
             activeWAL().append(appendableHeap, valueIndexId, appendVersion, entry);
         } finally {
@@ -286,7 +286,7 @@ public class LabWAL {
         semaphore.acquire();
         try {
             if (closed.get()) {
-                throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+                throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
             }
             ActiveWAL wal = activeWAL();
             wal.flushed(appendableHeap, valueIndexId, appendVersion, fsync);
@@ -301,7 +301,7 @@ public class LabWAL {
             semaphore.acquire(Short.MAX_VALUE);
             try {
                 if (closed.get()) {
-                    throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+                    throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
                 }
                 ActiveWAL wal = activeWAL();
                 if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
@@ -321,7 +321,7 @@ public class LabWAL {
         semaphore.acquire();
         try {
             if (closed.get()) {
-                throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+                throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
             }
             ActiveWAL wal = activeWAL();
             wal.commit(valueIndexId, appendVersion, fsync);
@@ -341,7 +341,7 @@ public class LabWAL {
             semaphore.acquire(Short.MAX_VALUE);
             try {
                 if (closed.get()) {
-                    throw new LABIndexClosedException("Trying to write to a Lab WAL that has been closed.");
+                    throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
                 }
                 for (ActiveWAL remove : removeable) {
                     remove.delete();

@@ -6,7 +6,7 @@ import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.guts.LABCSLMIndex;
@@ -149,7 +149,7 @@ public class LABValidationNGTest {
                     System.out.println("Writer " + wi + " done...");
                     return null;
                 } catch (Exception x) {
-                    if (close.get() && (x instanceof LABIndexClosedException)) {
+                    if (close.get() && (x instanceof LABClosedException)) {
                         System.out.println("Writer " + wi + " exiting because: " + x);
                         return null;
                     } else {

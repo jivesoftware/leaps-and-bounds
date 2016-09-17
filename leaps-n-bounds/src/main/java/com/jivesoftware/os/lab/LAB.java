@@ -9,8 +9,8 @@ import com.jivesoftware.os.lab.api.Ranges;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
@@ -286,7 +286,7 @@ public class LAB implements ValueIndex {
             }
 
             if (closeRequested.get()) {
-                throw new LABIndexClosedException();
+                throw new LABClosedException();
             }
             ReadIndex reader = memoryIndexReader;
             ReadIndex flushingReader = flushingMemoryIndexReader;
@@ -454,7 +454,7 @@ public class LAB implements ValueIndex {
         commitSemaphore.acquire();
         try {
             if (closeRequested.get()) {
-                throw new LABIndexClosedException();
+                throw new LABClosedException();
             }
 
             long appendVersion;
@@ -501,10 +501,10 @@ public class LAB implements ValueIndex {
         }
 
         if (corrupt) {
-            throw new LABIndexCorruptedException();
+            throw new LABCorruptedException();
         }
         if (closeRequested.get()) {
-            throw new LABIndexClosedException();
+            throw new LABClosedException();
         }
 
         if (!internalCommit(fsync, new BolBuffer(), new BolBuffer(), new BolBuffer())) { // grr
@@ -548,7 +548,7 @@ public class LAB implements ValueIndex {
         List<Future<Object>> awaitable = null;
         while (!closeRequested.get()) {
             if (corrupt) {
-                throw new LABIndexCorruptedException();
+                throw new LABCorruptedException();
             }
             List<Callable<Void>> compactors = rangeStripedCompactableIndexes.buildCompactors(rawhideName, fsync, minDebt);
             if (compactors != null && !compactors.isEmpty()) {
@@ -604,7 +604,7 @@ public class LAB implements ValueIndex {
         labHeapPressure.close(this);
 
         if (!closeRequested.compareAndSet(false, true)) {
-            throw new LABIndexClosedException();
+            throw new LABClosedException();
         }
 
         if (flushUncommited) {

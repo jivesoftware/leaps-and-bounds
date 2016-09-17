@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
-import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -43,7 +43,7 @@ public class AppendOnlyFile {
 
     public IAppendOnly appender() throws Exception {
         if (closed.get()) {
-            throw new LABIndexClosedException("Cannot get an appender from an index that is already closed.");
+            throw new LABClosedException("Cannot get an appender from an index that is already closed.");
         }
         DataOutputStream writer = new DataOutputStream(new FileOutputStream(file, true));
         return new IAppendOnly() {

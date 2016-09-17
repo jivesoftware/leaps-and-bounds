@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.base.Preconditions;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexCorruptedException;
+import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
+import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.guts.USort;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -116,7 +116,7 @@ public class LabHeapPressure {
                                 LOG.inc("lab>global>pressure>commit>" + name);
                                 LOG.set(ValueType.VALUE, "lab>commitable>" + name, this.labs.size());
                                 keys[i].commit(efsyncOnFlush, false); // todo config
-                            } catch (LABIndexCorruptedException | LABIndexClosedException x) {
+                            } catch (LABCorruptedException | LABClosedException x) {
                             } catch (Exception x) {
                                 this.labs.compute(keys[i], (LAB t, Boolean u) -> {
                                     return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;

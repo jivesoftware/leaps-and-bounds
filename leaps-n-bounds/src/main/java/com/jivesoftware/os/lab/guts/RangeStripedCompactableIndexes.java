@@ -5,7 +5,7 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
-import com.jivesoftware.os.lab.api.exceptions.ConcurrentSplitException;
+import com.jivesoftware.os.lab.api.exceptions.LABConcurrentSplitException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
@@ -759,8 +759,8 @@ public class RangeStripedCompactableIndexes {
                                 return false;
                             }
                         }
-                    } catch (ConcurrentSplitException cse) {
-                        from = (i == 0) ? from : entry.getKey(); // Sorry! Dont rewind from when from is haha
+                    } catch (LABConcurrentSplitException cse) {
+                        from = (i == 0) ? from : entry.getKey(); // Sorry! Dont rewind from where from is haha
                         continue THE_INSANITY;
                     }
                 }

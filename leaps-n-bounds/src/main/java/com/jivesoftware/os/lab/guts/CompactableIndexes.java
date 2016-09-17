@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
-import com.jivesoftware.os.lab.api.exceptions.ConcurrentSplitException;
+import com.jivesoftware.os.lab.api.exceptions.LABConcurrentSplitException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
 import com.jivesoftware.os.lab.guts.api.IndexFactory;
@@ -684,7 +684,7 @@ public class CompactableIndexes {
         while (true) {
             synchronized (indexesLock) {
                 if (disposed) {
-                    throw new ConcurrentSplitException();
+                    throw new LABConcurrentSplitException();
                 }
                 stackIndexes = indexes;
             }
