@@ -966,7 +966,6 @@ public class LABConcurrentSkipListMap implements LABIndex {
         } finally {
             growNodesArray.release(ALL);
         }
-        memory.freeAll();
         initialize();
 
     }

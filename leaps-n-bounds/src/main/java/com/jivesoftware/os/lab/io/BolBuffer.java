@@ -19,10 +19,6 @@ public class BolBuffer {
     public BolBuffer() {
     }
 
-    public BolBuffer(ByteBuffer bb, int offset, int length) {
-        force(bb, offset, length);
-    }
-
     public void force(ByteBuffer bb, int offset, int length) {
         this.bytes = null;
         this.bb = bb;

@@ -49,10 +49,4 @@ public class LABConcurrentSkipListMemory {
         return indexableMemory.compareBB(rawhide, left, leftOffset, leftLength, right, rightOffset, rightLength);
     }
 
-    Comparator<? super byte[]> bytesComparator() {
-        return comparator;
-    }
-
-    public void freeAll() {
-    }
 }

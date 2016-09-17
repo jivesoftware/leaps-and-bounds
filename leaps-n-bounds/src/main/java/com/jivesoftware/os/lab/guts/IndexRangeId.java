@@ -44,13 +44,4 @@ public class IndexRangeId implements Comparable<IndexRangeId> {
         return new IndexRangeId(Math.min(start, id.start), Math.max(end, id.end), generation);
     }
 
-    @Override
-    public int hashCode() {
-        throw new IllegalAccessError("nope");
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        throw new IllegalAccessError("nope");
-    }
 }
