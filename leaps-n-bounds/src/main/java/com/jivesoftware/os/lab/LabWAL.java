@@ -1,7 +1,5 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.io.BolBuffer;
-import com.jivesoftware.os.lab.api.exceptions.CorruptionDetectedException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -12,16 +10,18 @@ import com.jivesoftware.os.jive.utils.collections.bah.BAHash;
 import com.jivesoftware.os.jive.utils.collections.bah.BAHasher;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
-import com.jivesoftware.os.lab.api.exceptions.LABFailedToInitializeWALException;
-import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
-import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.ValueStream;
+import com.jivesoftware.os.lab.api.exceptions.CorruptionDetectedException;
+import com.jivesoftware.os.lab.api.exceptions.LABFailedToInitializeWALException;
+import com.jivesoftware.os.lab.api.exceptions.LABIndexClosedException;
+import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.AppendableHeap;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -188,7 +188,8 @@ public class LabWAL {
                                 appendToValueIndex.append((stream) -> {
 
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
-                                        return stream.stream(index, key.copy(), timestamp, tombstoned, version, payload.copy());
+                                        return stream.stream(index, key == null ? null : key.copy(), timestamp, tombstoned, version,
+                                            payload == null ? null : payload.copy());
                                     };
 
                                     for (byte[] entry : valueIndexVersionedEntries.get(appendVersion)) {
@@ -236,7 +237,6 @@ public class LabWAL {
             }
         }
     }
-
 
     private ValueIndex openValueIndex(LABEnvironment environment, byte[] valueIndexId, BAHash<ValueIndex> valueIndexes) throws Exception {
         ValueIndex valueIndex = valueIndexes.get(valueIndexId, 0, valueIndexId.length);
