@@ -11,7 +11,6 @@ import com.jivesoftware.os.mlogger.core.ValueType;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -28,8 +27,9 @@ public class LabHeapPressure {
     private final long blockOnHeapPressureInBytes;
     private final AtomicLong globalHeapCostInBytes;
     private final Map<LAB, Boolean> labs = new ConcurrentHashMap<>();
-    private final AtomicBoolean running = new AtomicBoolean();
+    private volatile boolean running = false;
     private final AtomicLong changed = new AtomicLong();
+    private final AtomicLong waiting = new AtomicLong();
 
     public LabHeapPressure(ExecutorService schedule,
         String name,
@@ -72,76 +72,107 @@ public class LabHeapPressure {
         LOG.set(ValueType.VALUE, "lab>commitable>" + name, labs.size());
         if (globalHeap > maxHeapPressureInBytes) {
 
-            long version = changed.get();
-            freeHeap();
-
-            while (globalHeap > blockOnHeapPressureInBytes) {
-                LOG.debug("BLOCKING for heap to go down...{} > {}", globalHeap, blockOnHeapPressureInBytes);
-                try {
-                    LOG.incAtomic("lab>heap>blocking>" + name);
-                    synchronized (globalHeapCostInBytes) {
-                        if (version == changed.get()) {
-                            long start = System.currentTimeMillis();
-                            globalHeapCostInBytes.wait(60_000);
-                            if (System.currentTimeMillis() - start > 60_000) {
-                                LOG.warn("Taking more than 60sec to free heap.");
+            synchronized (globalHeapCostInBytes) {
+                waiting.incrementAndGet();
+            }
+            try {
+                long version = changed.get();
+                freeHeap();
+                boolean nudgeFreeHeap = false;
+                while (globalHeap > blockOnHeapPressureInBytes) {
+                    LOG.debug("BLOCKING for heap to go down...{} > {}", globalHeap, blockOnHeapPressureInBytes);
+                    try {
+                        LOG.incAtomic("lab>heap>blocking>" + name);
+                        synchronized (globalHeapCostInBytes) {
+                            if (version == changed.get()) {
+                                long start = System.currentTimeMillis();
+                                globalHeapCostInBytes.wait(60_000);
+                                if (System.currentTimeMillis() - start > 60_000) {
+                                    LOG.warn("Taking more than 60sec to free heap.");
+                                    nudgeFreeHeap = true;
+                                }
+                            } else {
+                                nudgeFreeHeap = true;
                             }
                         }
-                    }
+                        if (nudgeFreeHeap) {
+                            LOG.info("Nudging freeHeap()  {} > {}", globalHeap, blockOnHeapPressureInBytes);
+                            freeHeap();
+                        }
 
-                    globalHeap = globalHeapCostInBytes.get();
-                } finally {
-                    LOG.decAtomic("lab>heap>blocking>" + name);
+                        globalHeap = globalHeapCostInBytes.get();
+                    } finally {
+                        LOG.decAtomic("lab>heap>blocking>" + name);
+                    }
                 }
+            } finally {
+                waiting.decrementAndGet();
             }
         }
     }
 
     public void freeHeap() {
-        if (running.compareAndSet(false, true)) {
-            schedule.submit(() -> {
-                try {
+        synchronized (globalHeapCostInBytes) {
+            if (running != true) {
+                running = true;
+                schedule.submit(() -> {
                     LOG.incAtomic("lab>heap>flushing>" + name);
-                    long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
-                    if (debtInBytes <= 0) {
-                        LOG.inc("lab>commit>global>skip>" + name);
-                        return null;
-                    }
-                    LAB[] keys = labs.keySet().toArray(new LAB[0]);
-                    long[] pressures = new long[keys.length];
-                    for (int i = 0; i < keys.length; i++) {
-                        pressures[i] = Long.MAX_VALUE - keys[i].approximateHeapPressureInBytes();
-                    }
-                    USort.mirrorSort(pressures, keys);
+                    while (true) {
+                        try {
+                            long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
+                            if (debtInBytes <= 0) {
+                                LOG.inc("lab>commit>global>skip>" + name);
+                                return null;
+                            }
+                            LAB[] keys = labs.keySet().toArray(new LAB[0]);
+                            long[] pressures = new long[keys.length];
+                            for (int i = 0; i < keys.length; i++) {
+                                pressures[i] = Long.MAX_VALUE - keys[i].approximateHeapPressureInBytes();
+                            }
+                            USort.mirrorSort(pressures, keys);
 
-                    int i = 0;
-                    while (i < keys.length && debtInBytes > 0) {
-                        long pressure = Long.MAX_VALUE - pressures[i];
-                        LOG.inc("lab>commit>global>pressure>" + name + ">" + UIO.chunkPower(pressure, 0));
-                        debtInBytes -= pressure;
-                        Boolean efsyncOnFlush = this.labs.remove(keys[i]);
-                        if (efsyncOnFlush != null) {
-                            try {
-                                LOG.inc("lab>global>pressure>commit>" + name);
-                                LOG.set(ValueType.VALUE, "lab>commitable>" + name, this.labs.size());
-                                keys[i].commit(efsyncOnFlush, false); // todo config
-                            } catch (LABCorruptedException | LABClosedException x) {
-                            } catch (Exception x) {
-                                this.labs.compute(keys[i], (LAB t, Boolean u) -> {
-                                    return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;
-                                });
-                                throw x;
+                            int i = 0;
+                            while (i < keys.length && debtInBytes > 0) {
+                                long pressure = Long.MAX_VALUE - pressures[i];
+                                LOG.inc("lab>commit>global>pressure>" + name + ">" + UIO.chunkPower(pressure, 0));
+                                debtInBytes -= pressure;
+                                Boolean efsyncOnFlush = this.labs.remove(keys[i]);
+                                if (efsyncOnFlush != null) {
+                                    try {
+                                        LOG.inc("lab>global>pressure>commit>" + name);
+                                        LOG.set(ValueType.VALUE, "lab>commitable>" + name, this.labs.size());
+                                        keys[i].commit(efsyncOnFlush, false); // todo config
+                                    } catch (LABCorruptedException | LABClosedException x) {
+                                    } catch (Exception x) {
+                                        this.labs.compute(keys[i], (LAB t, Boolean u) -> {
+                                            return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;
+                                        });
+                                        throw x;
+                                    }
+                                }
+                                i++;
+                            }
+                            LOG.inc("lab>commit>global>depth>" + name + ">" + UIO.chunkPower(i, 0));
+                        } catch (InterruptedException ie) {
+                            synchronized (globalHeapCostInBytes) {
+                                running = false;
+                            }
+                            throw ie;
+                        } catch (Exception x) {
+                            LOG.warn("Free heap encountered an error.", x);
+                            Thread.sleep(1000);
+                        }
+                        synchronized (globalHeapCostInBytes) {
+                            if (waiting.get() == 0) {
+                                LOG.decAtomic("lab>heap>flushing>" + name);
+                                running = false;
+                                return null;
                             }
                         }
-                        i++;
                     }
-                    LOG.inc("lab>commit>global>depth>" + name + ">" + UIO.chunkPower(i, 0));
-                    return null;
-                } finally {
-                    running.set(false);
-                    LOG.decAtomic("lab>heap>flushing>" + name);
-                }
-            });
+
+                });
+            }
         }
     }
 
