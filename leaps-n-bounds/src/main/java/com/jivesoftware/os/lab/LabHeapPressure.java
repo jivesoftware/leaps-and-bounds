@@ -96,6 +96,7 @@ public class LabHeapPressure {
                             }
                         }
                         if (nudgeFreeHeap) {
+                            nudgeFreeHeap = false;
                             LOG.info("Nudging freeHeap()  {} > {}", globalHeap, blockOnHeapPressureInBytes);
                             freeHeap();
                         }
@@ -155,7 +156,10 @@ public class LabHeapPressure {
                                         LOG.inc("lab>global>pressure>commit>" + name);
                                         LOG.set(ValueType.VALUE, "lab>commitable>" + name, this.labs.size());
                                         keys[i].commit(efsyncOnFlush, false); // todo config
+                                        
                                     } catch (LABCorruptedException | LABClosedException x) {
+                                        LOG.error("Failed to commit.", x);
+                                        
                                     } catch (Exception x) {
                                         this.labs.compute(keys[i], (LAB t, Boolean u) -> {
                                             return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;

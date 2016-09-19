@@ -64,8 +64,6 @@ public class LABAppendOnlyAllocator {
             UIO.intBytes(length, stackCopy, indexAddress);
             System.arraycopy(bytes, offset, stackCopy, indexAddress + 4, length);
         }
-
-        //System.out.println("allocate:" + address + " " + Arrays.toString(bytes) + " offset:" + offset + " length:" + length);
         return address;
     }
 
