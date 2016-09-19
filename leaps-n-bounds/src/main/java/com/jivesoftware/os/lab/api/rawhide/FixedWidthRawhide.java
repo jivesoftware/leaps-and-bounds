@@ -36,7 +36,7 @@ public class FixedWidthRawhide implements Rawhide {
         BolBuffer key = rawEntry.sliceInto(0, keyLength, keyBuffer);
         BolBuffer payload = null;
         if (valueBuffer != null) {
-            payload = rawEntry.sliceInto(keyLength, keyLength + payloadLength, valueBuffer);
+            payload = rawEntry.sliceInto(keyLength, payloadLength, valueBuffer);
         }
         return stream.stream(index, key, 0, false, 0, payload);
     }

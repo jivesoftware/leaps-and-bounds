@@ -71,7 +71,7 @@ public class BolBuffer {
     }
 
     public BolBuffer sliceInto(int offset, int length, BolBuffer bolBuffer) {
-        if (bolBuffer == null) {
+        if (bolBuffer == null || length == -1) {
             return null;
         }
         bolBuffer.bb = bb;
