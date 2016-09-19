@@ -4,7 +4,7 @@ package com.jivesoftware.os.lab.api;
  *
  * @author jonathan.colt
  */
-public interface AppendValues {
+public interface AppendValues<P> {
 
-    boolean consume(AppendValueStream stream) throws Exception;
+    boolean consume(AppendValueStream<P> stream) throws Exception;
 }

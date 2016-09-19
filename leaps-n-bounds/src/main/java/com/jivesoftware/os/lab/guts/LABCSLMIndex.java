@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
  *
  * @author jonathan.colt
  */
-public class LABCSLMIndex implements LABIndex {
+public class LABCSLMIndex implements LABIndex<BolBuffer, BolBuffer> {
 
     private final ConcurrentSkipListMap<byte[], byte[]> map;
     private final StripingBolBufferLocks bolBufferLocks;

@@ -42,7 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * @author jonathan.colt
  */
-public class LAB implements ValueIndex {
+public class LAB implements ValueIndex<byte[]> {
 
     static private class CompactLock {
     }
@@ -423,24 +423,24 @@ public class LAB implements ValueIndex {
     }
 
     @Override
-    public boolean journaledAppend(AppendValues values, boolean fsyncAfterAppend,
+    public boolean journaledAppend(AppendValues<byte[]> values, boolean fsyncAfterAppend,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
         return internalAppend(true, values, fsyncAfterAppend, -1, rawEntryBuffer, keyBuffer);
     }
 
     @Override
-    public boolean append(AppendValues values, boolean fsyncOnFlush,
+    public boolean append(AppendValues<byte[]> values, boolean fsyncOnFlush,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
         return internalAppend(false, values, fsyncOnFlush, -1, rawEntryBuffer, keyBuffer);
     }
 
-    public boolean append(AppendValues values, boolean fsyncOnFlush, long overrideMaxHeapPressureInBytes,
+    public boolean append(AppendValues<byte[]> values, boolean fsyncOnFlush, long overrideMaxHeapPressureInBytes,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
         return internalAppend(false, values, fsyncOnFlush, overrideMaxHeapPressureInBytes, rawEntryBuffer, keyBuffer);
     }
 
     private boolean internalAppend(boolean appendToWal,
-        AppendValues values,
+        AppendValues<byte[]> values,
         boolean fsyncOnFlush,
         long overrideMaxHeapPressureInBytes,
         BolBuffer rawEntryBuffer,

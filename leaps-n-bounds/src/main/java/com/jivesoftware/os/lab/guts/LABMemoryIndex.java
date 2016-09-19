@@ -45,12 +45,12 @@ public class LABMemoryIndex implements RawAppendableIndex {
     private volatile long maxTimestamp = -1;
     private volatile long maxVersion = -1;
     private final LABCostChangeInBytes costChangeInBytes;
-    private final Compute compute;
+    private final Compute<BolBuffer, BolBuffer> compute;
 
     public LABMemoryIndex(ExecutorService destroy,
         LabHeapPressure labHeapPressure,
         Rawhide rawhide,
-        LABIndex index) throws InterruptedException {
+        LABIndex<BolBuffer, BolBuffer> index) throws InterruptedException {
 
         this.costChangeInBytes = (cost) -> {
             costInBytes.addAndGet(cost);

@@ -1,15 +1,15 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
-import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
-import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.LABCSLMIndex;
 import com.jivesoftware.os.lab.guts.LABIndex;
+import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -22,14 +22,14 @@ public class LABIndexNGTest {
 
     @Test
     public void testCSLGet() throws Exception {
-        LABIndex map = new LABCSLMIndex(LABRawhide.SINGLETON, new StripingBolBufferLocks(1024));
+        LABIndex<BolBuffer, BolBuffer> map = new LABCSLMIndex(LABRawhide.SINGLETON, new StripingBolBufferLocks(1024));
         testLABIndex(map);
 
     }
 
     @Test
     public void testGet() throws Exception {
-        LABIndex map = new LABConcurrentSkipListMap(
+        LABIndex<BolBuffer, BolBuffer> map = new LABConcurrentSkipListMap(
             new LABConcurrentSkipListMemory(
                 LABRawhide.SINGLETON, new LABIndexableMemory("bla", new LABAppendOnlyAllocator(30)
                 )
@@ -41,11 +41,11 @@ public class LABIndexNGTest {
 
     }
 
-    private void testLABIndex(LABIndex map) throws Exception {
+    private void testLABIndex(LABIndex<BolBuffer, BolBuffer> map) throws Exception {
         BolBuffer key = new BolBuffer(UIO.longBytes(8));
         BolBuffer value1 = new BolBuffer(UIO.longBytes(10));
 
-        map.compute(FormatTransformer.NO_OP,FormatTransformer.NO_OP, new BolBuffer(), key, new BolBuffer(),
+        map.compute(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(), key, new BolBuffer(),
             (t1, t2, b, existing) -> {
                 if (existing == null) {
                     return value1;
@@ -62,7 +62,7 @@ public class LABIndexNGTest {
         Assert.assertEquals(UIO.bytesLong(got.copy()), 10L);
 
         BolBuffer value2 = new BolBuffer(UIO.longBytes(21));
-        map.compute(FormatTransformer.NO_OP,FormatTransformer.NO_OP, new BolBuffer(),
+        map.compute(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(),
             key,
             new BolBuffer(), (t1, t2, b, existing) -> {
                 if (existing == null) {

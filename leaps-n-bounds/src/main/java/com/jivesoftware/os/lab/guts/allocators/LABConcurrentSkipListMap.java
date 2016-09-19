@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongArray;
 
-public class LABConcurrentSkipListMap implements LABIndex {
+public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> {
 
     private static final long BASE_HEADER = -3;
     private static final long SELF = -2;

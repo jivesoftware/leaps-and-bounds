@@ -9,29 +9,29 @@ import com.jivesoftware.os.lab.io.BolBuffer;
  *
  * @author jonathan.colt
  */
-public interface LABIndex {
+public interface LABIndex<E, B> {
 
-    interface Compute {
+    interface Compute<E, B> {
 
         BolBuffer apply(FormatTransformer readKeyFormatTransformer,
             FormatTransformer readValueFormatTransformer,
-            BolBuffer rawEntry,
-            BolBuffer existing);
+            E apply,
+            E existing);
     }
 
     void compute(FormatTransformer readKeyFormatTransformer,
         FormatTransformer readValueFormatTransformer,
-        BolBuffer rawEntry,
-        BolBuffer keyBytes,
-        BolBuffer valueBuffer,
-        Compute computeFunction,
+        E entry,
+        B keyBuffer,
+        B valueBuffer,
+        Compute<E, B> computeFunction,
         LABCostChangeInBytes changeInBytes) throws Exception;
 
-    BolBuffer get(BolBuffer key, BolBuffer valueBuffer) throws Exception;
+    E get(BolBuffer key, B valueBuffer) throws Exception;
 
     boolean contains(byte[] from, byte[] to) throws Exception;
 
-    Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception;
+    Scanner scanner(byte[] from, byte[] to, B entryBuffer, B entryKeyBuffer) throws Exception;
 
     void clear() throws Exception;
 
