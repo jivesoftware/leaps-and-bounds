@@ -102,6 +102,7 @@ public class BolBuffer {
 
     public void allocate(int length) {
         if (bytes == null || bytes.length < length) {
+            bb = null;
             bytes = new byte[length];
         }
         this.length = length;
@@ -214,7 +215,7 @@ public class BolBuffer {
 
     @Override
     public String toString() {
-        return "BolBuffer{" + "bb=" + bb + ", bytes=" + bytes.length + ", offset=" + offset + ", length=" + length + '}';
+        return "BolBuffer{" + "bb=" + bb + ", bytes=" + ((bytes == null) ? null : bytes.length) + ", offset=" + offset + ", length=" + length + '}';
     }
 
 }
