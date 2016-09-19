@@ -122,7 +122,16 @@ public class LabHeapPressure {
                             long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
                             if (debtInBytes <= 0) {
                                 LOG.inc("lab>commit>global>skip>" + name);
-                                return null;
+                                synchronized (globalHeapCostInBytes) {
+                                    if (waiting.get() == 0) {
+                                        LOG.decAtomic("lab>heap>flushing>" + name);
+                                        running = false;
+                                        return null;
+                                    } else {
+                                        LOG.warn("debt:{} waiting:{}", new Object[]{debtInBytes, waiting.get()});
+                                        continue;
+                                    }
+                                }
                             }
                             LAB[] keys = labs.keySet().toArray(new LAB[0]);
                             long[] pressures = new long[keys.length];
@@ -130,6 +139,10 @@ public class LabHeapPressure {
                                 pressures[i] = Long.MAX_VALUE - keys[i].approximateHeapPressureInBytes();
                             }
                             USort.mirrorSort(pressures, keys);
+                            if (keys.length == 0) {
+                                LOG.error("LAB has a memory accounting leak. debt:{} waiting:{}", new Object[]{debtInBytes, waiting.get()});
+                                Thread.sleep(1000);
+                            }
 
                             int i = 0;
                             while (i < keys.length && debtInBytes > 0) {
