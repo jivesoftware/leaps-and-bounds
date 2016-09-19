@@ -135,7 +135,7 @@ public class LABRawhide implements Rawhide {
         if (valueBuffer != null) {
             int payloadLength = rawEntry.getInt(4 + keyLength + 8 + 1 + 8);
             if (payloadLength >= 0) {
-                payload = rawEntry.sliceInto(4 + keyLength + 8 + 1 + 8 + 4, payloadLength,valueBuffer);
+                payload = rawEntry.sliceInto(4 + keyLength + 8 + 1 + 8 + 4, payloadLength, valueBuffer);
             }
         }
         return stream.stream(index, readKeyFormatTransormer.transform(key), timestamp, tombstone, version, readValueFormatTransormer.transform(payload));

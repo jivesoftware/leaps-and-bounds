@@ -1,9 +1,10 @@
 package com.jivesoftware.os.lab.io;
 
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
-import java.util.Arrays;
 
 /**
  *
@@ -11,10 +12,12 @@ import java.util.Arrays;
  */
 public class BolBuffer {
 
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
     public volatile ByteBuffer bb;
     public volatile byte[] bytes;
     public volatile int offset;
-    public volatile int length;
+    public volatile int length = -1;
 
     public BolBuffer() {
     }
@@ -50,24 +53,39 @@ public class BolBuffer {
     }
 
     public byte get(int offset) {
-        if (bb != null) {
-            return bb.get(this.offset + offset);
+        try {
+            if (bb != null) {
+                return bb.get(this.offset + offset);
+            }
+            return bytes[this.offset + offset];
+        } catch (Exception x) {
+            LOG.error("get({}) failed against{} ", offset, this);
+            throw x;
         }
-        return bytes[this.offset + offset];
     }
 
     public int getInt(int offset) {
-        if (bb != null) {
-            return bb.getInt(this.offset + offset);
+        try {
+            if (bb != null) {
+                return bb.getInt(this.offset + offset);
+            }
+            return UIO.bytesInt(bytes, this.offset + offset);
+        } catch (Exception x) {
+            LOG.error("getInt({}) failed against{} ", offset, this);
+            throw x;
         }
-        return UIO.bytesInt(bytes, this.offset + offset);
     }
 
     public long getLong(int offset) {
-        if (bb != null) {
-            return bb.getLong(this.offset + offset);
+        try {
+            if (bb != null) {
+                return bb.getLong(this.offset + offset);
+            }
+            return UIO.bytesLong(bytes, this.offset + offset);
+        } catch (Exception x) {
+            LOG.error("getLong({}) failed against{} ", offset, this);
+            throw x;
         }
-        return UIO.bytesLong(bytes, this.offset + offset);
     }
 
     public BolBuffer sliceInto(int offset, int length, BolBuffer bolBuffer) {
@@ -196,7 +214,7 @@ public class BolBuffer {
 
     @Override
     public String toString() {
-        return "BolBuffer{" + "bb=" + bb + ", bytes=" + Arrays.toString(bytes) + ", offset=" + offset + ", length=" + length + '}';
+        return "BolBuffer{" + "bb=" + bb + ", bytes=" + bytes.length + ", offset=" + offset + ", length=" + length + '}';
     }
 
 }
