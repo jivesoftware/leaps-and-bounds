@@ -641,9 +641,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             if (address == -1) {
                 return null;
             } else {
-                memory.acquireBytes(address, valueBuffer);
+                BolBuffer acquired = memory.acquireBytes(address, valueBuffer);
                 memory.release(address);
-                return valueBuffer;
+                return acquired;
             }
         } finally {
             growNodesArray.release();
@@ -715,10 +715,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                         } else {
                             long rid;
                             try {
-                                memory.acquireBytes(va, valueBuffer);
+                                BolBuffer acquired = memory.acquireBytes(va, valueBuffer);
                                 memory.release(va);
 
-                                r = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, valueBuffer);
+                                r = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, acquired);
                                 rid = r == null ? NIL : memory.allocate(r, changeInBytes);
                             } finally {
                                 releaseValue(n);
@@ -1014,7 +1014,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
         @Override
         public boolean next(RawEntryStream entryStream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception {
-            memory.acquireBytes(nextValue, valueBuffer);
+            BolBuffer acquired = memory.acquireBytes(nextValue, valueBuffer);
             memory.release(nextValue);
 
             growNodesArray.acquire();
@@ -1023,7 +1023,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             } finally {
                 growNodesArray.release();
             }
-            boolean more = entryStream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, valueBuffer);
+            boolean more = entryStream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, acquired);
             return more;
         }
 
@@ -1112,9 +1112,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     long x = m.nodeValue(next);
                     if (x != NIL && x != SELF) {
                         long nk = m.nodeKey(next);
-                        m.memory.acquireBytes(nk, keyBolBuffer);
+                        BolBuffer acquired = m.memory.acquireBytes(nk, keyBolBuffer);
                         m.memory.release(nk);
-                        if (!inBounds(keyBolBuffer)) {
+                        if (!inBounds(acquired)) {
                             next = (int) NIL;
                         } else {
                             long va = m.acquireValue(next);
@@ -1146,7 +1146,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
         @Override
         public boolean next(RawEntryStream stream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception {
-            m.memory.acquireBytes(nextValue, valueBuffer);
+            BolBuffer acquired = m.memory.acquireBytes(nextValue, valueBuffer);
             m.memory.release(nextValue);
             m.growNodesArray.acquire();
             try {
@@ -1154,7 +1154,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             } finally {
                 m.growNodesArray.release();
             }
-            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, valueBuffer);
+            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, acquired);
         }
 
         @Override

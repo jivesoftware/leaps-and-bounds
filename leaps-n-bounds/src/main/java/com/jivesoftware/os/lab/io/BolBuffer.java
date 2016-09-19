@@ -101,6 +101,9 @@ public class BolBuffer {
     }
 
     public void allocate(int length) {
+        if (length < 0) {
+            throw new IllegalArgumentException(" allocate must be greater that or equal to zero. length=" + length);
+        }
         if (bytes == null || bytes.length < length) {
             bb = null;
             bytes = new byte[length];

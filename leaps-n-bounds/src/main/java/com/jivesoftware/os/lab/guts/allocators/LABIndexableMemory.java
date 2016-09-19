@@ -23,12 +23,12 @@ public class LABIndexableMemory {
         this.memoryAllocator = memoryAllocator;
     }
 
-    void acquireBytes(long address, BolBuffer bolBuffer) throws Exception {
+    BolBuffer acquireBytes(long address, BolBuffer bolBuffer) throws Exception {
         if (address == -1) {
-            bolBuffer.allocate(-1);
-            return;
+            return null;
         }
         memoryAllocator.acquireBytes(address, bolBuffer);
+        return bolBuffer;
     }
 
     public byte[] bytes(long address) throws InterruptedException {

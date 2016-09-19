@@ -25,8 +25,8 @@ public class LABConcurrentSkipListMemory {
         return indexableMemory.bytes(chunkAddress);
     }
 
-    public void acquireBytes(long chunkAddress, BolBuffer bolBuffer) throws Exception {
-        indexableMemory.acquireBytes(chunkAddress, bolBuffer);
+    public BolBuffer acquireBytes(long chunkAddress, BolBuffer bolBuffer) throws Exception {
+        return indexableMemory.acquireBytes(chunkAddress, bolBuffer);
     }
 
     public long allocate(BolBuffer bytes, LABCostChangeInBytes costInBytes) throws Exception {
