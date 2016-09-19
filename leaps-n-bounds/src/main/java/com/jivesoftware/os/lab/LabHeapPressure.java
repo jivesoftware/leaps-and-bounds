@@ -29,6 +29,7 @@ public class LabHeapPressure {
     private final AtomicLong globalHeapCostInBytes;
     private final Map<LAB, Boolean> labs = new ConcurrentHashMap<>();
     private final AtomicBoolean running = new AtomicBoolean();
+    private final AtomicLong changed = new AtomicLong();
 
     public LabHeapPressure(ExecutorService schedule,
         String name,
@@ -47,6 +48,7 @@ public class LabHeapPressure {
     }
 
     public void change(long delta) {
+        changed.incrementAndGet();
         globalHeapCostInBytes.addAndGet(delta);
         if (delta < 0) {
             synchronized (globalHeapCostInBytes) {
@@ -70,14 +72,21 @@ public class LabHeapPressure {
         LOG.set(ValueType.VALUE, "lab>commitable>" + name, labs.size());
         if (globalHeap > maxHeapPressureInBytes) {
 
+            long version = changed.get();
             freeHeap();
 
             while (globalHeap > blockOnHeapPressureInBytes) {
-                LOG.info("BLOCKING for heap to go down...{} > {}", globalHeap, blockOnHeapPressureInBytes);
+                LOG.debug("BLOCKING for heap to go down...{} > {}", globalHeap, blockOnHeapPressureInBytes);
                 try {
                     LOG.incAtomic("lab>heap>blocking>" + name);
                     synchronized (globalHeapCostInBytes) {
-                        globalHeapCostInBytes.wait();
+                        if (version == changed.get()) {
+                            long start = System.currentTimeMillis();
+                            globalHeapCostInBytes.wait(60_000);
+                            if (System.currentTimeMillis() - start > 60_000) {
+                                LOG.warn("Taking more than 60sec to free heap.");
+                            }
+                        }
                     }
 
                     globalHeap = globalHeapCostInBytes.get();
