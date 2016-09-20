@@ -108,7 +108,6 @@ public interface Rawhide {
         }
     }
 
-
     final Comparator<BolBuffer> bolBufferKeyComparator = IndexUtil::compare;
 
     default Comparator<BolBuffer> getBolBufferKeyComparator() {
@@ -141,13 +140,8 @@ public interface Rawhide {
         return IndexUtil.compare(left, leftOffset, leftLength, right, rightOffset, rightLength);
     }
 
-
     default int compare(BolBuffer aKey, BolBuffer bKey) {
         return IndexUtil.compare(aKey, bKey);
-    }
-
-    default int compareAB(BolBuffer left, byte[] right, int rightOffset, int rightLength) {
-        return IndexUtil.compare(left, right, rightOffset, rightLength);
     }
 
 }
