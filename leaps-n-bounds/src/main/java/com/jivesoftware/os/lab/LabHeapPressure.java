@@ -84,7 +84,8 @@ public class LabHeapPressure {
                     try {
                         LOG.incAtomic("lab>heap>blocking>" + name);
                         synchronized (globalHeapCostInBytes) {
-                            if (version == changed.get()) {
+                            long got = changed.get();
+                            if (version == got) {
                                 long start = System.currentTimeMillis();
                                 globalHeapCostInBytes.wait(60_000);
                                 if (System.currentTimeMillis() - start > 60_000) {
@@ -92,13 +93,16 @@ public class LabHeapPressure {
                                     nudgeFreeHeap = true;
                                 }
                             } else {
+                                version = got;
                                 nudgeFreeHeap = true;
                             }
                         }
                         if (nudgeFreeHeap) {
                             nudgeFreeHeap = false;
                             LOG.info("Nudging freeHeap()  {} > {}", globalHeap, blockOnHeapPressureInBytes);
+                            version = changed.get();
                             freeHeap();
+                            Thread.yield();
                         }
 
                         globalHeap = globalHeapCostInBytes.get();
