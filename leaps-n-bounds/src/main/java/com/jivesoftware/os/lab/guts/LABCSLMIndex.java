@@ -57,9 +57,7 @@ public class LABCSLMIndex implements LABIndex<BolBuffer, BolBuffer> {
                     try {
                         BolBuffer apply;
                         if (v != null) {
-                            valueBuffer.bytes = v;
-                            valueBuffer.offset = 0;
-                            valueBuffer.length = v.length;
+                            valueBuffer.force(v, 0, v.length);
                             apply = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, valueBuffer);
                             cost = v.length - ((apply == null || apply.length == -1) ? 0 : apply.length);
                         } else {

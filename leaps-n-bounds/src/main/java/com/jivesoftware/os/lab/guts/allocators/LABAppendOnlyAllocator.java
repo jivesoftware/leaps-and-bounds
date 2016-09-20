@@ -26,9 +26,7 @@ public class LABAppendOnlyAllocator {
         byte[] stackCopy = memory[index];
         address &= powerMask;
 
-        bolBuffer.bytes = stackCopy;
-        bolBuffer.offset = (int) (address + 4);
-        bolBuffer.length = UIO.bytesInt(stackCopy, (int) address);
+        bolBuffer.force(stackCopy, (int) (address + 4), UIO.bytesInt(stackCopy, (int) address));
         return true;
     }
 

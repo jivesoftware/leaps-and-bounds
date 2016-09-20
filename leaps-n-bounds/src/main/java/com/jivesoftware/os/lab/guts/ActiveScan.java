@@ -101,7 +101,7 @@ public class ActiveScan {
 
         BolBuffer bbKey = new BolBuffer(key);
 
-        if (rawhide.compareKeys(l.lastKey, bbKey) < 0) {
+        if (rawhide.compare(l.lastKey, bbKey) < 0) {
             return rowIndex;
         }
         Comparator<BolBuffer> byteBufferKeyComparator = rawhide.getBolBufferKeyComparator();

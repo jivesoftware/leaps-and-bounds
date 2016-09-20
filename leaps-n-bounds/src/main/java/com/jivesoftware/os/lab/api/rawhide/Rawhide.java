@@ -108,9 +108,6 @@ public interface Rawhide {
         }
     }
 
-    default int compareKeys(BolBuffer aKey, BolBuffer bKey) {
-        return IndexUtil.compare(aKey, bKey);
-    }
 
     final Comparator<BolBuffer> bolBufferKeyComparator = IndexUtil::compare;
 
@@ -125,11 +122,11 @@ public interface Rawhide {
     }
 
     default boolean mightContain(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
-        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) >= 0;
+        return Rawhide.this.compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) >= 0;
     }
 
     default boolean isNewerThan(long timestamp, long timestampVersion, long newerThanTimestamp, long newerThanTimestampVersion) {
-        return compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) > 0;
+        return Rawhide.this.compare(timestamp, timestampVersion, newerThanTimestamp, newerThanTimestampVersion) > 0;
     }
 
     default int compare(long timestamp, long timestampVersion, long otherTimestamp, long otherTimestampVersion) {
@@ -142,6 +139,15 @@ public interface Rawhide {
 
     default int compareBB(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength) {
         return IndexUtil.compare(left, leftOffset, leftLength, right, rightOffset, rightLength);
+    }
+
+
+    default int compare(BolBuffer aKey, BolBuffer bKey) {
+        return IndexUtil.compare(aKey, bKey);
+    }
+
+    default int compareAB(BolBuffer left, byte[] right, int rightOffset, int rightLength) {
+        return IndexUtil.compare(left, right, rightOffset, rightLength);
     }
 
 }

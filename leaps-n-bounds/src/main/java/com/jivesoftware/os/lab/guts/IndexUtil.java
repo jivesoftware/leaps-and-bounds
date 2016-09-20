@@ -134,7 +134,6 @@ public class IndexUtil {
 //        }
 //        return leftLength - rightLength;
 //    }
-
     public static int compare(BolBuffer left, BolBuffer right) {
         int leftLength = left.length;
         int rightLength = right.length;
