@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -56,7 +57,7 @@ public class CompactableIndexsNGTest {
 
             int entriesBetweenLeaps = 2;
             int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(counts[ci], entriesBetweenLeaps);
-            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, appendOnlyFile, maxLeaps, entriesBetweenLeaps, rawhide,
+            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), indexRangeId, appendOnlyFile, maxLeaps, entriesBetweenLeaps, rawhide,
                 FormatTransformer.NO_OP,
                 FormatTransformer.NO_OP,
                 MemoryRawEntryFormat.SINGLETON);
@@ -131,7 +132,7 @@ public class CompactableIndexsNGTest {
                 AppendOnlyFile appendOnlyFile = new AppendOnlyFile(file);
                 IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-                LABAppendableIndex write = new LABAppendableIndex(indexRangeId, appendOnlyFile, 64, 2, rawhide, FormatTransformer.NO_OP,
+                LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), indexRangeId, appendOnlyFile, 64, 2, rawhide, FormatTransformer.NO_OP,
                     FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
                 TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
                 write.closeAppendable(fsync);
@@ -154,7 +155,8 @@ public class CompactableIndexsNGTest {
                 (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppendableIndex(id,
+                    return new LABAppendableIndex(new LongAdder(),
+                        id,
                         new AppendOnlyFile(indexFiler),
                         maxLeaps,
                         updatesBetweenLeaps,
@@ -201,7 +203,7 @@ public class CompactableIndexsNGTest {
             AppendOnlyFile appendOnlyFile = new AppendOnlyFile(file);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-            LABAppendableIndex write = new LABAppendableIndex(indexRangeId, appendOnlyFile, 64, 2, rawhide, FormatTransformer.NO_OP,
+            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), indexRangeId, appendOnlyFile, 64, 2, rawhide, FormatTransformer.NO_OP,
                 FormatTransformer.NO_OP,
                 new RawEntryFormat(0, 0));
             TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
@@ -245,7 +247,7 @@ public class CompactableIndexsNGTest {
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppendableIndex(id, new AppendOnlyFile(indexFiler), maxLeaps, updatesBetweenLeaps, rawhide,
+                    return new LABAppendableIndex(new LongAdder(), id, new AppendOnlyFile(indexFiler), maxLeaps, updatesBetweenLeaps, rawhide,
                         FormatTransformer.NO_OP,
                         FormatTransformer.NO_OP,
                         new RawEntryFormat(0, 0));

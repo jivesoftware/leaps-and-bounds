@@ -1,20 +1,20 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
-import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
-import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
-import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
+import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
+import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.LABCSLMIndex;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.Leaps;
+import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
+import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.nio.file.Files;
@@ -54,12 +54,17 @@ public class LABValidationNGTest {
         File finalRoot = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", 1024 * 1024 * 10, 1024 * 1024 * 10,
+        LABStats labStats = new LABStats();
+        LabHeapPressure labHeapPressure = new LabHeapPressure(labStats,
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            1024 * 1024 * 10,
+            1024 * 1024 * 10,
             new AtomicLong());
 
         StripingBolBufferLocks stripingBolBufferLocks = new StripingBolBufferLocks(1024);
 
-        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
+        LabWAL wal = new LabWAL(labStats, walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
         LABIndexProvider indexProvider = (rawhide1) -> {
             if (true) {
@@ -72,7 +77,8 @@ public class LABValidationNGTest {
             }
         };
 
-        LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
+        LAB lab = new LAB(labStats,
+            NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.NAME,
             LABRawhide.SINGLETON,
             new RawEntryFormat(0, 0),
@@ -187,10 +193,15 @@ public class LABValidationNGTest {
         File root = com.google.common.io.Files.createTempDir();
         int entriesBetweenLeaps = 2;
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", 1024 * 1024 * 10, 1024 * 1024 * 10,
+        LABStats labStats = new LABStats();
+        LabHeapPressure labHeapPressure = new LabHeapPressure(labStats,
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            1024 * 1024 * 10,
+            1024 * 1024 * 10,
             new AtomicLong());
 
-        LabWAL wal = new LabWAL(walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
+        LabWAL wal = new LabWAL(labStats, walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 
         StripingBolBufferLocks stripingBolBufferLocks = new StripingBolBufferLocks(1024);
 
@@ -207,7 +218,9 @@ public class LABValidationNGTest {
             }
         };
 
-        LAB lab = new LAB(NoOpFormatTransformerProvider.NO_OP,
+        LAB lab = new LAB(
+            labStats,
+            NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.NAME, rawhide,
             new RawEntryFormat(0, 0),
             scheduler,

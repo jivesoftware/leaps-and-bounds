@@ -9,6 +9,7 @@ import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import java.io.IOException;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * @author jonathan.colt
@@ -19,6 +20,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     public static final byte LEAP = 1;
     public static final byte FOOTER = 2;
 
+    private final LongAdder appendedStat;
     private final IndexRangeId indexRangeId;
     private final AppendOnlyFile appendOnlyFile;
     private final int maxLeaps;
@@ -44,7 +46,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
     private volatile IAppendOnly appendOnly;
 
-    public LABAppendableIndex(IndexRangeId indexRangeId,
+    public LABAppendableIndex(LongAdder appendedStat,
+        IndexRangeId indexRangeId,
         AppendOnlyFile appendOnlyFile,
         int maxLeaps,
         int updatesBetweenLeaps,
@@ -53,6 +56,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         FormatTransformer writeValueFormatTransormer,
         RawEntryFormat rawhideFormat) {
 
+        this.appendedStat = appendedStat;
         this.indexRangeId = indexRangeId;
         this.appendOnlyFile = appendOnlyFile;
         this.maxLeaps = maxLeaps;
@@ -79,7 +83,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
             rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer,
                 writeKeyFormatTransormer, writeValueFormatTransormer, appendableHeap);
-            
 
             BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, keyBuffer);
             int keyLength = key.length;
@@ -114,6 +117,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 leapCount++;
 
                 appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
+                appendedStat.add(appendableHeap.length());
                 appendableHeap.reset();
             }
             return true;
@@ -121,6 +125,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
         if (appendableHeap.length() > 0) {
             appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
+            appendedStat.add(appendableHeap.length());
         }
         return true;
     }
@@ -159,6 +164,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
             footer.write(appendableHeap);
 
             appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
+            appendedStat.add(appendableHeap.length());
             appendOnly.flush(fsync);
         } finally {
             close();

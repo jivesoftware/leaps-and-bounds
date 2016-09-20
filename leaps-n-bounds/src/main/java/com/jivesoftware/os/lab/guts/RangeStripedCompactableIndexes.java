@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.Keys;
@@ -51,6 +52,7 @@ public class RangeStripedCompactableIndexes {
 
     private final AtomicLong largestStripeId = new AtomicLong();
     private final AtomicLong largestIndexId = new AtomicLong();
+    private final LABStats stats;
     private final ExecutorService destroy;
     private final File root;
     private final String indexName;
@@ -66,7 +68,8 @@ public class RangeStripedCompactableIndexes {
     private final Semaphore appendSemaphore = new Semaphore(Short.MAX_VALUE, true);
     private final AtomicReference<RawEntryFormat> rawhideFormat;
 
-    public RangeStripedCompactableIndexes(ExecutorService destroy,
+    public RangeStripedCompactableIndexes(LABStats stats,
+        ExecutorService destroy,
         File root,
         String indexName,
         int entriesBetweenLeaps,
@@ -78,6 +81,7 @@ public class RangeStripedCompactableIndexes {
         AtomicReference<RawEntryFormat> rawhideFormat,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
 
+        this.stats = stats;
         this.destroy = destroy;
         this.root = root;
         this.indexName = indexName;
@@ -331,7 +335,8 @@ public class RangeStripedCompactableIndexes {
                 RawEntryFormat format = rawhideFormat.get();
                 FormatTransformer writeKeyFormatTransformer = formatTransformerProvider.write(format.getKeyFormat());
                 FormatTransformer writeValueFormatTransformer = formatTransformerProvider.write(format.getValueFormat());
-                appendableIndex = new LABAppendableIndex(indexRangeId,
+                appendableIndex = new LABAppendableIndex(stats.bytesWrittenAsIndex,
+                    indexRangeId,
                     appendOnlyFile,
                     maxLeaps,
                     entriesBetweenLeaps,
@@ -450,7 +455,8 @@ public class RangeStripedCompactableIndexes {
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         AppendOnlyFile appendOnlyFile = new AppendOnlyFile(splittingIndexFile);
-                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
+                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(stats.bytesWrittenAsSplit,
+                            id,
                             appendOnlyFile,
                             maxLeaps,
                             entriesBetweenLeaps,
@@ -467,7 +473,8 @@ public class RangeStripedCompactableIndexes {
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         AppendOnlyFile appendOnlyFile = new AppendOnlyFile(splittingIndexFile);
-                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
+                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(stats.bytesWrittenAsSplit,
+                            id,
                             appendOnlyFile,
                             maxLeaps,
                             entriesBetweenLeaps,
@@ -561,7 +568,8 @@ public class RangeStripedCompactableIndexes {
                 File mergingIndexFile = id.toFile(mergingRoot);
                 FileUtils.deleteQuietly(mergingIndexFile);
                 AppendOnlyFile appendOnlyFile = new AppendOnlyFile(mergingIndexFile);
-                LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(id,
+                LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(stats.bytesWrittenAsMerge,
+                    id,
                     appendOnlyFile,
                     maxLeaps,
                     entriesBetweenLeaps,

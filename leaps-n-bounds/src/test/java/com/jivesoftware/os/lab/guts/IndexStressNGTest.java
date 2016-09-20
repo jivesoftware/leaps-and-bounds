@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.commons.lang.mutable.MutableBoolean;
 import org.apache.commons.lang.mutable.MutableLong;
 import org.testng.annotations.Test;
@@ -71,7 +72,7 @@ public class IndexStressNGTest {
                                 long m = merge.incrementAndGet();
                                 int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
-                                return new LABAppendableIndex(id, new AppendOnlyFile(mergingFile),
+                                return new LABAppendableIndex(new LongAdder(), id, new AppendOnlyFile(mergingFile),
                                     maxLeaps, entriesBetweenLeaps, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
                             },
                             (ids) -> {
@@ -177,7 +178,7 @@ public class IndexStressNGTest {
             File indexFiler = File.createTempFile("s-index-merged-" + b, ".tmp");
 
             long startMerge = System.currentTimeMillis();
-            LABAppendableIndex write = new LABAppendableIndex(id,
+            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), id,
                 new AppendOnlyFile(indexFiler), maxLeaps, entriesBetweenLeaps, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
                 new RawEntryFormat(0, 0));
             BolBuffer keyBuffer = new BolBuffer();

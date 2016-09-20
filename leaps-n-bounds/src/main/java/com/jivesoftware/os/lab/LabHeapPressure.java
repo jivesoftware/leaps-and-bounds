@@ -4,7 +4,6 @@ import com.google.common.base.Preconditions;
 import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.guts.USort;
-import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import com.jivesoftware.os.mlogger.core.ValueType;
@@ -21,6 +20,7 @@ public class LabHeapPressure {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
+    private final LABStats stat;
     private final ExecutorService schedule;
     private final String name;
     private final long maxHeapPressureInBytes;
@@ -31,12 +31,14 @@ public class LabHeapPressure {
     private final AtomicLong changed = new AtomicLong();
     private final AtomicLong waiting = new AtomicLong();
 
-    public LabHeapPressure(ExecutorService schedule,
+    public LabHeapPressure(LABStats stat,
+        ExecutorService schedule,
         String name,
         long maxHeapPressureInBytes,
         long blockOnHeapPressureInBytes,
         AtomicLong globalHeapCostInBytes) {
 
+        this.stat = stat;
         this.schedule = schedule;
         this.name = name;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
@@ -51,9 +53,12 @@ public class LabHeapPressure {
         changed.incrementAndGet();
         globalHeapCostInBytes.addAndGet(delta);
         if (delta < 0) {
+            stat.freed.add(-delta);
             synchronized (globalHeapCostInBytes) {
                 globalHeapCostInBytes.notifyAll();
             }
+        } else {
+            stat.allocationed.add(delta);
         }
     }
 
@@ -121,16 +126,14 @@ public class LabHeapPressure {
             if (running != true) {
                 running = true;
                 schedule.submit(() -> {
-                    LOG.incAtomic("lab>heap>flushing>" + name);
                     while (true) {
+                        stat.gc.increment();
                         try {
                             long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
                             if (debtInBytes <= 0) {
-                                LOG.inc("lab>commit>global>skip>" + name);
                                 boolean yieldAndContinue = false;
                                 synchronized (globalHeapCostInBytes) {
                                     if (waiting.get() == 0) {
-                                        LOG.decAtomic("lab>heap>flushing>" + name);
                                         running = false;
                                         return null;
                                     } else {
@@ -157,13 +160,10 @@ public class LabHeapPressure {
                             int i = 0;
                             while (i < keys.length && debtInBytes > 0) {
                                 long pressure = Long.MAX_VALUE - pressures[i];
-                                LOG.inc("lab>commit>global>pressure>" + name + ">" + UIO.chunkPower(pressure, 0));
                                 debtInBytes -= pressure;
                                 Boolean efsyncOnFlush = this.labs.remove(keys[i]);
                                 if (efsyncOnFlush != null) {
                                     try {
-                                        LOG.inc("lab>global>pressure>commit>" + name);
-                                        LOG.set(ValueType.VALUE, "lab>commitable>" + name, this.labs.size());
                                         keys[i].commit(efsyncOnFlush, false); // todo config
 
                                     } catch (LABCorruptedException | LABClosedException x) {
@@ -178,7 +178,6 @@ public class LabHeapPressure {
                                 }
                                 i++;
                             }
-                            LOG.inc("lab>commit>global>depth>" + name + ">" + UIO.chunkPower(i, 0));
                         } catch (InterruptedException ie) {
                             synchronized (globalHeapCostInBytes) {
                                 running = false;
@@ -190,13 +189,11 @@ public class LabHeapPressure {
                         }
                         synchronized (globalHeapCostInBytes) {
                             if (waiting.get() == 0) {
-                                LOG.decAtomic("lab>heap>flushing>" + name);
                                 running = false;
                                 return null;
                             }
                         }
                     }
-
                 });
             }
         }

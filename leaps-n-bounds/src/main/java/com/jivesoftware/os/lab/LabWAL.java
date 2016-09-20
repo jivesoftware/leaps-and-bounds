@@ -14,9 +14,9 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.ValueStream;
-import com.jivesoftware.os.lab.api.exceptions.LABFailedToInitializeWALException;
 import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
+import com.jivesoftware.os.lab.api.exceptions.LABFailedToInitializeWALException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
@@ -64,18 +64,21 @@ public class LabWAL {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AppendableHeap appendableHeap = new AppendableHeap(8192);
 
+    private final LABStats stats;
     private final File walRoot;
     private final long maxWALSizeInBytes;
     private final long maxEntriesPerWAL;
     private final long maxEntrySizeInBytes;
     private final long maxValueIndexHeapPressureOverride;
 
-    public LabWAL(File walRoot,
+    public LabWAL(LABStats stats,
+        File walRoot,
         long maxWALSizeInBytes,
         long maxEntriesPerWAL,
         long maxEntrySizeInBytes,
         long maxValueIndexHeapPressureOverride) throws IOException {
 
+        this.stats = stats;
         this.walRoot = walRoot;
         this.maxWALSizeInBytes = maxWALSizeInBytes;
         this.maxEntriesPerWAL = maxEntriesPerWAL;
@@ -187,7 +190,7 @@ public class LabWAL {
 
                                 BolBuffer kb = new BolBuffer();
                                 BolBuffer vb = new BolBuffer();
-                                appendToValueIndex.append((stream) -> {
+                                appendToValueIndex.onOpenAppend((stream) -> {
 
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
                                         return stream.stream(index, key == null ? null : key.copy(), timestamp, tombstoned, version,
@@ -372,12 +375,13 @@ public class LabWAL {
         File file = new File(walRoot, String.valueOf(walIdProvider.incrementAndGet()));
         file.getParentFile().mkdirs();
         AppendOnlyFile appendOnlyFile = new AppendOnlyFile(file);
-        wal = new ActiveWAL(appendOnlyFile);
+        wal = new ActiveWAL(stats, appendOnlyFile);
         return wal;
     }
 
     private static final class ActiveWAL {
 
+        private final LABStats stats;
         private final AppendOnlyFile wal;
         private final IAppendOnly appendOnly;
         private final BAHash<Long> appendVersions;
@@ -385,7 +389,8 @@ public class LabWAL {
         private final AtomicLong sizeInBytes = new AtomicLong();
         private final Object oneWriteAtTimeLock = new Object();
 
-        public ActiveWAL(AppendOnlyFile wal) throws Exception {
+        public ActiveWAL(LABStats stats, AppendOnlyFile wal) throws Exception {
+            this.stats = stats;
             this.wal = wal;
             this.appendVersions = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
             this.appendOnly = wal.appender();
@@ -393,16 +398,19 @@ public class LabWAL {
 
         public void append(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, BolBuffer entry) throws Exception {
             entryCount.incrementAndGet();
-            sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8 + entry.length);
+            int sizeOfAppend = 1 + 4 + 4 + valueIndexId.length + 8 + entry.length;
+            sizeInBytes.addAndGet(sizeOfAppend);
             synchronized (oneWriteAtTimeLock) {
                 append(appendableHeap, ENTRY, valueIndexId, appendVersion);
                 appendableHeap.appendInt(entry.length);
                 appendableHeap.append(entry.bytes, entry.offset, entry.length);
             }
+            stats.bytesWrittenToWAL.add(sizeOfAppend);
         }
 
         public void flushed(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
-            sizeInBytes.addAndGet(1 + 4 + 4 + valueIndexId.length + 8);
+            int numBytes = 1 + 4 + 4 + valueIndexId.length + 8;
+            sizeInBytes.addAndGet(numBytes);
             synchronized (oneWriteAtTimeLock) {
                 append(appendableHeap, BATCH_ISOLATION, valueIndexId, appendVersion);
 
@@ -412,6 +420,7 @@ public class LabWAL {
                 appendableHeap.reset();
                 appendVersions.put(valueIndexId, appendVersion);
             }
+            stats.bytesWrittenToWAL.add(numBytes);
         }
 
         private void append(AppendableHeap appendableHeap, byte type, byte[] valueIndexId, long appendVersion) throws IOException {

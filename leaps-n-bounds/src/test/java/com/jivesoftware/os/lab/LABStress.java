@@ -134,14 +134,15 @@ public class LABStress {
     private ValueIndex createIndex(File root) throws Exception {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
-        LabHeapPressure labHeapPressure = new LabHeapPressure(
+        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
             "default",
             1024 * 1024 * 20,
             1024 * 1024 * 40,
             new AtomicLong());
 
-        LABEnvironment env = new LABEnvironment(LABEnvironment.buildLABSchedulerThreadPool(1),
+        LABEnvironment env = new LABEnvironment(new LABStats(),
+            LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
             "wal",

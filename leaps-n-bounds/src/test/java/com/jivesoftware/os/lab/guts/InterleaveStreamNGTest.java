@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
@@ -139,7 +140,13 @@ public class InterleaveStreamNGTest {
 
         ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
-        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong());
+        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            -1,
+            -1,
+            new AtomicLong()
+        );
         LABMemoryIndex[] memoryIndexes = new LABMemoryIndex[indexes];
         ReadIndex[] reorderIndexReaders = new ReadIndex[indexes];
         ReadIndex[] readerIndexs = new ReadIndex[indexes];

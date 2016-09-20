@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
@@ -56,7 +57,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
         long splitWhenValuesAndKeysTotalExceedsNBytes = -1;
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(destroy,
+        RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(new LABStats(),
+            destroy,
             root,
             "test",
             entriesBetweenLeaps,
@@ -163,7 +165,11 @@ public class RangeStripedCompactableIndexesStressNGTest {
         BolBuffer entryKeyBuffer = new BolBuffer();
 
         for (int b = 0; b < numBatches; b++) {
-            LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
+            LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+                LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+                "default",
+                -1,
+                -1,
                 new AtomicLong());
 
             LABMemoryIndex index = new LABMemoryIndex(destroy,

@@ -48,6 +48,7 @@ public class LABEnvironment {
     }
 
     private final File labRoot;
+    private final LABStats stats;
     private final ExecutorService scheduler;
     private final ExecutorService compact;
     private final ExecutorService destroy;
@@ -89,7 +90,8 @@ public class LABEnvironment {
         return new LRUConcurrentBAHLinkedHash<>(10, maxCapacity, 0.5f, true, concurrency);
     }
 
-    public LABEnvironment(ExecutorService scheduler,
+    public LABEnvironment(LABStats stats,
+        ExecutorService scheduler,
         ExecutorService compact,
         final ExecutorService destroy,
         String walName,
@@ -110,6 +112,7 @@ public class LABEnvironment {
         register(LABRawhide.NAME, LABRawhide.SINGLETON);
         register(MemoryRawEntryFormat.NAME, MemoryRawEntryFormat.SINGLETON);
 
+        this.stats = stats;
         this.scheduler = scheduler;
         this.compact = compact;
         this.destroy = destroy;
@@ -119,7 +122,7 @@ public class LABEnvironment {
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
         this.walName = walName;
-        this.wal = new LabWAL(new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
+        this.wal = new LabWAL(stats, new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
         this.useIndexableMemory = useIndexableMemory;
         this.stripingBolBufferLocks = bolBufferLocks;
     }
@@ -227,7 +230,8 @@ public class LABEnvironment {
             }
         };
 
-        return new LAB(formatTransformerProvider,
+        return new LAB(stats,
+            formatTransformerProvider,
             config.rawhideName,
             rawhide,
             rawEntryFormat,

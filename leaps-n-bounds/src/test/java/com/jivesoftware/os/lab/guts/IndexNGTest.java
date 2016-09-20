@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
@@ -26,6 +27,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -50,7 +52,8 @@ public class IndexNGTest {
 
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
 
-        LABAppendableIndex write = new LABAppendableIndex(indexRangeId,
+        LABAppendableIndex write = new LABAppendableIndex(new LongAdder(),
+            indexRangeId,
             new AppendOnlyFile(indexFiler),
             64,
             10,
@@ -83,7 +86,11 @@ public class IndexNGTest {
         int step = 10;
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1,
+        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            -1,
+            -1,
             new AtomicLong());
         LABMemoryIndex walIndex = new LABMemoryIndex(destroy,
             labHeapPressure,
@@ -109,7 +116,12 @@ public class IndexNGTest {
 
         int count = 10;
         int step = 10;
-        LabHeapPressure labHeapPressure = new LabHeapPressure(LABEnvironment.buildLABHeapSchedulerThreadPool(1), "default", -1, -1, new AtomicLong());
+        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            -1,
+            -1,
+            new AtomicLong());
 
         LABMemoryIndex memoryIndex = new LABMemoryIndex(destroy,
             labHeapPressure, rawhide,
@@ -128,7 +140,7 @@ public class IndexNGTest {
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
-        LABAppendableIndex disIndex = new LABAppendableIndex(indexRangeId, new AppendOnlyFile(indexFiler),
+        LABAppendableIndex disIndex = new LABAppendableIndex(new LongAdder(), indexRangeId, new AppendOnlyFile(indexFiler),
             64, 10, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
         disIndex.append((stream) -> {
             ReadIndex reader = memoryIndex.acquireReader();
