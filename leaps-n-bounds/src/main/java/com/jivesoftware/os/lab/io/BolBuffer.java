@@ -64,6 +64,42 @@ public class BolBuffer {
         }
     }
 
+    public char getChar(int offset) {
+        try {
+            if (bb != null) {
+                return bb.getChar(this.offset + offset);
+            }
+            return UIO.bytesChar(bytes, this.offset + offset);
+        } catch (Exception x) {
+            LOG.error("get({}) failed against{} ", offset, this);
+            throw x;
+        }
+    }
+
+    public short getShort(int offset) {
+        try {
+            if (bb != null) {
+                return bb.getShort(this.offset + offset);
+            }
+            return UIO.bytesShort(bytes, this.offset + offset);
+        } catch (Exception x) {
+            LOG.error("getInt({}) failed against{} ", offset, this);
+            throw x;
+        }
+    }
+
+    public int getUnsignedShort(int offset) {
+        try {
+            if (bb != null) {
+                return bb.getShort(this.offset + offset) & 0xffff;
+            }
+            return UIO.bytesUnsignedShort(bytes, this.offset + offset);
+        } catch (Exception x) {
+            LOG.error("getInt({}) failed against{} ", offset, this);
+            throw x;
+        }
+    }
+
     public int getInt(int offset) {
         try {
             if (bb != null) {
@@ -76,12 +112,48 @@ public class BolBuffer {
         }
     }
 
+    public long getUnsignedInt(int offset) {
+        try {
+            if (bb != null) {
+                return bb.getInt(this.offset + offset) & 0xffffffffL;
+            }
+            return UIO.bytesInt(bytes, this.offset + offset) & 0xffffffffL;
+        } catch (Exception x) {
+            LOG.error("getInt({}) failed against{} ", offset, this);
+            throw x;
+        }
+    }
+
     public long getLong(int offset) {
         try {
             if (bb != null) {
                 return bb.getLong(this.offset + offset);
             }
             return UIO.bytesLong(bytes, this.offset + offset);
+        } catch (Exception x) {
+            LOG.error("getLong({}) failed against{} ", offset, this);
+            throw x;
+        }
+    }
+
+    public float getFloat(int offset) {
+        try {
+            if (bb != null) {
+                return bb.getFloat(this.offset + offset);
+            }
+            return Float.intBitsToFloat(UIO.bytesInt(bytes, this.offset + offset));
+        } catch (Exception x) {
+            LOG.error("getLong({}) failed against{} ", offset, this);
+            throw x;
+        }
+    }
+
+    public double getDouble(int offset) {
+        try {
+            if (bb != null) {
+                return bb.getDouble(this.offset + offset);
+            }
+            return Double.longBitsToDouble(UIO.bytesLong(bytes, this.offset + offset));
         } catch (Exception x) {
             LOG.error("getLong({}) failed against{} ", offset, this);
             throw x;

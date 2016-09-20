@@ -87,23 +87,39 @@ public class UIO {
         return ints;
     }
 
-    public static int bytesInt(byte[] bytes, int _offset) {
+    public static int bytesInt(byte[] bytes, int offset) {
         int v = 0;
-        v |= (bytes[_offset + 0] & 0xFF);
+        v |= (bytes[offset + 0] & 0xFF);
         v <<= 8;
-        v |= (bytes[_offset + 1] & 0xFF);
+        v |= (bytes[offset + 1] & 0xFF);
         v <<= 8;
-        v |= (bytes[_offset + 2] & 0xFF);
+        v |= (bytes[offset + 2] & 0xFF);
         v <<= 8;
-        v |= (bytes[_offset + 3] & 0xFF);
+        v |= (bytes[offset + 3] & 0xFF);
         return v;
     }
 
-    public static short bytesShort(byte[] bytes, int _offset) {
+    public static short bytesShort(byte[] bytes, int offset) {
         short v = 0;
-        v |= (bytes[_offset + 0] & 0xFF);
+        v |= (bytes[offset + 0] & 0xFF);
         v <<= 8;
-        v |= (bytes[_offset + 1] & 0xFF);
+        v |= (bytes[offset + 1] & 0xFF);
+        return v;
+    }
+
+    public static int bytesUnsignedShort(byte[] bytes, int offset) {
+        int v = 0;
+        v |= (bytes[offset + 0] & 0xFF);
+        v <<= 8;
+        v |= (bytes[offset + 1] & 0xFF);
+        return v;
+    }
+
+    public static char bytesChar(byte[] bytes, int offset) {
+        char v = 0;
+        v |= (bytes[offset + 0] & 0xFF);
+        v <<= 8;
+        v |= (bytes[offset + 1] & 0xFF);
         return v;
     }
 
@@ -190,7 +206,6 @@ public class UIO {
         }
         return 0;
     }
-
 
     /**
      * Lex key range splittting Copied from HBase
