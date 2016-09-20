@@ -18,8 +18,7 @@ public class BolBufferDataInput implements DataInput {
 
     @Override
     public void readFully(byte[] b) throws IOException {
-        buf.get(offset);
-        offset++;
+        readFully(b, 0, b.length);
     }
 
     @Override
@@ -79,14 +78,14 @@ public class BolBufferDataInput implements DataInput {
 
     @Override
     public int readInt() throws IOException {
-        int i =  buf.getInt(offset);
+        int i = buf.getInt(offset);
         offset += 4;
         return i;
     }
 
     @Override
     public long readLong() throws IOException {
-        long l =  buf.getLong(offset);
+        long l = buf.getLong(offset);
         offset += 8;
         return l;
     }
@@ -100,8 +99,8 @@ public class BolBufferDataInput implements DataInput {
 
     @Override
     public double readDouble() throws IOException {
-        double d =  buf.getDouble(offset);
-         offset += 8;
+        double d = buf.getDouble(offset);
+        offset += 8;
         return d;
     }
 
