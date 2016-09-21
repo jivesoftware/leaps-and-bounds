@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.LABIndex;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
@@ -36,8 +37,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         return headUpdater.compareAndSet(this, cmp, val);
     }
 
-    private final int ALL = 1024;
-    private final Semaphore growNodesArray = new Semaphore(ALL);
+    private final int ALL = 1024; // TODO Expose?
+    private final Semaphore growSemaphore = new Semaphore(ALL);
     private volatile AtomicLongArray nodesArray = new AtomicLongArray(4 * 16);
     private final AtomicInteger freeNode = new AtomicInteger(-1);
     private final AtomicInteger allocateNode = new AtomicInteger();
@@ -69,9 +70,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         address = allocateNode.getAndAdd(NODE_SIZE_IN_LONGS);
         if (address + NODE_SIZE_IN_LONGS >= nodesArray.length()) {
 
-            growNodesArray.release();
+            growSemaphore.release();
             try {
-                growNodesArray.acquire(ALL);
+                growSemaphore.acquire(ALL);
                 try {
                     if (address + NODE_SIZE_IN_LONGS >= nodesArray.length()) {
 
@@ -85,10 +86,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                         nodesArray = new AtomicLongArray(newNodesArray);
                     }
                 } finally {
-                    growNodesArray.release(ALL);
+                    growSemaphore.release(ALL);
                 }
             } finally {
-                growNodesArray.acquire();
+                growSemaphore.acquire();
             }
         }
 
@@ -101,9 +102,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
     }
 
     private void freeNode(int address) throws InterruptedException {
-        growNodesArray.release();
+        growSemaphore.release();
         try {
-            growNodesArray.acquire(ALL);
+            growSemaphore.acquire(ALL);
             try {
                 int freeAddress;
                 do {
@@ -111,10 +112,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     nodesArray.set(address, freeAddress);
                 } while (!freeNode.compareAndSet(freeAddress, address));
             } finally {
-                growNodesArray.release(ALL);
+                growSemaphore.release(ALL);
             }
         } finally {
-            growNodesArray.acquire();
+            growSemaphore.acquire();
         }
 
     }
@@ -165,7 +166,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         try {
             boolean cas = nodesArray.compareAndSet(address + NODE_VALUE_OFFSET, cmp, val);
             if (cas) {
-                memory.release(cmp);
+                stats.slack.add(memory.release(cmp));
             }
             return cas;
         } finally {
@@ -243,9 +244,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         address = allocateIndex.getAndAdd(INDEX_SIZE_IN_INTS);
         if (address + INDEX_SIZE_IN_INTS >= indexsArray.length()) {
 
-            growNodesArray.release();
+            growSemaphore.release();
             try {
-                growNodesArray.acquire(ALL);
+                growSemaphore.acquire(ALL);
                 try {
                     if (address + INDEX_SIZE_IN_INTS >= indexsArray.length()) {
                         int newSize = Math.max(indexsArray.length() + INDEX_SIZE_IN_INTS, indexsArray.length() * 2);
@@ -256,10 +257,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                         indexsArray = new AtomicIntegerArray(newIndexsArray);
                     }
                 } finally {
-                    growNodesArray.release(ALL);
+                    growSemaphore.release(ALL);
                 }
             } finally {
-                growNodesArray.acquire();
+                growSemaphore.acquire();
             }
         }
 
@@ -272,9 +273,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
     }
 
     private void freeIndex(int address) throws InterruptedException {
-        growNodesArray.release();
+        growSemaphore.release();
         try {
-            growNodesArray.acquire(ALL);
+            growSemaphore.acquire(ALL);
             try {
                 int freeAddress;
                 do {
@@ -282,10 +283,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     indexsArray.set(address, freeAddress);
                 } while (!freeIndex.compareAndSet(freeAddress, address));
             } finally {
-                growNodesArray.release(ALL);
+                growSemaphore.release(ALL);
             }
         } finally {
-            growNodesArray.acquire();
+            growSemaphore.acquire();
         }
 
     }
@@ -623,11 +624,13 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         }
     }
 
+    private final LABStats stats;
     private final StripingBolBufferLocks bolBufferLocks;
     private final int seed;
 
-    public LABConcurrentSkipListMap(LABConcurrentSkipListMemory comparator, StripingBolBufferLocks bolBufferLocks) throws Exception {
-        this.memory = comparator;
+    public LABConcurrentSkipListMap(LABStats stats, LABConcurrentSkipListMemory memory, StripingBolBufferLocks bolBufferLocks) throws Exception {
+        this.stats = stats;
+        this.memory = memory;
         this.bolBufferLocks = bolBufferLocks;
         this.seed = System.identityHashCode(this);
         initialize();
@@ -635,7 +638,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
     @Override
     public BolBuffer get(BolBuffer keyBytes, BolBuffer valueBuffer) throws Exception {
-        growNodesArray.acquire();
+        growSemaphore.acquire();
         try {
             long address = doGet(keyBytes);
             if (address == -1) {
@@ -646,13 +649,13 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 return acquired;
             }
         } finally {
-            growNodesArray.release();
+            growSemaphore.release();
         }
     }
 
     public int size() throws InterruptedException {
         long count = 0;
-        growNodesArray.acquire();
+        growSemaphore.acquire();
         try {
             for (int n = findFirst(); n != NIL; n = nodeNext(n)) {
                 long v = nodeValue(n);
@@ -661,18 +664,18 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 }
             }
         } finally {
-            growNodesArray.release();
+            growSemaphore.release();
         }
         return (count >= Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) count;
     }
 
     @Override
     public boolean isEmpty() throws InterruptedException {
-        growNodesArray.acquire();
+        growSemaphore.acquire();
         try {
             return findFirst() == NIL;
         } finally {
-            growNodesArray.release();
+            growSemaphore.release();
         }
     }
 
@@ -695,7 +698,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         }
 
         synchronized (bolBufferLocks.lock(keyBytes, seed)) {
-            growNodesArray.acquire();
+            growSemaphore.acquire();
             try {
                 for (;;) {
                     int n;
@@ -726,14 +729,14 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                             if (casValue(n, memory, va, rid)) {
                                 return;
                             } else if (rid != NIL) {
-                                memory.release(rid);
+                                stats.slack.add(memory.release(rid));
                             }
                         }
                     }
                 }
 
             } finally {
-                growNodesArray.release();
+                growSemaphore.release();
             }
         }
     }
@@ -779,10 +782,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     if (c == 0) {
                         if (onlyIfAbsent) {
                             if (kid != NIL) {
-                                memory.release(kid);
+                                stats.slack.add(memory.release(kid));
                             }
                             if (vid != NIL) {
-                                memory.release(vid);
+                                stats.slack.add(memory.release(vid));
                             }
                             return true;
                         }
@@ -790,12 +793,12 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                             vid = valueBytes == null ? NIL : memory.allocate(valueBytes, changeInBytes);
                         }
                         if (casValue(n, memory, v, vid)) {
-                            memory.release(v);
+                            stats.slack.add(memory.release(v));
                             if (kid != NIL) {
-                                memory.release(kid);
+                                stats.slack.add(memory.release(kid));
                             }
                             if (vid != NIL) {
-                                memory.release(vid);
+                                stats.slack.add(memory.release(vid));
                             }
                             return true;
                         }
@@ -823,11 +826,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         }
 
         if (kid != NIL) {
-            memory.release(kid);
+            stats.slack.add(memory.release(kid));
         }
 
         if (vid != NIL) {
-            memory.release(vid);
+            stats.slack.add(memory.release(vid));
         }
 
         int rnd = random.nextInt(); // BARF
@@ -927,7 +930,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
     @Override
     public byte[] firstKey() throws InterruptedException {
-        growNodesArray.acquire();
+        growSemaphore.acquire();
         try {
             int n = findFirst();
             if (n == NIL) {
@@ -935,13 +938,13 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             }
             return memory.bytes(nodeKey(n));
         } finally {
-            growNodesArray.release();
+            growSemaphore.release();
         }
     }
 
     @Override
     public byte[] lastKey() throws InterruptedException {
-        growNodesArray.acquire();
+        growSemaphore.acquire();
         try {
             int n = findLast();
             if (n == NIL) {
@@ -949,12 +952,24 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             }
             return memory.bytes(nodeKey(n));
         } finally {
-            growNodesArray.release();
+            growSemaphore.release();
         }
     }
 
+    private volatile long addressSign = 1;
+
+    private void compactAll() throws Exception {
+        growSemaphore.acquire(ALL);
+        try {
+            addressSign *= -1;
+        } finally {
+            growSemaphore.release(ALL);
+        }
+
+    }
+
     public void freeAll() throws Exception {
-        growNodesArray.acquire(ALL);
+        growSemaphore.acquire(ALL);
         try {
             for (int n = findFirst(); n != NIL; n = nodeNext(n)) {
                 long v = nodeValue(n);
@@ -964,10 +979,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 }
             }
         } finally {
-            growNodesArray.release(ALL);
+            growSemaphore.release(ALL);
         }
         initialize();
-
     }
 
     class AllEntryStream implements EntryStream {
@@ -998,11 +1012,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         @Override
         public void close() throws InterruptedException {
             if (next != NIL) {
-                growNodesArray.acquire();
+                growSemaphore.acquire();
                 try {
                     releaseValue(next);
                 } finally {
-                    growNodesArray.release();
+                    growSemaphore.release();
                 }
             }
         }
@@ -1017,11 +1031,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             BolBuffer acquired = memory.acquireBytes(nextValue, valueBuffer);
             memory.release(nextValue);
 
-            growNodesArray.acquire();
+            growSemaphore.acquire();
             try {
                 advance();
             } finally {
-                growNodesArray.release();
+                growSemaphore.release();
             }
             boolean more = entryStream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, acquired);
             return more;
@@ -1046,7 +1060,6 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 }
             }
         }
-
     }
 
 
@@ -1102,7 +1115,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             this.hiInclusive = toInclusive;
 
             BolBuffer keyBolBuffer = new BolBuffer(); // Grr
-            map.growNodesArray.acquire();
+            map.growSemaphore.acquire();
             try {
                 for (;;) {
                     next = loNode();
@@ -1128,18 +1141,18 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     }
                 }
             } finally {
-                map.growNodesArray.release();
+                map.growSemaphore.release();
             }
         }
 
         @Override
         public void close() throws InterruptedException {
             if (next != NIL) {
-                m.growNodesArray.acquire();
+                m.growSemaphore.acquire();
                 try {
                     m.releaseValue(next);
                 } finally {
-                    m.growNodesArray.release();
+                    m.growSemaphore.release();
                 }
             }
         }
@@ -1148,11 +1161,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         public boolean next(RawEntryStream stream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception {
             BolBuffer acquired = m.memory.acquireBytes(nextValue, valueBuffer);
             m.memory.release(nextValue);
-            m.growNodesArray.acquire();
+            m.growSemaphore.acquire();
             try {
                 advance(keyBuffer); // Grr
             } finally {
-                m.growNodesArray.release();
+                m.growSemaphore.release();
             }
             return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, acquired);
         }
@@ -1301,7 +1314,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         public int size() throws InterruptedException {
 
             long count = 0;
-            m.growNodesArray.acquire();
+            m.growSemaphore.acquire();
             try {
                 for (int n = loNode();
                     isBeforeEnd(n);
@@ -1312,17 +1325,17 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     }
                 }
             } finally {
-                m.growNodesArray.release();
+                m.growSemaphore.release();
             }
             return count >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) count;
         }
 
         public boolean isEmpty() throws InterruptedException {
-            m.growNodesArray.acquire();
+            m.growSemaphore.acquire();
             try {
                 return !isBeforeEnd(loNode());
             } finally {
-                m.growNodesArray.release();
+                m.growSemaphore.release();
             }
         }
 
@@ -1330,11 +1343,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
     @Override
     public boolean contains(byte[] from, byte[] to) throws Exception {
-        growNodesArray.acquire();
+        growSemaphore.acquire();
         try {
             return rangeMap(from, to).hasNext();
         } finally {
-            growNodesArray.release();
+            growSemaphore.release();
         }
     }
 
@@ -1354,11 +1367,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
     public Scanner scanner(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
 
         EntryStream entryStream;
-        growNodesArray.acquire();
+        growSemaphore.acquire();
         try {
             entryStream = rangeMap(from != null ? from : null, to != null ? to : null);
         } finally {
-            growNodesArray.release();
+            growSemaphore.release();
         }
         BolBuffer keyBuffer = new BolBuffer();
         return new Scanner() {

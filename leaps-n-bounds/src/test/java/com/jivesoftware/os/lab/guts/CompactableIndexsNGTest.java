@@ -5,6 +5,7 @@ import com.jivesoftware.os.jive.utils.ordered.id.ConstantWriterIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProvider;
 import com.jivesoftware.os.jive.utils.ordered.id.OrderIdProviderImpl;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
@@ -149,7 +150,7 @@ public class CompactableIndexsNGTest {
         assertions(indexs, count, step, desired);
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
-        Callable<Void> compactor = indexs.compactor("test", -1, -1, -1, null, minimumRun, fsync,
+        Callable<Void> compactor = indexs.compactor(new LABStats(), "test", -1, -1, -1, null, minimumRun, fsync,
             (rawhideName, minimumRun1, fsync1, callback) -> callback.call(minimumRun,
                 fsync1,
                 (id, worstCaseCount) -> {
@@ -242,7 +243,7 @@ public class CompactableIndexsNGTest {
 
         File indexFiler = File.createTempFile("a-index-merged", ".tmp");
 
-        Callable<Void> compactor = indexs.compactor("test", -1, -1, -1, null, minimumRun, fsync,
+        Callable<Void> compactor = indexs.compactor(new LABStats(), "test", -1, -1, -1, null, minimumRun, fsync,
             (rawhideName, minimumRun1, fsync1, callback) -> callback.call(minimumRun1,
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;

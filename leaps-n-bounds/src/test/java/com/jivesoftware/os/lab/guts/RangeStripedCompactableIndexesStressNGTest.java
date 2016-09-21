@@ -57,7 +57,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
         long splitWhenValuesAndKeysTotalExceedsNBytes = -1;
 
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
-        RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(new LABStats(),
+        LABStats labStats = new LABStats();
+        RangeStripedCompactableIndexes indexs = new RangeStripedCompactableIndexes(labStats,
             destroy,
             root,
             "test",
@@ -165,7 +166,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
         BolBuffer entryKeyBuffer = new BolBuffer();
 
         for (int b = 0; b < numBatches; b++) {
-            LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+            LabHeapPressure labHeapPressure = new LabHeapPressure(labStats,
                 LABEnvironment.buildLABHeapSchedulerThreadPool(1),
                 "default",
                 -1,
@@ -175,7 +176,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             LABMemoryIndex index = new LABMemoryIndex(destroy,
                 labHeapPressure,
                 LABRawhide.SINGLETON,
-                new LABConcurrentSkipListMap(
+                new LABConcurrentSkipListMap(labStats,
                     new LABConcurrentSkipListMemory(LABRawhide.SINGLETON,
                         new LABIndexableMemory("memory",
                             new LABAppendOnlyAllocator(30)

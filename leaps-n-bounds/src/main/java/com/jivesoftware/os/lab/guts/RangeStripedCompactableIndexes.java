@@ -412,7 +412,7 @@ public class RangeStripedCompactableIndexes {
         }
 
         Callable<Void> compactor(String rawhideName, int minMergeDebt, boolean fsync) throws Exception {
-            return compactableIndexes.compactor(
+            return compactableIndexes.compactor(stats,
                 rawhideName,
                 splitWhenKeysTotalExceedsNBytes,
                 splitWhenValuesTotalExceedsNBytes,

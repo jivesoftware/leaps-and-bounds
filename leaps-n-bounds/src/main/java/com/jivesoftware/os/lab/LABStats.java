@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab;
 
+import com.jivesoftware.os.lab.guts.LABSparseCircularMetricBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
-import com.jivesoftware.os.mlogger.core.ValueType;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -14,6 +14,7 @@ public class LABStats {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     public final LongAdder open = new LongAdder();
+    public final LongAdder closed = new LongAdder();
 
     public final LongAdder append = new LongAdder();
     public final LongAdder journaledAppend = new LongAdder();
@@ -26,11 +27,13 @@ public class LABStats {
     public final LongAdder commit = new LongAdder();
     public final LongAdder fsyncedCommit = new LongAdder();
 
-    public final LongAdder compacts = new LongAdder();
-
-    public final LongAdder closed = new LongAdder();
-
+    public final LongAdder merging = new LongAdder();
+    public final LongAdder merged = new LongAdder();
+    public final LongAdder spliting = new LongAdder();
+    public final LongAdder splits = new LongAdder();
+    
     public final LongAdder allocationed = new LongAdder();
+    public final LongAdder slack = new LongAdder();
     public final LongAdder freed = new LongAdder();
     public final LongAdder gc = new LongAdder();
 
@@ -39,26 +42,64 @@ public class LABStats {
     public final LongAdder bytesWrittenAsSplit = new LongAdder();
     public final LongAdder bytesWrittenAsMerge = new LongAdder();
 
-    public void refreshJMX() {
-        LOG.set(ValueType.VALUE, "open", open.longValue());
-        LOG.set(ValueType.VALUE, "append", append.longValue());
-        LOG.set(ValueType.VALUE, "journaledAppend", journaledAppend.longValue());
-        LOG.set(ValueType.VALUE, "gets", gets.longValue());
-        LOG.set(ValueType.VALUE, "rangeScan", rangeScan.longValue());
-        LOG.set(ValueType.VALUE, "multiRangeScan", multiRangeScan.longValue());
-        LOG.set(ValueType.VALUE, "rowScan", rowScan.longValue());
-        LOG.set(ValueType.VALUE, "commit", commit.longValue());
-        LOG.set(ValueType.VALUE, "fsyncedCommit", fsyncedCommit.longValue());
-        LOG.set(ValueType.VALUE, "compacts", compacts.longValue());
-        LOG.set(ValueType.VALUE, "closed", closed.longValue());
-        LOG.set(ValueType.VALUE, "allocationed", allocationed.longValue());
-        LOG.set(ValueType.VALUE, "freed", freed.longValue());
-        LOG.set(ValueType.VALUE, "gc", gc.longValue());
+    public final LABSparseCircularMetricBuffer mOpen = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mClosed = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
 
-        LOG.set(ValueType.VALUE, "bytesWrittenToWAL", bytesWrittenToWAL.longValue());
-        LOG.set(ValueType.VALUE, "bytesWrittenAsIndex", bytesWrittenAsIndex.longValue());
-        LOG.set(ValueType.VALUE, "bytesWrittenAsSplit", bytesWrittenAsSplit.longValue());
-        LOG.set(ValueType.VALUE, "bytesWrittenAsMerge", bytesWrittenAsMerge.longValue());
+    public final LABSparseCircularMetricBuffer mAppend = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mJournaledAppend = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
 
+    public final LABSparseCircularMetricBuffer mGets = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mRangeScan = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mMultiRangeScan = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mRowScan = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+
+    public final LABSparseCircularMetricBuffer mCommit = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mFsyncedCommit = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+
+    public final LABSparseCircularMetricBuffer mMerging = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mMerged = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mSplitings = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO
+    public final LABSparseCircularMetricBuffer mSplits = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO
+
+    public final LABSparseCircularMetricBuffer mAllocationed = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mSlack = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mFreed = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO
+    public final LABSparseCircularMetricBuffer mGC = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+
+    public final LABSparseCircularMetricBuffer mBytesWrittenToWAL = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsIndex = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsSplit = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsMerge = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+
+    public void refresh() {
+        long timestamp = System.currentTimeMillis();
+        mOpen.add(timestamp, open);
+        mClosed.add(timestamp, closed);
+
+        mAppend.add(timestamp, append);
+        mJournaledAppend.add(timestamp, journaledAppend);
+
+        mGets.add(timestamp, gets);
+        mRangeScan.add(timestamp, rangeScan);
+        mMultiRangeScan.add(timestamp, multiRangeScan);
+        mRowScan.add(timestamp, rowScan);
+
+        mCommit.add(timestamp, commit);
+        mFsyncedCommit.add(timestamp, fsyncedCommit);
+
+        mMerging.add(timestamp, merging);
+        mMerged.add(timestamp, merged);
+        mSplitings.add(timestamp, spliting);
+        mSplits.add(timestamp, splits);
+
+        mAllocationed.add(timestamp, allocationed);
+        mSlack.add(timestamp, slack);
+        mFreed.add(timestamp, freed);
+        mGC.add(timestamp, gc);
+
+        mBytesWrittenToWAL.add(timestamp, bytesWrittenToWAL);
+        mBytesWrittenAsIndex.add(timestamp, bytesWrittenAsIndex);
+        mBytesWrittenAsSplit.add(timestamp, bytesWrittenAsSplit);
+        mBytesWrittenAsMerge.add(timestamp, bytesWrittenAsMerge);
     }
 }

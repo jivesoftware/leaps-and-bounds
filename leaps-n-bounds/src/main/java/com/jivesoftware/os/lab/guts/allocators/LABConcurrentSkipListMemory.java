@@ -2,7 +2,6 @@ package com.jivesoftware.os.lab.guts.allocators;
 
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.io.BolBuffer;
-import java.util.Comparator;
 
 /**
  *
@@ -11,14 +10,12 @@ import java.util.Comparator;
 public class LABConcurrentSkipListMemory {
 
     private final Rawhide rawhide;
-    private final Comparator<byte[]> comparator;
     private final LABIndexableMemory indexableMemory;
 
     public LABConcurrentSkipListMemory(Rawhide rawhide, LABIndexableMemory indexableMemory) {
 
         this.rawhide = rawhide;
         this.indexableMemory = indexableMemory;
-        this.comparator = rawhide.getKeyComparator();
     }
 
     public byte[] bytes(long chunkAddress) throws InterruptedException {
@@ -33,8 +30,8 @@ public class LABConcurrentSkipListMemory {
         return indexableMemory.allocate(bytes, costInBytes);
     }
 
-    public void release(long address) throws Exception {
-        indexableMemory.release(address);
+    public int release(long address) throws Exception {
+        return indexableMemory.release(address);
     }
 
     public int compareLB(long left, byte[] right, int rightOffset, int rightLength) {

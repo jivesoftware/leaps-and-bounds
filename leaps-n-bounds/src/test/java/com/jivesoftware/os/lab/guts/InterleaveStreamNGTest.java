@@ -139,8 +139,9 @@ public class InterleaveStreamNGTest {
         Rawhide rawhide = LABRawhide.SINGLETON;
 
         ConcurrentSkipListMap<byte[], byte[]> desired = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
+        LABStats labStats = new LABStats();
 
-        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+        LabHeapPressure labHeapPressure = new LabHeapPressure(labStats,
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
             "default",
             -1,
@@ -158,7 +159,7 @@ public class InterleaveStreamNGTest {
 
                 memoryIndexes[i] = new LABMemoryIndex(destroy, labHeapPressure,
                     rawhide,
-                    new LABConcurrentSkipListMap(
+                    new LABConcurrentSkipListMap(labStats,
                         new LABConcurrentSkipListMemory(rawhide,
                             new LABIndexableMemory("memory",
                                 new LABAppendOnlyAllocator(30)

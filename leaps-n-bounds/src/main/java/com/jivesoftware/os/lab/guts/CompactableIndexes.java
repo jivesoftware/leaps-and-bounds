@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.api.exceptions.LABConcurrentSplitException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
@@ -70,7 +71,7 @@ public class CompactableIndexes {
     }
 
     private void refreshMaxTimestamp(ReadOnlyIndex[] concurrentReadableIndexs) {
-        
+
         long maxTimestamp = -1;
         long maxTimestampVersion = -1;
 
@@ -102,6 +103,7 @@ public class CompactableIndexes {
     }
 
     public Callable<Void> compactor(
+        LABStats stats,
         String rawhideName,
         long splittableIfKeysLargerThanBytes,
         long splittableIfValuesLargerThanBytes,
@@ -123,7 +125,9 @@ public class CompactableIndexes {
                 if (splitter != null) {
                     return () -> {
                         try {
-                            return splitter.call();
+                            Void result = splitter.call();
+                            stats.splits.increment();
+                            return result;
                         } finally {
                             compacting.set(false);
                         }
@@ -134,7 +138,9 @@ public class CompactableIndexes {
                 if (merger != null) {
                     return () -> {
                         try {
-                            return merger.call();
+                            Void result = merger.call();
+                            stats.merged.increment();
+                            return result;
                         } finally {
                             compacting.set(false);
                         }
@@ -299,7 +305,7 @@ public class CompactableIndexes {
                             InterleaveStream feedInterleaver = new InterleaveStream(readers, null, null, rawhide);
                             try {
                                 LOG.debug("Splitting with a middle of:{}", Arrays.toString(middle));
-                                
+
                                 leftAppenableIndex.append((leftStream) -> {
                                     return effectiveFinalRightAppenableIndex.append((rightStream) -> {
                                         return feedInterleaver.stream((readKeyFormatTransformer, readValueFormatTransformer, entry) -> {
@@ -408,7 +414,7 @@ public class CompactableIndexes {
                                                                 rawEntry,
                                                                 entryKeyBuffer,
                                                                 bbMiddle) < 0) {
-                                                                
+
                                                                 if (!leftStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry)) {
                                                                     return false;
                                                                 }

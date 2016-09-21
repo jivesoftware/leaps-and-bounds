@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.rawhide.FixedWidthRawhide;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
@@ -21,7 +22,7 @@ public class LABConcurrentSkipListMapNGTest {
         LABIndexableMemory labIndexableMemory = new LABIndexableMemory("test", allocator);
         FixedWidthRawhide rawhide = new FixedWidthRawhide(8, 8);
 
-        LABConcurrentSkipListMap map = new LABConcurrentSkipListMap(new LABConcurrentSkipListMemory(rawhide, labIndexableMemory),
+        LABConcurrentSkipListMap map = new LABConcurrentSkipListMap(new LABStats(), new LABConcurrentSkipListMemory(rawhide, labIndexableMemory),
             new StripingBolBufferLocks(1024));
 
         for (int i = 0; i < 100; i++) {

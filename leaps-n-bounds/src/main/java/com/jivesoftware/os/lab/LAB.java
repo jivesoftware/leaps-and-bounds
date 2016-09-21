@@ -583,7 +583,6 @@ public class LAB implements ValueIndex<byte[]> {
                     }
                     Future<Object> future = compact.submit(() -> {
                         try {
-                            stats.compacts.increment();
                             compactor.call();
                         } catch (Exception x) {
                             LOG.error("Failed to compact " + rangeStripedCompactableIndexes, x);

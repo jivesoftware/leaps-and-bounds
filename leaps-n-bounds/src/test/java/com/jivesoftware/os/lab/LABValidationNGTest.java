@@ -71,7 +71,7 @@ public class LABValidationNGTest {
                 LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(30);
                 LABIndexableMemory memory = new LABIndexableMemory("", allocator);
                 LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
-                return new LABConcurrentSkipListMap(skipList, stripingBolBufferLocks);
+                return new LABConcurrentSkipListMap(labStats, skipList, stripingBolBufferLocks);
             } else {
                 return new LABCSLMIndex(rawhide1, stripingBolBufferLocks);
             }
@@ -212,7 +212,7 @@ public class LABValidationNGTest {
                 LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(30);
                 LABIndexableMemory memory = new LABIndexableMemory("", allocator);
                 LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
-                return new LABConcurrentSkipListMap(skipList, stripingBolBufferLocks);
+                return new LABConcurrentSkipListMap(labStats, skipList, stripingBolBufferLocks);
             } else {
                 return new LABCSLMIndex(rawhide1, stripingBolBufferLocks);
             }

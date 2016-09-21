@@ -223,8 +223,8 @@ public class LABEnvironment {
                 LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(30); // todo config ?
 
                 LABIndexableMemory memory = new LABIndexableMemory(config.rawhideName, allocator);
-                LABConcurrentSkipListMemory skipList = new LABConcurrentSkipListMemory(rawhide1, memory);
-                return new LABConcurrentSkipListMap(skipList, stripingBolBufferLocks);
+                LABConcurrentSkipListMemory skipListMemory = new LABConcurrentSkipListMemory(rawhide1, memory);
+                return new LABConcurrentSkipListMap(stats, skipListMemory, stripingBolBufferLocks);
             } else {
                 return new LABCSLMIndex(rawhide1, stripingBolBufferLocks);
             }

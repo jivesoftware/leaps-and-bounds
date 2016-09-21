@@ -45,11 +45,11 @@ public class LABIndexableMemory {
         return memoryAllocator.allocate(bolBuffer.bytes, bolBuffer.offset, bolBuffer.length, costInBytes);
     }
 
-    public void release(long address) throws Exception {
+    public int release(long address) throws Exception {
         if (address == -1) {
-            return;
+            return 0;
         }
-        memoryAllocator.release(address);
+        return memoryAllocator.release(address);
     }
 
     public int compareLB(Rawhide rawhide, long left, byte[] right, int rightOffset, int rightLength) {

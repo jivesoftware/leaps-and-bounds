@@ -86,7 +86,8 @@ public class IndexNGTest {
         int step = 10;
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+        LABStats labStats = new LABStats();
+        LabHeapPressure labHeapPressure = new LabHeapPressure(labStats,
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
             "default",
             -1,
@@ -95,7 +96,7 @@ public class IndexNGTest {
         LABMemoryIndex walIndex = new LABMemoryIndex(destroy,
             labHeapPressure,
             rawhide,
-            new LABConcurrentSkipListMap(
+            new LABConcurrentSkipListMap(labStats,
                 new LABConcurrentSkipListMemory(rawhide,
                     new LABIndexableMemory("memory",
                         new LABAppendOnlyAllocator(30)
@@ -116,7 +117,8 @@ public class IndexNGTest {
 
         int count = 10;
         int step = 10;
-        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+        LABStats labStats = new LABStats();
+        LabHeapPressure labHeapPressure = new LabHeapPressure(labStats,
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
             "default",
             -1,
@@ -125,7 +127,7 @@ public class IndexNGTest {
 
         LABMemoryIndex memoryIndex = new LABMemoryIndex(destroy,
             labHeapPressure, rawhide,
-            new LABConcurrentSkipListMap(
+            new LABConcurrentSkipListMap(labStats,
                 new LABConcurrentSkipListMemory(rawhide,
                     new LABIndexableMemory("memory",
                         new LABAppendOnlyAllocator(30)

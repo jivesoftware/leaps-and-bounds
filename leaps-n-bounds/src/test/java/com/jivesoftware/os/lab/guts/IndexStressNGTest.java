@@ -3,6 +3,7 @@ package com.jivesoftware.os.lab.guts;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironment;
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.TestUtils;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
@@ -65,7 +66,7 @@ public class IndexStressNGTest {
 
                 try {
 
-                    Callable<Void> compactor = indexs.compactor("test", -1, -1, -1, null, minMergeDebt, fsync,
+                    Callable<Void> compactor = indexs.compactor(new LABStats(), "test", -1, -1, -1, null, minMergeDebt, fsync,
                         (rawhideName, minimumRun1, fsync1, callback) -> callback.call(minimumRun1, fsync1,
                             (id, worstCaseCount) -> {
 

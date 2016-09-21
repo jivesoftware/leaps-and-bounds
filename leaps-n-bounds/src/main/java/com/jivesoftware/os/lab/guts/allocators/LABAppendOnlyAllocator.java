@@ -13,7 +13,6 @@ public class LABAppendOnlyAllocator {
     private volatile byte[][] memory = null;
     private final int powerSize;
     private final long powerMask;
-    //private final AtomicLong allocateNext = new AtomicLong();
     private volatile long allocateNext = 0;
 
     public LABAppendOnlyAllocator(int powerSize) {
@@ -111,7 +110,14 @@ public class LABAppendOnlyAllocator {
         }
     }
 
-    public void release(long address) throws InterruptedException {
+    public int release(long address) throws InterruptedException {
+        if (address == -1) {
+            return 0;
+        }
+        int index = (int) (address >>> powerSize);
+        byte[] stackCopy = memory[index];
+        address &= powerMask;
+        return UIO.bytesInt(stackCopy, (int) address);
     }
 
     public int compareLB(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength
