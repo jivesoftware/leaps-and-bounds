@@ -58,7 +58,7 @@ public class LabHeapPressure {
                 globalHeapCostInBytes.notifyAll();
             }
         } else {
-            stat.allocationed.add(delta);
+            stat.slabbed.add(delta);
         }
     }
 
