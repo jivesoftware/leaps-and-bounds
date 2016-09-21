@@ -166,7 +166,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         try {
             boolean cas = nodesArray.compareAndSet(address + NODE_VALUE_OFFSET, cmp, val);
             if (cas) {
-                stats.released.add(memory.release(cmp));
+                stats.released.add(4 + memory.release(cmp));
             }
             return cas;
         } finally {
@@ -722,11 +722,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                                 memory.release(va);
 
                                 r = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, acquired);
-                                if (r== null) {
+                                if (r == null) {
                                     rid = NIL;
                                 } else {
                                     rid = memory.allocate(r, changeInBytes);
-                                    stats.allocationed.add(r.length);
+                                    stats.allocationed.add(4 + r.length);
                                 }
                             } finally {
                                 releaseValue(n);
@@ -734,7 +734,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                             if (casValue(n, memory, va, rid)) {
                                 return;
                             } else if (rid != NIL) {
-                                stats.released.add(memory.release(rid));
+                                stats.released.add(4 + memory.release(rid));
                             }
                         }
                     }
@@ -787,10 +787,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     if (c == 0) {
                         if (onlyIfAbsent) {
                             if (kid != NIL) {
-                                stats.released.add(memory.release(kid));
+                                stats.released.add(4 + memory.release(kid));
                             }
                             if (vid != NIL) {
-                                stats.released.add(memory.release(vid));
+                                stats.released.add(4 + memory.release(vid));
                             }
                             return true;
                         }
@@ -799,16 +799,16 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                                 vid = NIL;
                             } else {
                                 vid = memory.allocate(valueBytes, changeInBytes);
-                                stats.allocationed.add(valueBytes.length);
+                                stats.allocationed.add(4 + valueBytes.length);
                             }
                         }
                         if (casValue(n, memory, v, vid)) {
-                            stats.released.add(memory.release(v));
+                            stats.released.add(4 + memory.release(v));
                             if (kid != NIL) {
-                                stats.released.add(memory.release(kid));
+                                stats.released.add(4 + memory.release(kid));
                             }
                             if (vid != NIL) {
-                                stats.released.add(memory.release(vid));
+                                stats.released.add(4 + memory.release(vid));
                             }
                             return true;
                         }
@@ -819,14 +819,14 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
                 if (kid == NIL) {
                     kid = memory.allocate(keyBytes, changeInBytes);
-                    stats.allocationed.add(keyBytes.length);
+                    stats.allocationed.add(4 + keyBytes.length);
                 }
                 if (vid == NIL) {
                     if (valueBytes == null) {
                         vid = NIL;
                     } else {
-                        vid  = memory.allocate(valueBytes, changeInBytes);
-                        stats.allocationed.add(valueBytes.length);
+                        vid = memory.allocate(valueBytes, changeInBytes);
+                        stats.allocationed.add(4 + valueBytes.length);
                     }
                 }
                 z = allocateNode(kid, vid, n);
@@ -842,11 +842,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         }
 
         if (kid != NIL) {
-            stats.released.add(memory.release(kid));
+            stats.released.add(4 + memory.release(kid));
         }
 
         if (vid != NIL) {
-            stats.released.add(memory.release(vid));
+            stats.released.add(4 + memory.release(vid));
         }
 
         int rnd = random.nextInt(); // BARF
