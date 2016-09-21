@@ -32,8 +32,9 @@ public class LABStats {
     public final LongAdder spliting = new LongAdder();
     public final LongAdder splits = new LongAdder();
     
+    public final LongAdder slabbed = new LongAdder();
     public final LongAdder allocationed = new LongAdder();
-    public final LongAdder slack = new LongAdder();
+    public final LongAdder released = new LongAdder();
     public final LongAdder freed = new LongAdder();
     public final LongAdder gc = new LongAdder();
 
@@ -61,8 +62,9 @@ public class LABStats {
     public final LABSparseCircularMetricBuffer mSplitings = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
     public final LABSparseCircularMetricBuffer mSplits = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
 
+    public final LABSparseCircularMetricBuffer mSlabbed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
     public final LABSparseCircularMetricBuffer mAllocationed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mSlack = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mReleased = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
     public final LABSparseCircularMetricBuffer mFreed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
     public final LABSparseCircularMetricBuffer mGC = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
 
@@ -92,8 +94,9 @@ public class LABStats {
         mSplitings.add(timestamp, spliting);
         mSplits.add(timestamp, splits);
 
+        mSlabbed.add(timestamp, slabbed);
         mAllocationed.add(timestamp, allocationed);
-        mSlack.add(timestamp, slack);
+        mReleased.add(timestamp, released);
         mFreed.add(timestamp, freed);
         mGC.add(timestamp, gc);
 
