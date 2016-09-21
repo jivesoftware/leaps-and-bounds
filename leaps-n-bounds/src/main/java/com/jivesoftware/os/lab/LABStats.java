@@ -42,34 +42,34 @@ public class LABStats {
     public final LongAdder bytesWrittenAsSplit = new LongAdder();
     public final LongAdder bytesWrittenAsMerge = new LongAdder();
 
-    public final LABSparseCircularMetricBuffer mOpen = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mClosed = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mOpen = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mClosed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
 
-    public final LABSparseCircularMetricBuffer mAppend = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mAppend = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
     public final LABSparseCircularMetricBuffer mJournaledAppend = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
 
-    public final LABSparseCircularMetricBuffer mGets = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mRangeScan = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mMultiRangeScan = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mRowScan = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mGets = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mRangeScan = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mMultiRangeScan = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mRowScan = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
 
-    public final LABSparseCircularMetricBuffer mCommit = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mFsyncedCommit = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mCommit = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mFsyncedCommit = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
 
-    public final LABSparseCircularMetricBuffer mMerging = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mMerged = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mSplitings = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO
-    public final LABSparseCircularMetricBuffer mSplits = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO
+    public final LABSparseCircularMetricBuffer mMerging = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mMerged = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mSplitings = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
+    public final LABSparseCircularMetricBuffer mSplits = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
 
-    public final LABSparseCircularMetricBuffer mAllocationed = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mSlack = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mFreed = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO
-    public final LABSparseCircularMetricBuffer mGC = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mAllocationed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mSlack = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mFreed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
+    public final LABSparseCircularMetricBuffer mGC = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
 
-    public final LABSparseCircularMetricBuffer mBytesWrittenToWAL = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mBytesWrittenAsIndex = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mBytesWrittenAsSplit = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mBytesWrittenAsMerge = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenToWAL = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsIndex = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsSplit = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsMerge = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
 
     public void refresh() {
         long timestamp = System.currentTimeMillis();

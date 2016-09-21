@@ -114,8 +114,8 @@ public class LABSparseCircularMetricBuffer {
         double[] copy = new double[numberOfBuckets];
         int c = cursor;
         for (int i = 0; i < numberOfBuckets; i++) {
-            double h = metric[c];
-            copy[i] = Double.isNaN(h) ? 0d : h;
+            double m = metric[c];
+            copy[i] = Double.isNaN(m) ? 0d : m;
             c = nextCursor(c, 1);
         }
         return copy;
