@@ -65,7 +65,12 @@ public class LABSparseCircularMetricBuffer {
         int delta = (int) (absBucketNumber - oldestBucketNumber);
         long sumThenReset = value.sumThenReset();
         grandTotal += sumThenReset;
-        metric[nextCursor(cursor, delta)] += sumThenReset;
+        int nextCursor = nextCursor(cursor, delta);
+        if (Double.isNaN(metric[nextCursor])) {
+            metric[nextCursor] = sumThenReset;
+        } else {
+            metric[nextCursor] += sumThenReset;
+        }
     }
 
     public long total() {
@@ -108,11 +113,9 @@ public class LABSparseCircularMetricBuffer {
     public double[] metric() {
         double[] copy = new double[numberOfBuckets];
         int c = cursor;
-        double lastH = 0d;
         for (int i = 0; i < numberOfBuckets; i++) {
             double h = metric[c];
-            copy[i] = Double.isNaN(h) ? lastH : h;
-            lastH = copy[i];
+            copy[i] = Double.isNaN(h) ? 0d : h;
             c = nextCursor(c, 1);
         }
         return copy;
