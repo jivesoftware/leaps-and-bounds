@@ -125,6 +125,7 @@ public class CompactableIndexes {
                 if (splitter != null) {
                     return () -> {
                         try {
+                            stats.spliting.increment();
                             Void result = splitter.call();
                             stats.splits.increment();
                             return result;
@@ -138,6 +139,7 @@ public class CompactableIndexes {
                 if (merger != null) {
                     return () -> {
                         try {
+                            stats.merging.increment();
                             Void result = merger.call();
                             stats.merged.increment();
                             return result;
