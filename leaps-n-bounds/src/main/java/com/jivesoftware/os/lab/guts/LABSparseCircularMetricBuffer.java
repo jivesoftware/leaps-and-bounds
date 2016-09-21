@@ -68,6 +68,10 @@ public class LABSparseCircularMetricBuffer {
         metric[nextCursor(cursor, delta)] += sumThenReset;
     }
 
+    public long total() {
+        return grandTotal;
+    }
+
     public double last() {
         int c = cursor;
         if (c > 0) {
