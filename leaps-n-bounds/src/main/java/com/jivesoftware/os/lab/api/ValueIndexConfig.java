@@ -18,7 +18,8 @@ public class ValueIndexConfig {
     public final String formatTransformerProviderName;
     public final String rawhideName;
     public final String rawEntryFormatName;
-    
+    public final int entryLengthPower;
+
     @JsonCreator
     public ValueIndexConfig(@JsonProperty("primaryName") String primaryName,
         @JsonProperty("entriesBetweenLeaps") int entriesBetweenLeaps,
@@ -28,7 +29,9 @@ public class ValueIndexConfig {
         @JsonProperty("splitWhenValuesAndKeysTotalExceedsNBytes") long splitWhenValuesAndKeysTotalExceedsNBytes,
         @JsonProperty("formatTransformerProviderName") String formatTransformerProviderName,
         @JsonProperty("rawhideName") String rawhideName,
-        @JsonProperty("rawEntryFormatName") String rawEntryFormatName) {
+        @JsonProperty("rawEntryFormatName") String rawEntryFormatName,
+        @JsonProperty("entryLengthPower") int entryLengthPower
+    ) {
 
         this.primaryName = primaryName;
         this.entriesBetweenLeaps = entriesBetweenLeaps;
@@ -39,6 +42,7 @@ public class ValueIndexConfig {
         this.formatTransformerProviderName = formatTransformerProviderName;
         this.rawhideName = rawhideName;
         this.rawEntryFormatName = rawEntryFormatName;
+        this.entryLengthPower = entryLengthPower;
     }
 
 }

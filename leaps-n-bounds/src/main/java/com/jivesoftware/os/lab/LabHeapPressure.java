@@ -20,7 +20,7 @@ public class LabHeapPressure {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
-    private final LABStats stat;
+    private final LABStats stats;
     private final ExecutorService schedule;
     private final String name;
     private final long maxHeapPressureInBytes;
@@ -31,14 +31,14 @@ public class LabHeapPressure {
     private final AtomicLong changed = new AtomicLong();
     private final AtomicLong waiting = new AtomicLong();
 
-    public LabHeapPressure(LABStats stat,
+    public LabHeapPressure(LABStats stats,
         ExecutorService schedule,
         String name,
         long maxHeapPressureInBytes,
         long blockOnHeapPressureInBytes,
         AtomicLong globalHeapCostInBytes) {
 
-        this.stat = stat;
+        this.stats = stats;
         this.schedule = schedule;
         this.name = name;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
@@ -53,12 +53,12 @@ public class LabHeapPressure {
         changed.incrementAndGet();
         globalHeapCostInBytes.addAndGet(delta);
         if (delta < 0) {
-            stat.freed.add(-delta);
+            stats.freed.add(-delta);
             synchronized (globalHeapCostInBytes) {
                 globalHeapCostInBytes.notifyAll();
             }
         } else {
-            stat.slabbed.add(delta);
+            stats.slabbed.add(delta);
         }
     }
 
@@ -67,6 +67,7 @@ public class LabHeapPressure {
             LOG.inc("lab>pressure>commit>" + name);
             labs.remove(lab);
             lab.commit(fsyncOnFlush, false); // todo config
+            stats.pressureCommit.increment();
         } else {
             labs.compute(lab, (LAB t, Boolean u) -> {
                 return u == null ? fsyncOnFlush : (boolean) u || fsyncOnFlush;
@@ -127,7 +128,7 @@ public class LabHeapPressure {
                 running = true;
                 schedule.submit(() -> {
                     while (true) {
-                        stat.gc.increment();
+                        stats.gc.increment();
                         try {
                             long debtInBytes = globalHeapCostInBytes.get() - maxHeapPressureInBytes;
                             if (debtInBytes <= 0) {
@@ -165,7 +166,7 @@ public class LabHeapPressure {
                                 if (efsyncOnFlush != null) {
                                     try {
                                         keys[i].commit(efsyncOnFlush, false); // todo config
-
+                                        stats.gcCommit.increment();
                                     } catch (LABCorruptedException | LABClosedException x) {
                                         LOG.error("Failed to commit.", x);
 

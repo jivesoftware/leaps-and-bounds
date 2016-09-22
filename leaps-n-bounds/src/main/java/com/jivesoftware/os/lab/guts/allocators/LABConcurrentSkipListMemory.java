@@ -46,4 +46,8 @@ public class LABConcurrentSkipListMemory {
         return indexableMemory.compareBB(rawhide, left, leftOffset, leftLength, right, rightOffset, rightLength);
     }
 
+    int poweredUpTo() {
+        return indexableMemory.poweredUpTo();
+    }
+
 }

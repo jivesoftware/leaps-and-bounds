@@ -149,4 +149,9 @@ public class LABCSLMIndex implements LABIndex<BolBuffer, BolBuffer> {
         return map.lastKey();
     }
 
+    @Override
+    public int poweredUpTo() {
+        return -1;
+    }
+
 }

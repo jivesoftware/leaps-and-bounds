@@ -1416,4 +1416,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         void close() throws Exception;
     }
 
+    @Override
+    public int poweredUpTo() {
+        return memory.poweredUpTo();
+    }
+
 }

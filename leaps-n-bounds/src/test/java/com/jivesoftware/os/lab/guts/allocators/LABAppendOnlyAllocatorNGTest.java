@@ -1,6 +1,8 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Bytes;
+import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator.Memory;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.Arrays;
 import java.util.List;
@@ -29,6 +31,67 @@ public class LABAppendOnlyAllocatorNGTest {
 
             System.out.println(index + " " + address);
         }
+    }
+
+    @Test
+    public void testPowerUp1() {
+        int power = 1;
+        Memory memory = new Memory(power, null);
+        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        Assert.assertEquals(poweredUp.powerSize, memory.powerSize + power);
+        Assert.assertEquals(poweredUp.slabs, null);
+    }
+
+    @Test
+    public void testPowerUp2() {
+        Random rand = new Random();
+        int power = 3;
+        byte[][] slabs = new byte[1][];
+        slabs[0] = new byte[1 << power];
+        rand.nextBytes(slabs[0]);
+
+        Memory memory = new Memory(power, slabs);
+        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
+        Assert.assertEquals(poweredUp.slabs.length, 1);
+        Assert.assertEquals(poweredUp.slabs[0], slabs[0]);
+    }
+
+    @Test
+    public void testPowerUp3() {
+        Random rand = new Random();
+        int power = 5;
+        byte[][] slabs = new byte[2][];
+        slabs[0] = new byte[1 << power];
+        slabs[1] = new byte[1 << power];
+        rand.nextBytes(slabs[0]);
+        rand.nextBytes(slabs[1]);
+
+        Memory memory = new Memory(power, slabs);
+        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
+        Assert.assertEquals(poweredUp.slabs.length, 1);
+        Assert.assertEquals(poweredUp.slabs[0], Bytes.concat(slabs[0], slabs[1]));
+    }
+
+    @Test
+    public void testPowerUp4() {
+        Random rand = new Random();
+        int power = 5;
+        byte[][] slabs = new byte[3][];
+        slabs[0] = new byte[1 << power];
+        slabs[1] = new byte[1 << power];
+        slabs[2] = new byte[1 << (power - 1)];
+        rand.nextBytes(slabs[0]);
+        rand.nextBytes(slabs[1]);
+        rand.nextBytes(slabs[2]);
+
+        Memory memory = new Memory(power, slabs);
+        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
+        Assert.assertEquals(poweredUp.slabs.length, 2);
+        Assert.assertEquals(poweredUp.slabs[0], Bytes.concat(slabs[0], slabs[1]));
+        Assert.assertEquals(poweredUp.slabs[1], slabs[2]);
     }
 
     @Test(invocationCount = 1)
@@ -67,7 +130,7 @@ public class LABAppendOnlyAllocatorNGTest {
 
             return null;
         };
-        allocator[0] = new LABAppendOnlyAllocator(10);
+        allocator[0] = new LABAppendOnlyAllocator("test", 2);
 
         Random rand = new Random();
         byte[] bytes = new byte[(int) UIO.chunkLength(maxAllocatePower)];

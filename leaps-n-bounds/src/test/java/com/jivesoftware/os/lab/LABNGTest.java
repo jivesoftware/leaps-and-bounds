@@ -56,7 +56,7 @@ public class LABNGTest {
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, splitAfterSizeInBytes, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
 
         ValueIndex index = env.open(valueIndexConfig);
 
@@ -172,7 +172,7 @@ public class LABNGTest {
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
 
         ValueIndex index = env.open(valueIndexConfig);
         BolBuffer rawEntryBuffer = new BolBuffer();
@@ -255,7 +255,7 @@ public class LABNGTest {
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
 
         ValueIndex index = env.open(valueIndexConfig);
         BolBuffer rawEntryBuffer = new BolBuffer();

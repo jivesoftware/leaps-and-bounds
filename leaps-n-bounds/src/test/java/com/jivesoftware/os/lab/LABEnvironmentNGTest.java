@@ -60,7 +60,7 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.emptyList());
 
             ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
 
             ValueIndex index = env.open(valueIndexConfig);
             System.out.println("Lets index so stuff....");
@@ -117,7 +117,7 @@ public class LABEnvironmentNGTest {
             env.rename("foo", "bar");
 
             valueIndexConfig = new ValueIndexConfig("bar", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
             assertEquals(env.list(), Collections.singletonList("bar"));
             index = env.open(valueIndexConfig);
 
@@ -226,7 +226,7 @@ public class LABEnvironmentNGTest {
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
 
         System.out.println("Created env");
 
@@ -278,7 +278,7 @@ public class LABEnvironmentNGTest {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure1 = new LabHeapPressure(new LABStats(),
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
-            "default", 
+            "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong());
@@ -295,7 +295,7 @@ public class LABEnvironmentNGTest {
             true);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
 
         System.out.println("Created env");
 

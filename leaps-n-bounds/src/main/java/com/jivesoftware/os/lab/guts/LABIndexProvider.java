@@ -8,5 +8,5 @@ import com.jivesoftware.os.lab.api.rawhide.Rawhide;
  */
 public interface LABIndexProvider {
 
-    LABIndex create(Rawhide rawhide) throws Exception;
+    LABIndex create(Rawhide rawhide, int poweredUpToHint) throws Exception;
 }

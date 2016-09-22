@@ -218,10 +218,11 @@ public class LABEnvironment {
             MAPPER.writeValue(configFile, config);
         }
 
-        LABIndexProvider indexProvider = (rawhide1) -> {
-            if (useIndexableMemory) {
-                LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(30); // todo config ?
-
+        LABIndexProvider indexProvider = (rawhide1, poweredUpToHint) -> {
+            if (useIndexableMemory && config.entryLengthPower > 0) {
+                LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(config.primaryName,
+                    Math.max(config.entryLengthPower, (poweredUpToHint - config.entryLengthPower) / 2)
+                );
                 LABIndexableMemory memory = new LABIndexableMemory(config.rawhideName, allocator);
                 LABConcurrentSkipListMemory skipListMemory = new LABConcurrentSkipListMemory(rawhide1, memory);
                 return new LABConcurrentSkipListMap(stats, skipListMemory, stripingBolBufferLocks);

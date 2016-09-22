@@ -64,4 +64,8 @@ public class LABIndexableMemory {
         return memoryAllocator.compareBB(rawhide, left, leftOffset, leftLength, right, rightOffset, rightLength);
     }
 
+    int poweredUpTo() {
+        return memoryAllocator.poweredUpTo();
+    }
+
 }

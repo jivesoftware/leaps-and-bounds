@@ -169,7 +169,8 @@ public class LABStress {
             1024 * 1024 * 10, // splitWhenValuesAndKeysTotalExceedsNBytes
             NoOpFormatTransformerProvider.NAME,
             "8x8fixedWidthRawhide", //new LABRawhide(),
-            MemoryRawEntryFormat.NAME));
+            MemoryRawEntryFormat.NAME,
+            2));
         return index;
     }
 

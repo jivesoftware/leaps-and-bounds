@@ -41,4 +41,5 @@ public interface LABIndex<E, B> {
 
     byte[] lastKey() throws Exception;
 
+    int poweredUpTo();
 }

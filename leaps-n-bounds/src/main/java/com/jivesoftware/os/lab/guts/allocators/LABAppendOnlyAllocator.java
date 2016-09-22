@@ -3,6 +3,8 @@ package com.jivesoftware.os.lab.guts.allocators;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 
 /**
  *
@@ -10,20 +12,45 @@ import com.jivesoftware.os.lab.io.api.UIO;
  */
 public class LABAppendOnlyAllocator {
 
-    private volatile byte[][] memory = null;
-    private final int powerSize;
-    private final long powerMask;
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
+    public static class Memory {
+
+        final byte[][] slabs;
+        final int powerSize;
+        final int powerLength;
+        final long powerMask;
+
+        public Memory(int powerSize, byte[][] slabs) {
+            this.powerSize = powerSize;
+            this.powerLength = 1 << powerSize;
+            this.powerMask = (powerLength) - 1;
+            this.slabs = slabs;
+        }
+    }
+
+    private static final int MIN_POWER = 3;
+    private static final int MAX_POWER = 31;
+
+    private final String name;
+    private volatile Memory memory;
     private volatile long allocateNext = 0;
 
-    public LABAppendOnlyAllocator(int powerSize) {
-        this.powerSize = powerSize;
-        this.powerMask = (1 << powerSize) - 1;
+    public LABAppendOnlyAllocator(String name, int initialPower) {
+        this.name = name;
+        int power = Math.min(Math.max(MIN_POWER, initialPower), MAX_POWER);
+        this.memory = new Memory(power, null);
+    }
+
+    public int poweredUpTo() {
+        return memory.powerSize;
     }
 
     public boolean acquireBytes(long address, BolBuffer bolBuffer) {
-        int index = (int) (address >>> powerSize);
-        byte[] stackCopy = memory[index];
-        address &= powerMask;
+        Memory m = memory;
+        int index = (int) (address >>> m.powerSize);
+        byte[] stackCopy = m.slabs[index];
+        address &= m.powerMask;
 
         bolBuffer.force(stackCopy, (int) (address + 4), UIO.bytesInt(stackCopy, (int) address));
         return true;
@@ -33,9 +60,10 @@ public class LABAppendOnlyAllocator {
         if (address == -1) {
             return null;
         }
-        int index = (int) (address >>> powerSize);
-        byte[] stackCopy = memory[index];
-        address &= powerMask;
+        Memory m = memory;
+        int index = (int) (address >>> m.powerSize);
+        byte[] stackCopy = m.slabs[index];
+        address &= m.powerMask;
 
         int length = UIO.bytesInt(stackCopy, (int) address);
         if (length > -1) {
@@ -53,11 +81,12 @@ public class LABAppendOnlyAllocator {
             return -1;
         }
         long address = allocate(length, costInBytes);
-        int index = (int) (address >>> powerSize);
-        int indexAddress = (int) (address & powerMask);
+        Memory m = memory;
+        int index = (int) (address >>> m.powerSize);
+        int indexAddress = (int) (address & m.powerMask);
 
         synchronized (this) {
-            byte[] stackCopy = memory[index];
+            byte[] stackCopy = m.slabs[index];
             UIO.intBytes(length, stackCopy, indexAddress);
             System.arraycopy(bytes, offset, stackCopy, indexAddress + 4, length);
         }
@@ -66,57 +95,106 @@ public class LABAppendOnlyAllocator {
 
     private long allocate(int length, LABCostChangeInBytes costInBytes) throws Exception {
 
+        int fullLength = 4 + length;
         synchronized (this) {
 
+            Memory m = memory;
+            while (fullLength > m.powerLength && m.powerSize < MAX_POWER) {
+                LOG.warn("Uping Power to {}  because of length={} for {}. Consider changing you config to {}.", m.powerSize + 1, length, name, m.powerSize + 1);
+                m = powerUp(m);
+            }
+            memory = m;
+
             long address = allocateNext;
-            int index = (int) (address >>> powerSize);
-            int tailIndex = (int) ((address + 4 + length) >>> powerSize);
+            int index = (int) (address >>> m.powerSize);
+            int tailIndex = (int) ((address + 4 + length) >>> m.powerSize);
             if (index == tailIndex) {
                 allocateNext = address + 4 + length;
             } else {
-                long desiredAddress = tailIndex * (1 << powerSize);
+                long desiredAddress = tailIndex * (1 << m.powerSize);
                 allocateNext = desiredAddress + 4 + length;
                 address = desiredAddress;
-                index = (int) (desiredAddress >>> powerSize);
+                index = (int) (desiredAddress >>> m.powerSize);
             }
 
-            //System.out.println("address:" + address + " index:" + index + "              " + allocateNext.get());
-            int indexAlignedAddress = (int) (address & powerMask);
-            if (memory == null || index >= memory.length || memory[index] == null || memory[index].length < indexAlignedAddress + 4 + length) {
+            int indexAlignedAddress = (int) (address & m.powerMask);
+            if (m.slabs == null
+                || index >= m.slabs.length
+                || m.slabs[index] == null
+                || m.slabs[index].length < indexAlignedAddress + 4 + length) {
 
-                if (memory == null) {
-                    //System.out.println("Initial " + this);
-                    memory = new byte[index + 1][];
-                } else if (index >= memory.length) {
-                    //System.out.println("Copy " + this);
+                if (m.slabs == null) {
+                    if (index != 0) {
+                        System.out.println("Ouch WTF exepcted 0 but was " + index + " address=" + address + " length=" + length + " power=" + m.powerSize);
+                        System.exit(1);
+                    }
+                    m = new Memory(m.powerSize, new byte[index + 1][]);
+                } else if (index >= m.slabs.length) {
+
                     byte[][] newMemory = new byte[index + 1][];
-                    System.arraycopy(memory, 0, newMemory, 0, memory.length);
-                    memory = newMemory;
+                    System.arraycopy(m.slabs, 0, newMemory, 0, m.slabs.length);
+                    m = new Memory(m.powerSize, newMemory);
                 }
 
-                int power = UIO.chunkPower(indexAlignedAddress + 4 + length, 4);
+                int power = UIO.chunkPower(indexAlignedAddress + 4 + length, MIN_POWER);
                 byte[] bytes = new byte[1 << power];
-                //System.out.println("Grow " + bytes.length + "  " + this);
-                if (memory[index] != null) {
-                    System.arraycopy(memory[index], 0, bytes, 0, memory[index].length);
-                    costInBytes.cost(bytes.length - memory[index].length);
+                if (m.slabs[index] != null) {
+                    System.arraycopy(m.slabs[index], 0, bytes, 0, m.slabs[index].length);
+                    costInBytes.cost(bytes.length - m.slabs[index].length);
                 } else {
                     costInBytes.cost(bytes.length);
                 }
-                memory[index] = bytes;
+                m.slabs[index] = bytes; // uck
+
+                if (m.slabs.length >= 2 && m.powerSize < MAX_POWER) { // config?
+                    LOG.warn("Uping Power to {} because slab count={} for {}. Consider changing you config to {}.",
+                        m.powerSize + 1, m.slabs.length, name, m.powerSize + 1);
+                    m = powerUp(m);
+                }
+                memory = m;
             }
 
             return address;
         }
     }
 
+    static Memory powerUp(Memory m) {
+        Memory nm;
+        int nextPowerSize = m.powerSize + 1;
+        if (nextPowerSize > MAX_POWER) {
+            return m;
+        }
+        if (m.slabs == null) {
+            nm = new Memory(nextPowerSize, null);
+        } else if (m.slabs.length == 1) {
+            nm = new Memory(nextPowerSize, m.slabs);
+        } else {
+            int slabLength = m.slabs.length;
+            int numSlabs = (m.slabs.length / 2) + (slabLength % 2 == 0 ? 0 : 1);
+            byte[][] newSlabs = new byte[numSlabs][];
+            int offset = m.powerLength;
+            for (int i = 0, npi = 0; i < slabLength; i += 2, npi++) {
+                if (i == slabLength - 1) {
+                    newSlabs[npi] = m.slabs[i];
+                } else {
+                    newSlabs[npi] = new byte[1 << nextPowerSize];
+                    System.arraycopy(m.slabs[i], 0, newSlabs[npi], 0, m.slabs[i].length);
+                    System.arraycopy(m.slabs[i + 1], 0, newSlabs[npi], offset, m.slabs[i + 1].length);
+                }
+            }
+            nm = new Memory(nextPowerSize, newSlabs);
+        }
+        return nm;
+    }
+
     public int release(long address) throws InterruptedException {
         if (address == -1) {
             return 0;
         }
-        int index = (int) (address >>> powerSize);
-        byte[] stackCopy = memory[index];
-        address &= powerMask;
+        Memory m = memory;
+        int index = (int) (address >>> m.powerSize);
+        byte[] stackCopy = m.slabs[index];
+        address &= m.powerMask;
         return UIO.bytesInt(stackCopy, (int) address);
     }
 
@@ -125,9 +203,10 @@ public class LABAppendOnlyAllocator {
         if (leftAddress == -1) {
             return rawhide.compareBB(null, -1, -1, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
         } else {
-            int leftIndex = (int) (leftAddress >>> powerSize);
-            leftAddress &= powerMask;
-            byte[] leftCopy = memory[leftIndex];
+            Memory m = memory;
+            int leftIndex = (int) (leftAddress >>> m.powerSize);
+            leftAddress &= m.powerMask;
+            byte[] leftCopy = m.slabs[leftIndex];
 
             int leftLength = UIO.bytesInt(leftCopy, (int) leftAddress);
             return rawhide.compareBB(leftCopy, (int) leftAddress + 4, leftLength, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
@@ -139,10 +218,10 @@ public class LABAppendOnlyAllocator {
         if (rightAddress == -1) {
             return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, null, -1, -1);
         } else {
-
-            int rightIndex = (int) (rightAddress >>> powerSize);
-            rightAddress &= powerMask;
-            byte[] rightCopy = memory[rightIndex];
+            Memory m = memory;
+            int rightIndex = (int) (rightAddress >>> m.powerSize);
+            rightAddress &= m.powerMask;
+            byte[] rightCopy = m.slabs[rightIndex];
 
             int l2 = UIO.bytesInt(rightCopy, (int) rightAddress);
             return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, rightCopy, (int) rightAddress + 4, l2);
@@ -156,7 +235,6 @@ public class LABAppendOnlyAllocator {
 
     public void freeAll() throws InterruptedException {
         synchronized (this) {
-            //System.out.println("-----freeAll-----");
             memory = null;
             allocateNext = 0;
         }

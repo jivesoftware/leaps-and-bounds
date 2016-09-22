@@ -135,6 +135,11 @@ public class LABMemoryIndex implements RawAppendableIndex {
         };
     }
 
+
+    public int poweredUpTo() {
+        return index.poweredUpTo();
+    }
+
     public boolean containsKeyInRange(byte[] from, byte[] to) throws Exception {
         return index.contains(from, to);
     }
@@ -215,4 +220,5 @@ public class LABMemoryIndex implements RawAppendableIndex {
     public byte[] maxKey() throws Exception {
         return index.lastKey();
     }
+
 }
