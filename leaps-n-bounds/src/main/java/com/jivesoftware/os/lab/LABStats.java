@@ -24,54 +24,97 @@ public class LABStats {
     public final LongAdder multiRangeScan = new LongAdder();
     public final LongAdder rowScan = new LongAdder();
 
-    public final LongAdder commit = new LongAdder();
-    public final LongAdder fsyncedCommit = new LongAdder();
-
     public final LongAdder merging = new LongAdder();
     public final LongAdder merged = new LongAdder();
     public final LongAdder spliting = new LongAdder();
     public final LongAdder splits = new LongAdder();
-    
+
     public final LongAdder slabbed = new LongAdder();
     public final LongAdder allocationed = new LongAdder();
     public final LongAdder released = new LongAdder();
     public final LongAdder freed = new LongAdder();
+
     public final LongAdder gc = new LongAdder();
+    public final LongAdder gcCommit = new LongAdder();
+    public final LongAdder pressureCommit = new LongAdder();
+    public final LongAdder commit = new LongAdder();
+    public final LongAdder fsyncedCommit = new LongAdder();
 
     public final LongAdder bytesWrittenToWAL = new LongAdder();
     public final LongAdder bytesWrittenAsIndex = new LongAdder();
     public final LongAdder bytesWrittenAsSplit = new LongAdder();
     public final LongAdder bytesWrittenAsMerge = new LongAdder();
 
-    public final LABSparseCircularMetricBuffer mOpen = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mClosed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mOpen;
+    public final LABSparseCircularMetricBuffer mClosed;
 
-    public final LABSparseCircularMetricBuffer mAppend = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mJournaledAppend = new LABSparseCircularMetricBuffer(360, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mAppend;
+    public final LABSparseCircularMetricBuffer mJournaledAppend;
 
-    public final LABSparseCircularMetricBuffer mGets = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mRangeScan = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mMultiRangeScan = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mRowScan = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mGets;
+    public final LABSparseCircularMetricBuffer mRangeScan;
+    public final LABSparseCircularMetricBuffer mMultiRangeScan;
+    public final LABSparseCircularMetricBuffer mRowScan;
 
-    public final LABSparseCircularMetricBuffer mCommit = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mFsyncedCommit = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mMerging;
+    public final LABSparseCircularMetricBuffer mMerged;
+    public final LABSparseCircularMetricBuffer mSplitings;
+    public final LABSparseCircularMetricBuffer mSplits;
 
-    public final LABSparseCircularMetricBuffer mMerging = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mMerged = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mSplitings = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
-    public final LABSparseCircularMetricBuffer mSplits = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
+    public final LABSparseCircularMetricBuffer mSlabbed;
+    public final LABSparseCircularMetricBuffer mAllocationed;
+    public final LABSparseCircularMetricBuffer mReleased;
+    public final LABSparseCircularMetricBuffer mFreed;
 
-    public final LABSparseCircularMetricBuffer mSlabbed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mAllocationed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mReleased = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mFreed = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO
-    public final LABSparseCircularMetricBuffer mGC = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mGC;
+    public final LABSparseCircularMetricBuffer mCommit;
+    public final LABSparseCircularMetricBuffer mGCCommit;
+    public final LABSparseCircularMetricBuffer mPressureCommit;
+    public final LABSparseCircularMetricBuffer mFsyncedCommit;
 
-    public final LABSparseCircularMetricBuffer mBytesWrittenToWAL = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mBytesWrittenAsIndex = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mBytesWrittenAsSplit = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
-    public final LABSparseCircularMetricBuffer mBytesWrittenAsMerge = new LABSparseCircularMetricBuffer(180, 0, 10_000); // TODO expose?
+    public final LABSparseCircularMetricBuffer mBytesWrittenToWAL;
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsIndex;
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsSplit;
+    public final LABSparseCircularMetricBuffer mBytesWrittenAsMerge;
+
+    public LABStats() {
+        this(180, 0, 10_000);
+
+    }
+
+    public LABStats(int numberOfBuckets, long utcOffset, long bucketWidthMillis) {
+        this.mOpen = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mClosed = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+
+        this.mAppend = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mJournaledAppend = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+
+        this.mGets = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mRangeScan = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mMultiRangeScan = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mRowScan = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+
+        this.mMerging = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mMerged = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mSplitings = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mSplits = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+
+        this.mSlabbed = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mAllocationed = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mReleased = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mFreed = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+
+        this.mGC = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mCommit = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mGCCommit = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mPressureCommit = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mFsyncedCommit = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+
+        this.mBytesWrittenToWAL = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mBytesWrittenAsIndex = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mBytesWrittenAsSplit = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        this.mBytesWrittenAsMerge = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+    }
 
     public void refresh() {
         long timestamp = System.currentTimeMillis();
@@ -86,9 +129,6 @@ public class LABStats {
         mMultiRangeScan.add(timestamp, multiRangeScan);
         mRowScan.add(timestamp, rowScan);
 
-        mCommit.add(timestamp, commit);
-        mFsyncedCommit.add(timestamp, fsyncedCommit);
-
         mMerging.add(timestamp, merging);
         mMerged.add(timestamp, merged);
         mSplitings.add(timestamp, spliting);
@@ -98,7 +138,12 @@ public class LABStats {
         mAllocationed.add(timestamp, allocationed);
         mReleased.add(timestamp, released);
         mFreed.add(timestamp, freed);
+
+        mPressureCommit.add(timestamp, pressureCommit);
+        mCommit.add(timestamp, commit);
+        mFsyncedCommit.add(timestamp, fsyncedCommit);
         mGC.add(timestamp, gc);
+        mGCCommit.add(timestamp, gcCommit);
 
         mBytesWrittenToWAL.add(timestamp, bytesWrittenToWAL);
         mBytesWrittenAsIndex.add(timestamp, bytesWrittenAsIndex);
