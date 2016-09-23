@@ -46,7 +46,7 @@ public class LABEnvironmentNGTest {
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
                 new AtomicLong(),
-                LabHeapPressure.FreeHeapStrategy.largestFirst);
+                LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
 
             LABEnvironment env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
@@ -78,7 +78,7 @@ public class LABEnvironmentNGTest {
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
                 new AtomicLong(),
-                LabHeapPressure.FreeHeapStrategy.largestFirst);
+                LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4),
@@ -108,7 +108,7 @@ public class LABEnvironmentNGTest {
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
                 new AtomicLong(),
-                LabHeapPressure.FreeHeapStrategy.largestFirst);
+                LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
@@ -141,7 +141,7 @@ public class LABEnvironmentNGTest {
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
                 new AtomicLong(),
-                LabHeapPressure.FreeHeapStrategy.largestFirst);
+                LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
@@ -222,7 +222,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong(),
-            LabHeapPressure.FreeHeapStrategy.largestFirst);
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
         LABEnvironment env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -255,7 +255,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong(),
-            LabHeapPressure.FreeHeapStrategy.largestFirst);
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
         env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -294,7 +294,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong(),
-            LabHeapPressure.FreeHeapStrategy.largestFirst);
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
         LABEnvironment env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -328,7 +328,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong(),
-            LabHeapPressure.FreeHeapStrategy.largestFirst);
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
         env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -358,7 +358,7 @@ public class LABEnvironmentNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong(),
-            LabHeapPressure.FreeHeapStrategy.largestFirst);
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
         env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),

@@ -61,7 +61,7 @@ public class LABValidationNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong(),
-            LabHeapPressure.FreeHeapStrategy.largestFirst);
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
 
         StripingBolBufferLocks stripingBolBufferLocks = new StripingBolBufferLocks(1024);
 
@@ -202,7 +202,7 @@ public class LABValidationNGTest {
             1024 * 1024 * 10,
             1024 * 1024 * 10,
             new AtomicLong(),
-            LabHeapPressure.FreeHeapStrategy.largestFirst);
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
 
         LabWAL wal = new LabWAL(labStats, walRoot, 1024 * 1024 * 10, 1000, 1024 * 1024 * 10, 1024 * 1024 * 10);
 

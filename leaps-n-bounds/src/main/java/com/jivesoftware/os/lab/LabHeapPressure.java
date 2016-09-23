@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class LabHeapPressure {
 
     public enum FreeHeapStrategy {
-        smallestFirst, largestFirst, youngestFirst, oldestFirst
+        mostBytesFirst, oldestAppendFirst, longestElapseSinceCommit
     }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
@@ -135,11 +135,13 @@ public class LabHeapPressure {
         private final LAB lab;
         private final long approximateHeapPressureInBytes;
         private final long lastAppendTimestamp;
+        private final long lastCommitTimestamp;
 
-        public Freeable(LAB lab, long approximateHeapPressureInBytes, long lastAppendTimestamp) {
+        public Freeable(LAB lab, long approximateHeapPressureInBytes, long lastAppendTimestamp, long lastCommitTimestamp) {
             this.lab = lab;
             this.approximateHeapPressureInBytes = approximateHeapPressureInBytes;
             this.lastAppendTimestamp = lastAppendTimestamp;
+            this.lastCommitTimestamp = lastCommitTimestamp;
         }
 
     }
@@ -173,16 +175,18 @@ public class LabHeapPressure {
                             Freeable[] freeables = new Freeable[keys.length];
                             long[] pressures = new long[keys.length];
                             for (int i = 0; i < keys.length; i++) {
-                                freeables[i] = new Freeable(keys[i], keys[i].approximateHeapPressureInBytes(), keys[i].lastAppendTimestamp());
+                                freeables[i] = new Freeable(keys[i],
+                                    keys[i].approximateHeapPressureInBytes(),
+                                    keys[i].lastAppendTimestamp(),
+                                    keys[i].lastCommitTimestamp()
+                                );
                             }
-                            if (freeHeapStrategy == FreeHeapStrategy.smallestFirst) {
-                                Arrays.sort(freeables, (o1, o2) -> Long.compare(o1.approximateHeapPressureInBytes, o2.approximateHeapPressureInBytes));
-                            } else if (freeHeapStrategy == FreeHeapStrategy.largestFirst) {
+                            if (freeHeapStrategy == FreeHeapStrategy.mostBytesFirst) {
                                 Arrays.sort(freeables, (o1, o2) -> -Long.compare(o1.approximateHeapPressureInBytes, o2.approximateHeapPressureInBytes));
-                            } else if (freeHeapStrategy == FreeHeapStrategy.oldestFirst) {
+                            } else if (freeHeapStrategy == FreeHeapStrategy.oldestAppendFirst) {
                                 Arrays.sort(freeables, (o1, o2) -> Long.compare(o1.lastAppendTimestamp, o2.lastAppendTimestamp));
-                            } else if (freeHeapStrategy == FreeHeapStrategy.youngestFirst) {
-                                Arrays.sort(freeables, (o1, o2) -> -Long.compare(o1.lastAppendTimestamp, o2.lastAppendTimestamp));
+                            } else if (freeHeapStrategy == FreeHeapStrategy.longestElapseSinceCommit) {
+                                Arrays.sort(freeables, (o1, o2) -> Long.compare(o1.lastCommitTimestamp, o2.lastCommitTimestamp));
                             }
 
                             if (keys.length == 0) {

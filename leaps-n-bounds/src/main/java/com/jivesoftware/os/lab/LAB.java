@@ -80,6 +80,7 @@ public class LAB implements ValueIndex<byte[]> {
     private final AtomicReference<RawEntryFormat> rawEntryFormat;
     private final LABIndexProvider indexProvider;
     private volatile long lastAppendTimestamp = 0;
+    private volatile long lastCommitTimestamp = System.currentTimeMillis();
 
     public LAB(LABStats stats,
         FormatTransformerProvider formatTransformerProvider,
@@ -249,6 +250,10 @@ public class LAB implements ValueIndex<byte[]> {
 
     public long lastAppendTimestamp() {
         return lastAppendTimestamp;
+    }
+
+    public long lastCommitTimestamp() {
+        return lastCommitTimestamp;
     }
 
     private boolean pointTx(Keys keys,
@@ -556,6 +561,7 @@ public class LAB implements ValueIndex<byte[]> {
             flushingMemoryIndex = null;
             stackCopy.destroy();
             wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
+            lastCommitTimestamp = System.currentTimeMillis();
         } finally {
             commitSemaphore.release(Short.MAX_VALUE);
         }

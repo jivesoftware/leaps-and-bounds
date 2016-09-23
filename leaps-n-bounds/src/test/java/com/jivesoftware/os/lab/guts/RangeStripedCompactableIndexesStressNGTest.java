@@ -173,7 +173,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 -1,
                 -1,
                 new AtomicLong(),
-                LabHeapPressure.FreeHeapStrategy.largestFirst);
+                LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
 
             LABMemoryIndex index = new LABMemoryIndex(destroy,
                 labHeapPressure,
