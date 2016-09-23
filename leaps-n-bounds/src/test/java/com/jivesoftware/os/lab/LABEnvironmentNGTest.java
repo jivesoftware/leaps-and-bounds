@@ -45,7 +45,8 @@ public class LABEnvironmentNGTest {
                 "default",
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
-                new AtomicLong());
+                new AtomicLong(),
+                LabHeapPressure.FreeHeapStrategy.largestFirst);
 
             LABEnvironment env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
@@ -76,7 +77,8 @@ public class LABEnvironmentNGTest {
                 "default",
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
-                new AtomicLong());
+                new AtomicLong(),
+                LabHeapPressure.FreeHeapStrategy.largestFirst);
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4),
@@ -105,7 +107,8 @@ public class LABEnvironmentNGTest {
                 "default",
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
-                new AtomicLong());
+                new AtomicLong(),
+                LabHeapPressure.FreeHeapStrategy.largestFirst);
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
@@ -137,7 +140,8 @@ public class LABEnvironmentNGTest {
                 "default",
                 1024 * 1024 * 10,
                 1024 * 1024 * 10,
-                new AtomicLong());
+                new AtomicLong(),
+                LabHeapPressure.FreeHeapStrategy.largestFirst);
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
@@ -217,7 +221,8 @@ public class LABEnvironmentNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         LABEnvironment env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -249,7 +254,8 @@ public class LABEnvironmentNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -287,7 +293,8 @@ public class LABEnvironmentNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         LABEnvironment env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -320,7 +327,8 @@ public class LABEnvironmentNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -349,7 +357,8 @@ public class LABEnvironmentNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),

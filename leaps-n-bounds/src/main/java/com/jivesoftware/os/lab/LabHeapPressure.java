@@ -3,10 +3,10 @@ package com.jivesoftware.os.lab;
 import com.google.common.base.Preconditions;
 import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
-import com.jivesoftware.os.lab.guts.USort;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import com.jivesoftware.os.mlogger.core.ValueType;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -17,6 +17,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author jonathan.colt
  */
 public class LabHeapPressure {
+
+    public enum FreeHeapStrategy {
+        smallestFirst, largestFirst, youngestFirst, oldestFirst
+    }
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
@@ -30,13 +34,16 @@ public class LabHeapPressure {
     private volatile boolean running = false;
     private final AtomicLong changed = new AtomicLong();
     private final AtomicLong waiting = new AtomicLong();
+    private final FreeHeapStrategy freeHeapStrategy;
 
     public LabHeapPressure(LABStats stats,
         ExecutorService schedule,
         String name,
         long maxHeapPressureInBytes,
         long blockOnHeapPressureInBytes,
-        AtomicLong globalHeapCostInBytes) {
+        AtomicLong globalHeapCostInBytes,
+        FreeHeapStrategy freeHeapStrategy
+    ) {
 
         this.stats = stats;
         this.schedule = schedule;
@@ -44,6 +51,7 @@ public class LabHeapPressure {
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.blockOnHeapPressureInBytes = blockOnHeapPressureInBytes;
         this.globalHeapCostInBytes = globalHeapCostInBytes;
+        this.freeHeapStrategy = freeHeapStrategy;
 
         Preconditions.checkArgument(maxHeapPressureInBytes <= blockOnHeapPressureInBytes,
             "maxHeapPressureInBytes must be less than or equal to blockOnHeapPressureInBytes");
@@ -122,6 +130,20 @@ public class LabHeapPressure {
         }
     }
 
+    static class Freeable {
+
+        private final LAB lab;
+        private final long approximateHeapPressureInBytes;
+        private final long lastAppendTimestamp;
+
+        public Freeable(LAB lab, long approximateHeapPressureInBytes, long lastAppendTimestamp) {
+            this.lab = lab;
+            this.approximateHeapPressureInBytes = approximateHeapPressureInBytes;
+            this.lastAppendTimestamp = lastAppendTimestamp;
+        }
+
+    }
+
     public void freeHeap() {
         synchronized (globalHeapCostInBytes) {
             if (running != true) {
@@ -148,20 +170,29 @@ public class LabHeapPressure {
                                 }
                             }
                             LAB[] keys = labs.keySet().toArray(new LAB[0]);
+                            Freeable[] freeables = new Freeable[keys.length];
                             long[] pressures = new long[keys.length];
                             for (int i = 0; i < keys.length; i++) {
-                                pressures[i] = Long.MAX_VALUE - keys[i].approximateHeapPressureInBytes(); // Long.MAX_VALUE minus make list descending
+                                freeables[i] = new Freeable(keys[i], keys[i].approximateHeapPressureInBytes(), keys[i].lastAppendTimestamp());
                             }
-                            USort.mirrorSort(pressures, keys);
+                            if (freeHeapStrategy == FreeHeapStrategy.smallestFirst) {
+                                Arrays.sort(freeables, (o1, o2) -> Long.compare(o1.approximateHeapPressureInBytes, o2.approximateHeapPressureInBytes));
+                            } else if (freeHeapStrategy == FreeHeapStrategy.largestFirst) {
+                                Arrays.sort(freeables, (o1, o2) -> -Long.compare(o1.approximateHeapPressureInBytes, o2.approximateHeapPressureInBytes));
+                            } else if (freeHeapStrategy == FreeHeapStrategy.oldestFirst) {
+                                Arrays.sort(freeables, (o1, o2) -> Long.compare(o1.lastAppendTimestamp, o2.lastAppendTimestamp));
+                            } else if (freeHeapStrategy == FreeHeapStrategy.youngestFirst) {
+                                Arrays.sort(freeables, (o1, o2) -> -Long.compare(o1.lastAppendTimestamp, o2.lastAppendTimestamp));
+                            }
+
                             if (keys.length == 0) {
                                 LOG.error("LAB has a memory accounting leak. debt:{} waiting:{}", new Object[]{debtInBytes, waiting.get()});
                                 Thread.sleep(1000);
                             }
 
                             int i = 0;
-                            while (i < keys.length && debtInBytes > 0) {
-                                long pressure = Long.MAX_VALUE - pressures[i]; // flip pressure back to original form
-                                debtInBytes -= pressure;
+                            while (i < freeables.length && debtInBytes > 0) {
+                                debtInBytes -= freeables[i].approximateHeapPressureInBytes;
                                 Boolean efsyncOnFlush = this.labs.remove(keys[i]);
                                 if (efsyncOnFlush != null) {
                                     try {

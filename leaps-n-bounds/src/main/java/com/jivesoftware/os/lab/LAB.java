@@ -79,6 +79,7 @@ public class LAB implements ValueIndex<byte[]> {
     private final Rawhide rawhide;
     private final AtomicReference<RawEntryFormat> rawEntryFormat;
     private final LABIndexProvider indexProvider;
+    private volatile long lastAppendTimestamp = 0;
 
     public LAB(LABStats stats,
         FormatTransformerProvider formatTransformerProvider,
@@ -244,6 +245,10 @@ public class LAB implements ValueIndex<byte[]> {
     public long approximateHeapPressureInBytes() {
         LABMemoryIndex stackCopyFlushingMemoryIndex = flushingMemoryIndex;
         return memoryIndex.sizeInBytes() + ((stackCopyFlushingMemoryIndex == null) ? 0 : stackCopyFlushingMemoryIndex.sizeInBytes());
+    }
+
+    public long lastAppendTimestamp() {
+        return lastAppendTimestamp;
     }
 
     private boolean pointTx(Keys keys,
@@ -476,6 +481,7 @@ public class LAB implements ValueIndex<byte[]> {
                 appendVersion = -1;
             }
 
+            lastAppendTimestamp = System.currentTimeMillis();
             long[] count = {0};
             appended = memoryIndex.append(
                 (stream) -> {

@@ -92,7 +92,8 @@ public class IndexNGTest {
             "default",
             -1,
             -1,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         LABMemoryIndex walIndex = new LABMemoryIndex(destroy,
             labHeapPressure,
             labStats,
@@ -124,7 +125,8 @@ public class IndexNGTest {
             "default",
             -1,
             -1,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
 
         LABMemoryIndex memoryIndex = new LABMemoryIndex(destroy,
             labHeapPressure, labStats, rawhide,

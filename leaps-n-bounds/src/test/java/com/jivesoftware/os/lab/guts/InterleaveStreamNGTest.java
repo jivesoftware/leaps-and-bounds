@@ -146,7 +146,8 @@ public class InterleaveStreamNGTest {
             "default",
             -1,
             -1,
-            new AtomicLong()
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst
         );
         LABMemoryIndex[] memoryIndexes = new LABMemoryIndex[indexes];
         ReadIndex[] reorderIndexReaders = new ReadIndex[indexes];

@@ -41,7 +41,8 @@ public class LABNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         LABEnvironment env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
@@ -159,7 +160,8 @@ public class LABNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         LABEnvironment env = new LABEnvironment(
             new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
@@ -244,7 +246,8 @@ public class LABNGTest {
             "default",
             1024 * 1024 * 10,
             1024 * 1024 * 10,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
         LABEnvironment env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),

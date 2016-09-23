@@ -101,15 +101,6 @@ public class LABAppendOnlyAllocator {
             || m.slabs[index].length < indexAlignedAddress + length) {
 
             if (m.slabs == null) {
-                if (index != 0) {
-                    System.out.println(
-                        "Ouch WTF exepcted 0 but was " + index
-                        + " address=" + address
-                        + " length=" + length
-                        + " power=" + m.powerSize
-                        + " powerLength=" + (1 << m.powerSize));
-                    System.exit(1);
-                }
                 m = new LABMemorySlabs(m.powerSize, new byte[index + 1][]);
             } else if (index >= m.slabs.length) {
 

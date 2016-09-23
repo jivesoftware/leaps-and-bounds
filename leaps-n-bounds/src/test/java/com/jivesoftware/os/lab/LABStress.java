@@ -139,7 +139,8 @@ public class LABStress {
             "default",
             1024 * 1024 * 20,
             1024 * 1024 * 40,
-            new AtomicLong());
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.largestFirst);
 
         LABEnvironment env = new LABEnvironment(new LABStats(),
             LABEnvironment.buildLABSchedulerThreadPool(1),
