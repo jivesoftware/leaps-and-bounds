@@ -38,7 +38,6 @@ public class LABAppendOnlyAllocator {
 
 //    private final Object[] freePointerLocks = new Object[32];
 //    private final int[] freePointer = new int[32];
-
     public LABAppendOnlyAllocator(String name, int initialPower) {
         this.name = name;
         int power = Math.min(Math.max(MIN_POWER, initialPower), MAX_POWER);
@@ -215,12 +214,12 @@ public class LABAppendOnlyAllocator {
         int index = (int) (address >>> m.powerSize);
         int indexAddress = (int) (address & m.powerMask);
         int length = UIO.bytesInt(m.slabs[index], indexAddress);
-        int power = UIO.chunkPower(4 + length, MIN_POWER);
+//        int power = UIO.chunkPower(4 + length, MIN_POWER);
 //        synchronized (freePointerLocks[power]) {
 //            UIO.intBytes(freePointer[power], m.slabs[index], indexAddress);
 //            freePointer[power] = (int) address;
 //        }
-        return 1 << power;
+        return length;
     }
 
     public int compareLB(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength
