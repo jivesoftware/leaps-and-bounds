@@ -216,10 +216,10 @@ public class LABAppendOnlyAllocator {
         int indexAddress = (int) (address & m.powerMask);
         int length = UIO.bytesInt(m.slabs[index], indexAddress);
         int power = UIO.chunkPower(4 + length, MIN_POWER);
-        synchronized (freePointerLocks[power]) {
-            UIO.intBytes(freePointer[power], m.slabs[index], indexAddress);
-            freePointer[power] = (int) address;
-        }
+//        synchronized (freePointerLocks[power]) {
+//            UIO.intBytes(freePointer[power], m.slabs[index], indexAddress);
+//            freePointer[power] = (int) address;
+//        }
         return 1 << power;
     }
 
