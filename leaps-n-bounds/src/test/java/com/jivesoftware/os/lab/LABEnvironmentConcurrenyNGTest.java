@@ -54,7 +54,8 @@ public class LABEnvironmentConcurrenyNGTest {
             10,
             leapsCache,
             new StripingBolBufferLocks(1024),
-            true);
+            true,
+            false);
 
         concurentTest(env);
     }
@@ -85,7 +86,8 @@ public class LABEnvironmentConcurrenyNGTest {
             10,
             leapsCache,
             new StripingBolBufferLocks(1024),
-            true);
+            true,
+            false);
 
         concurentTest(env);
     }

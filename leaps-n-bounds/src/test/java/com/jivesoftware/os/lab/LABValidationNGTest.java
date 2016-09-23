@@ -98,7 +98,8 @@ public class LABValidationNGTest {
             0,
             0,
             leapsCache,
-            indexProvider);
+            indexProvider,
+            false);
 
         int writerCount = 12;
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
@@ -235,7 +236,8 @@ public class LABValidationNGTest {
             1024 * 1024 * 10,
             4, 8, 128, 0, 0,
             leapsCache,
-            indexProvider);
+            indexProvider,
+            false);
 
         validationTest(lab);
 

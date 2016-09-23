@@ -57,6 +57,7 @@ public class LABEnvironment {
     private final int maxMergeDebt;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final boolean useIndexableMemory;
+    private final boolean fsyncFileRenames;
 
     private final String walName;
     private final LabWAL wal;
@@ -105,7 +106,8 @@ public class LABEnvironment {
         int maxMergeDebt,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         StripingBolBufferLocks bolBufferLocks,
-        boolean useIndexableMemory) throws IOException {
+        boolean useIndexableMemory,
+        boolean fsyncFileRenames) throws IOException {
 
         register(NoOpFormatTransformerProvider.NAME, NoOpFormatTransformerProvider.NO_OP);
         register(KeyValueRawhide.NAME, KeyValueRawhide.SINGLETON);
@@ -124,6 +126,7 @@ public class LABEnvironment {
         this.walName = walName;
         this.wal = new LabWAL(stats, new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
         this.useIndexableMemory = useIndexableMemory;
+        this.fsyncFileRenames = fsyncFileRenames;
         this.stripingBolBufferLocks = bolBufferLocks;
     }
 
@@ -252,7 +255,8 @@ public class LABEnvironment {
             config.splitWhenValuesTotalExceedsNBytes,
             config.splitWhenValuesAndKeysTotalExceedsNBytes,
             leapsCache,
-            indexProvider);
+            indexProvider,
+            fsyncFileRenames);
 
     }
 

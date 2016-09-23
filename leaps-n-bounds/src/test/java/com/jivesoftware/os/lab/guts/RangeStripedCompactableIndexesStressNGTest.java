@@ -69,7 +69,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
             NoOpFormatTransformerProvider.NO_OP,
             LABRawhide.SINGLETON,
             new AtomicReference<>(new RawEntryFormat(0, 0)),
-            leapsCache);
+            leapsCache,
+            false);
 
         int count = 0;
 

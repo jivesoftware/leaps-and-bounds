@@ -150,7 +150,7 @@ public class LabHeapPressure {
                             LAB[] keys = labs.keySet().toArray(new LAB[0]);
                             long[] pressures = new long[keys.length];
                             for (int i = 0; i < keys.length; i++) {
-                                pressures[i] = Long.MAX_VALUE - keys[i].approximateHeapPressureInBytes();
+                                pressures[i] = Long.MAX_VALUE - keys[i].approximateHeapPressureInBytes(); // Long.MAX_VALUE minus make list descending
                             }
                             USort.mirrorSort(pressures, keys);
                             if (keys.length == 0) {
@@ -160,7 +160,7 @@ public class LabHeapPressure {
 
                             int i = 0;
                             while (i < keys.length && debtInBytes > 0) {
-                                long pressure = Long.MAX_VALUE - pressures[i];
+                                long pressure = Long.MAX_VALUE - pressures[i]; // flip pressure back to original form
                                 debtInBytes -= pressure;
                                 Boolean efsyncOnFlush = this.labs.remove(keys[i]);
                                 if (efsyncOnFlush != null) {
@@ -169,7 +169,6 @@ public class LabHeapPressure {
                                         stats.gcCommit.increment();
                                     } catch (LABCorruptedException | LABClosedException x) {
                                         LOG.error("Failed to commit.", x);
-
                                     } catch (Exception x) {
                                         this.labs.compute(keys[i], (LAB t, Boolean u) -> {
                                             return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;

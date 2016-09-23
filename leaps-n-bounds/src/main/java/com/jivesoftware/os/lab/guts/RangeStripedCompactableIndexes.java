@@ -67,6 +67,7 @@ public class RangeStripedCompactableIndexes {
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final Semaphore appendSemaphore = new Semaphore(Short.MAX_VALUE, true);
     private final AtomicReference<RawEntryFormat> rawhideFormat;
+    private final boolean fsyncFileRenames;
 
     public RangeStripedCompactableIndexes(LABStats stats,
         ExecutorService destroy,
@@ -79,7 +80,8 @@ public class RangeStripedCompactableIndexes {
         FormatTransformerProvider formatTransformerProvider,
         Rawhide rawhide,
         AtomicReference<RawEntryFormat> rawhideFormat,
-        LRUConcurrentBAHLinkedHash<Leaps> leapsCache) throws Exception {
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
+        boolean fsyncFileRenames) throws Exception {
 
         this.stats = stats;
         this.destroy = destroy;
@@ -93,6 +95,7 @@ public class RangeStripedCompactableIndexes {
         this.rawhide = rawhide;
         this.rawhideFormat = rawhideFormat;
         this.leapsCache = leapsCache;
+        this.fsyncFileRenames = fsyncFileRenames;
         this.indexes = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
         File indexRoot = new File(root, indexName);
@@ -384,8 +387,10 @@ public class RangeStripedCompactableIndexes {
             Files.move(commitingIndexFile.toPath(), commitedIndexFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
             ReadOnlyFile readOnlyFile = new ReadOnlyFile(commitedIndexFile);
             ReadOnlyIndex reopenedIndex = new ReadOnlyIndex(destroy, indexRangeId, readOnlyFile, formatTransformerProvider, rawhide, leapsCache);
-            reopenedIndex.flush(fsync);  // Sorry
-            // TODO Files.fsync index when java 9 supports it.
+            if (fsyncFileRenames) {
+                reopenedIndex.fsync();  // Sorry
+                // TODO Files.fsync index when java 9 supports it.
+            }
             LOG.inc("movedIntoPlace");
             LOG.inc("movedIntoPlace>" + rawhideName);
             int histo = (int) Math.pow(2, UIO.chunkPower(readOnlyFile.length(), 0));
@@ -604,7 +609,7 @@ public class RangeStripedCompactableIndexes {
 
     }
 
-    public void append(String rawhideName, 
+    public void append(String rawhideName,
         LABMemoryIndex memoryIndex,
         boolean fsync,
         BolBuffer keyBuffer,

@@ -46,10 +46,8 @@ public class ReadOnlyFile {
         return pointerReadable;
     }
 
-    public void flush(boolean fsync) throws IOException {
-        if (fsync) {
-            randomAccessFile.getFD().sync();
-        }
+    public void fsync() throws IOException {
+        randomAccessFile.getFD().sync();
     }
 
     @Override

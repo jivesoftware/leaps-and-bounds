@@ -51,7 +51,8 @@ public class LABNGTest {
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
             new StripingBolBufferLocks(1024),
-            true);
+            true,
+            false);
 
         long splitAfterSizeInBytes = 16; //1024 * 1024 * 1024;
 
@@ -169,7 +170,8 @@ public class LABNGTest {
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
             new StripingBolBufferLocks(1024),
-            true);
+            true,
+            false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
@@ -252,7 +254,8 @@ public class LABNGTest {
             1024 * 1024 * 10, root,
             labHeapPressure, 1, 2, leapsCache,
             new StripingBolBufferLocks(1024),
-            true);
+            true,
+            false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, 16, -1, -1,
             NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);

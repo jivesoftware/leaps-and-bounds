@@ -79,7 +79,8 @@ public class ReadOnlyIndex {
         seekTo++;
         if (type != FOOTER) {
             throw new LABCorruptedException(
-                "4. Footer Corruption! Found " + type + " expected " + FOOTER + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length());
+                "4. Footer Corruption! Found " + type + " expected " + FOOTER + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile
+                .length());
         }
         return Footer.read(readable, seekTo);
     }
@@ -182,11 +183,11 @@ public class ReadOnlyIndex {
 
     }
 
-    public void flush(boolean fsync) throws Exception {
+    public void fsync() throws Exception {
         hideABone.acquire();
         try {
             if (!disposed.get() && !readOnlyFile.isClosed()) {
-                readOnlyFile.flush(fsync);
+                readOnlyFile.fsync();
             }
         } finally {
             hideABone.release();
