@@ -36,17 +36,17 @@ public class LABAppendOnlyAllocator {
     private volatile Memory memory;
     private volatile long allocateNext = 0;
 
-    private final Object[] freePointerLocks = new Object[32];
-    private final int[] freePointer = new int[32];
+//    private final Object[] freePointerLocks = new Object[32];
+//    private final int[] freePointer = new int[32];
 
     public LABAppendOnlyAllocator(String name, int initialPower) {
         this.name = name;
         int power = Math.min(Math.max(MIN_POWER, initialPower), MAX_POWER);
         this.memory = new Memory(power, null);
-        for (int i = 0; i < freePointerLocks.length; i++) {
-            freePointerLocks[i] = new Object();
-            freePointer[i] = -1;
-        }
+//        for (int i = 0; i < freePointerLocks.length; i++) {
+//            freePointerLocks[i] = new Object();
+//            freePointer[i] = -1;
+//        }
     }
 
     public int poweredUpTo() {
@@ -103,19 +103,19 @@ public class LABAppendOnlyAllocator {
     private long allocate(int length, LABCostChangeInBytes costInBytes) throws Exception {
 
         int power = UIO.chunkPower(length, MIN_POWER);
-        if (freePointer[power] != -1) {
-            synchronized (freePointerLocks[power]) {
-                if (freePointer[power] != -1) {
-                    long address = freePointer[power];
-                    Memory m = memory;
-                    int index = (int) (address >>> m.powerSize);
-                    int indexAddress = (int) (address & m.powerMask);
-                    freePointer[power] = UIO.bytesInt(m.slabs[index], indexAddress);
-                    costInBytes.cost(0, 1 << power);
-                    return address;
-                }
-            }
-        }
+//        if (freePointer[power] != -1) {
+//            synchronized (freePointerLocks[power]) {
+//                if (freePointer[power] != -1) {
+//                    long address = freePointer[power];
+//                    Memory m = memory;
+//                    int index = (int) (address >>> m.powerSize);
+//                    int indexAddress = (int) (address & m.powerMask);
+//                    freePointer[power] = UIO.bytesInt(m.slabs[index], indexAddress);
+//                    costInBytes.cost(0, 1 << power);
+//                    return address;
+//                }
+//            }
+//        }
         synchronized (this) {
 
             Memory m = memory;
