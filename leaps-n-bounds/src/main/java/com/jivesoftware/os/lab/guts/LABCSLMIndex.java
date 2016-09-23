@@ -72,7 +72,7 @@ public class LABCSLMIndex implements LABIndex<BolBuffer, BolBuffer> {
                             return apply == null ? null : apply.copy();
                         }
                     } finally {
-                        changeInBytes.cost(cost);
+                        changeInBytes.cost(cost, 0);
                     }
                 });
         }

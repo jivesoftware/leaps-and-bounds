@@ -36,10 +36,17 @@ public class LABAppendOnlyAllocator {
     private volatile Memory memory;
     private volatile long allocateNext = 0;
 
+    private final Object[] freePointerLocks = new Object[32];
+    private final int[] freePointer = new int[32];
+
     public LABAppendOnlyAllocator(String name, int initialPower) {
         this.name = name;
         int power = Math.min(Math.max(MIN_POWER, initialPower), MAX_POWER);
         this.memory = new Memory(power, null);
+        for (int i = 0; i < freePointerLocks.length; i++) {
+            freePointerLocks[i] = new Object();
+            freePointer[i] = -1;
+        }
     }
 
     public int poweredUpTo() {
@@ -80,7 +87,7 @@ public class LABAppendOnlyAllocator {
         if (bytes == null) {
             return -1;
         }
-        long address = allocate(length, costInBytes);
+        long address = allocate(4 + length, costInBytes);
         Memory m = memory;
         int index = (int) (address >>> m.powerSize);
         int indexAddress = (int) (address & m.powerMask);
@@ -95,11 +102,24 @@ public class LABAppendOnlyAllocator {
 
     private long allocate(int length, LABCostChangeInBytes costInBytes) throws Exception {
 
-        int fullLength = 4 + length;
+        int power = UIO.chunkPower(length, MIN_POWER);
+        if (freePointer[power] != -1) {
+            synchronized (freePointerLocks[power]) {
+                if (freePointer[power] != -1) {
+                    long address = freePointer[power];
+                    Memory m = memory;
+                    int index = (int) (address >>> m.powerSize);
+                    int indexAddress = (int) (address & m.powerMask);
+                    freePointer[power] = UIO.bytesInt(m.slabs[index], indexAddress);
+                    costInBytes.cost(0, 1 << power);
+                    return address;
+                }
+            }
+        }
         synchronized (this) {
 
             Memory m = memory;
-            while (fullLength > m.powerLength && m.powerSize < MAX_POWER) {
+            while (length > m.powerLength && m.powerSize < MAX_POWER) {
                 LOG.warn("Uping Power to {}  because of length={} for {}. Consider changing you config to {}.", m.powerSize + 1, length, name, m.powerSize + 1);
                 m = powerUp(m);
             }
@@ -107,12 +127,12 @@ public class LABAppendOnlyAllocator {
 
             long address = allocateNext;
             int index = (int) (address >>> m.powerSize);
-            int tailIndex = (int) ((address + 4 + length) >>> m.powerSize);
+            int tailIndex = (int) ((address + length) >>> m.powerSize);
             if (index == tailIndex) {
-                allocateNext = address + 4 + length;
+                allocateNext = address + length;
             } else {
                 long desiredAddress = tailIndex * (1 << m.powerSize);
-                allocateNext = desiredAddress + 4 + length;
+                allocateNext = desiredAddress + length;
                 address = desiredAddress;
                 index = (int) (desiredAddress >>> m.powerSize);
             }
@@ -121,7 +141,7 @@ public class LABAppendOnlyAllocator {
             if (m.slabs == null
                 || index >= m.slabs.length
                 || m.slabs[index] == null
-                || m.slabs[index].length < indexAlignedAddress + 4 + length) {
+                || m.slabs[index].length < indexAlignedAddress + length) {
 
                 if (m.slabs == null) {
                     if (index != 0) {
@@ -136,13 +156,13 @@ public class LABAppendOnlyAllocator {
                     m = new Memory(m.powerSize, newMemory);
                 }
 
-                int power = UIO.chunkPower(indexAlignedAddress + 4 + length, MIN_POWER);
+                power = UIO.chunkPower(indexAlignedAddress + length, MIN_POWER);
                 byte[] bytes = new byte[1 << power];
                 if (m.slabs[index] != null) {
                     System.arraycopy(m.slabs[index], 0, bytes, 0, m.slabs[index].length);
-                    costInBytes.cost(bytes.length - m.slabs[index].length);
+                    costInBytes.cost(bytes.length - m.slabs[index].length, 0);
                 } else {
-                    costInBytes.cost(bytes.length);
+                    costInBytes.cost(bytes.length, 0);
                 }
                 m.slabs[index] = bytes; // uck
 
@@ -193,9 +213,14 @@ public class LABAppendOnlyAllocator {
         }
         Memory m = memory;
         int index = (int) (address >>> m.powerSize);
-        byte[] stackCopy = m.slabs[index];
-        address &= m.powerMask;
-        return UIO.bytesInt(stackCopy, (int) address);
+        int indexAddress = (int) (address & m.powerMask);
+        int length = UIO.bytesInt(m.slabs[index], indexAddress);
+        int power = UIO.chunkPower(4 + length, MIN_POWER);
+        synchronized (freePointerLocks[power]) {
+            UIO.intBytes(freePointer[power], m.slabs[index], indexAddress);
+            freePointer[power] = (int) address;
+        }
+        return 1 << power;
     }
 
     public int compareLB(Rawhide rawhide, long leftAddress, byte[] rightBytes, int rightOffset, int rightLength

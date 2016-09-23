@@ -31,7 +31,7 @@ public class LABConcurrentSkipListMapNGTest {
             BolBuffer value = new BolBuffer(UIO.longBytes(i));
             map.compute(FormatTransformer.NO_OP, FormatTransformer.NO_OP, new BolBuffer(), key, value,
                 (t1, t2, b, existing) -> value,
-                (cost) -> {
+                (added, reused) -> {
                 });
         }
         System.out.println("Count:" + map.size());

@@ -115,7 +115,7 @@ public class LAB implements ValueIndex<byte[]> {
         this.walId = walId;
         this.labHeapPressure = labHeapPressure;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
-        this.memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, rawhide, indexProvider.create(rawhide, -1));
+        this.memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, indexProvider.create(rawhide, -1));
         this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
         this.indexName = indexName;
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(stats,
@@ -543,7 +543,7 @@ public class LAB implements ValueIndex<byte[]> {
                 stats.commit.increment();
             }
             flushingMemoryIndex = stackCopy;
-            memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, rawhide, indexProvider.create(rawhide,flushingMemoryIndex.poweredUpTo()));
+            memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo()));
             rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, keyBuffer, entryBuffer, entryKeyBuffer);
             flushingMemoryIndex = null;
             stackCopy.destroy();

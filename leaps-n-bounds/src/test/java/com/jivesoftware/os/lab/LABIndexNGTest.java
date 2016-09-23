@@ -55,7 +55,7 @@ public class LABIndexNGTest {
                     return value1;
                 }
             },
-            (cost) -> {
+            (added, reused) -> {
             }
         );
         BolBuffer got = map.get(key, new BolBuffer());
@@ -73,7 +73,7 @@ public class LABIndexNGTest {
                     return value2;
                 }
             },
-            (cost) -> {
+            (added, reused) -> {
             }
         );
         got = map.get(key, new BolBuffer());
@@ -95,7 +95,7 @@ public class LABIndexNGTest {
                     return value3;
                 }
             },
-            (cost) -> {
+            (added, reused) -> {
             }
         );
 

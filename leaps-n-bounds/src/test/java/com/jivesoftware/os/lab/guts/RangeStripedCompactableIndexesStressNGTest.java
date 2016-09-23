@@ -175,11 +175,12 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
             LABMemoryIndex index = new LABMemoryIndex(destroy,
                 labHeapPressure,
+                labStats,
                 LABRawhide.SINGLETON,
                 new LABConcurrentSkipListMap(labStats,
                     new LABConcurrentSkipListMemory(LABRawhide.SINGLETON,
                         new LABIndexableMemory("memory",
-                            new LABAppendOnlyAllocator("test",2)
+                            new LABAppendOnlyAllocator("test", 2)
                         )
                     ),
                     new StripingBolBufferLocks(1024)

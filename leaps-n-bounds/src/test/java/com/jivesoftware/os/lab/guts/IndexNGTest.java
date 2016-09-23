@@ -95,6 +95,7 @@ public class IndexNGTest {
             new AtomicLong());
         LABMemoryIndex walIndex = new LABMemoryIndex(destroy,
             labHeapPressure,
+            labStats,
             rawhide,
             new LABConcurrentSkipListMap(labStats,
                 new LABConcurrentSkipListMemory(rawhide,
@@ -126,7 +127,7 @@ public class IndexNGTest {
             new AtomicLong());
 
         LABMemoryIndex memoryIndex = new LABMemoryIndex(destroy,
-            labHeapPressure, rawhide,
+            labHeapPressure, labStats, rawhide,
             new LABConcurrentSkipListMap(labStats,
                 new LABConcurrentSkipListMemory(rawhide,
                     new LABIndexableMemory("memory",

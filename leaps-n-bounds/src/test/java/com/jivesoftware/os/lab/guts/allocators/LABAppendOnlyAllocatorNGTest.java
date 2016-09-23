@@ -94,6 +94,30 @@ public class LABAppendOnlyAllocatorNGTest {
         Assert.assertEquals(poweredUp.slabs[1], slabs[2]);
     }
 
+    @Test
+    public void testReused() throws Exception {
+        int power = 5;
+        LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator("test", power);
+
+        Random rand = new Random();
+        byte[] bytes = new byte[1 << power];
+        rand.nextBytes(bytes);
+
+        long address = allocator.allocate(bytes, 0, bytes.length, (allocated, reused) -> {
+            System.out.println("A:" + allocated + " " + reused);
+            Assert.assertEquals(allocated, 64);
+        });
+
+        allocator.release(address);
+
+        long secondAddress = allocator.allocate(bytes, 0, bytes.length, (allocated, reused) -> {
+            System.out.println("B:" + allocated + " " + reused);
+            Assert.assertEquals(reused, 64);
+        });
+
+        Assert.assertEquals(secondAddress, address);
+    }
+
     @Test(invocationCount = 1)
     public void testBytes() throws Exception {
 
@@ -141,7 +165,7 @@ public class LABAppendOnlyAllocatorNGTest {
 
             int l = 1 + rand.nextInt(bytes.length - 1);
             long start = System.nanoTime();
-            long address = allocator[0].allocate(bytes, 0, l, (cost) -> {
+            long address = allocator[0].allocate(bytes, 0, l, (added, reused) -> {
             });
             elapse += System.nanoTime() - start;
 

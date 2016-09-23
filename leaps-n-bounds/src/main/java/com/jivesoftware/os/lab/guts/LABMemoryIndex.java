@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
@@ -33,6 +34,7 @@ public class LABMemoryIndex implements RawAppendableIndex {
 
     private final ExecutorService destroy;
     private final LabHeapPressure labHeapPressure;
+    private final LABStats stats;
     private final AtomicLong costInBytes = new AtomicLong();
 
     private final Rawhide rawhide;
@@ -49,12 +51,16 @@ public class LABMemoryIndex implements RawAppendableIndex {
 
     public LABMemoryIndex(ExecutorService destroy,
         LabHeapPressure labHeapPressure,
+        LABStats stats,
         Rawhide rawhide,
         LABIndex<BolBuffer, BolBuffer> index) throws InterruptedException {
 
-        this.costChangeInBytes = (cost) -> {
-            costInBytes.addAndGet(cost);
-            labHeapPressure.change(cost);
+        this.stats = stats;
+
+        this.costChangeInBytes = (allocated, resued) -> {
+            costInBytes.addAndGet(allocated);
+            labHeapPressure.change(allocated);
+            stats.released.add(-resued);
         };
 
         this.compute = (readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, value) -> {

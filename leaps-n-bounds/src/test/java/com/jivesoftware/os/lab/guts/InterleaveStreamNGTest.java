@@ -157,12 +157,12 @@ public class InterleaveStreamNGTest {
 
                 int i = (indexes - 1) - wi;
 
-                memoryIndexes[i] = new LABMemoryIndex(destroy, labHeapPressure,
+                memoryIndexes[i] = new LABMemoryIndex(destroy, labHeapPressure, labStats,
                     rawhide,
                     new LABConcurrentSkipListMap(labStats,
                         new LABConcurrentSkipListMemory(rawhide,
                             new LABIndexableMemory("memory",
-                                new LABAppendOnlyAllocator("test",2)
+                                new LABAppendOnlyAllocator("test", 2)
                             )
                         ),
                         new StripingBolBufferLocks(1024)

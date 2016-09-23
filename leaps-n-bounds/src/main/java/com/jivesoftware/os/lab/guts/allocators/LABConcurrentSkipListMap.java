@@ -645,7 +645,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 return null;
             } else {
                 BolBuffer acquired = memory.acquireBytes(address, valueBuffer);
-                memory.release(address);
+                //memory.release(address);
                 return acquired;
             }
         } finally {
@@ -719,7 +719,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                             long rid;
                             try {
                                 BolBuffer acquired = memory.acquireBytes(va, valueBuffer);
-                                memory.release(va);
+                                //memory.release(va);
 
                                 r = remappingFunction.apply(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, acquired);
                                 if (r == null) {
@@ -1045,7 +1045,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         @Override
         public boolean next(RawEntryStream entryStream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception {
             BolBuffer acquired = memory.acquireBytes(nextValue, valueBuffer);
-            memory.release(nextValue);
+            //memory.release(nextValue);
 
             growSemaphore.acquire();
             try {
@@ -1142,7 +1142,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     if (x != NIL && x != SELF) {
                         long nk = m.nodeKey(next);
                         BolBuffer acquired = m.memory.acquireBytes(nk, keyBolBuffer);
-                        m.memory.release(nk);
+                        //m.memory.release(nk);
                         if (!inBounds(acquired)) {
                             next = (int) NIL;
                         } else {
@@ -1176,7 +1176,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         @Override
         public boolean next(RawEntryStream stream, BolBuffer keyBuffer, BolBuffer valueBuffer) throws Exception {
             BolBuffer acquired = m.memory.acquireBytes(nextValue, valueBuffer);
-            m.memory.release(nextValue);
+            //m.memory.release(nextValue);
             m.growSemaphore.acquire();
             try {
                 advance(keyBuffer); // Grr

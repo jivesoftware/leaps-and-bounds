@@ -6,5 +6,5 @@ package com.jivesoftware.os.lab.guts.allocators;
  */
 public interface LABCostChangeInBytes {
 
-    void cost(long bytes);
+    void cost(long allocated, long reused);
 }
