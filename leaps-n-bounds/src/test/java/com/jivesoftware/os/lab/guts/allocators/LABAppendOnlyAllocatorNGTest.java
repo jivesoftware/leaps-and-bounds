@@ -2,7 +2,6 @@ package com.jivesoftware.os.lab.guts.allocators;
 
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
-import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator.Memory;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.Arrays;
 import java.util.List;
@@ -36,8 +35,8 @@ public class LABAppendOnlyAllocatorNGTest {
     @Test
     public void testPowerUp1() {
         int power = 1;
-        Memory memory = new Memory(power, null);
-        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs memory = new LABMemorySlabs(power, null);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + power);
         Assert.assertEquals(poweredUp.slabs, null);
     }
@@ -50,8 +49,8 @@ public class LABAppendOnlyAllocatorNGTest {
         slabs[0] = new byte[1 << power];
         rand.nextBytes(slabs[0]);
 
-        Memory memory = new Memory(power, slabs);
-        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs memory = new LABMemorySlabs(power, slabs);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
         Assert.assertEquals(poweredUp.slabs.length, 1);
         Assert.assertEquals(poweredUp.slabs[0], slabs[0]);
@@ -67,8 +66,8 @@ public class LABAppendOnlyAllocatorNGTest {
         rand.nextBytes(slabs[0]);
         rand.nextBytes(slabs[1]);
 
-        Memory memory = new Memory(power, slabs);
-        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs memory = new LABMemorySlabs(power, slabs);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
         Assert.assertEquals(poweredUp.slabs.length, 1);
         Assert.assertEquals(poweredUp.slabs[0], Bytes.concat(slabs[0], slabs[1]));
@@ -86,8 +85,8 @@ public class LABAppendOnlyAllocatorNGTest {
         rand.nextBytes(slabs[1]);
         rand.nextBytes(slabs[2]);
 
-        Memory memory = new Memory(power, slabs);
-        Memory poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs memory = new LABMemorySlabs(power, slabs);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
         Assert.assertEquals(poweredUp.slabs.length, 2);
         Assert.assertEquals(poweredUp.slabs[0], Bytes.concat(slabs[0], slabs[1]));
