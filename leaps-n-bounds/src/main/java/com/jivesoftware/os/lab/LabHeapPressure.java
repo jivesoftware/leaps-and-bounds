@@ -30,7 +30,7 @@ public class LabHeapPressure {
     private final long maxHeapPressureInBytes;
     private final long blockOnHeapPressureInBytes;
     private final AtomicLong globalHeapCostInBytes;
-    private final Map<LAB, Boolean> labs = new ConcurrentHashMap<>();
+    private final Map<LAB, Boolean> commitableLabs = new ConcurrentHashMap<>();
     private volatile boolean running = false;
     private final AtomicLong changed = new AtomicLong();
     private final AtomicLong waiting = new AtomicLong();
@@ -73,17 +73,17 @@ public class LabHeapPressure {
     void commitIfNecessary(LAB lab, long labMaxHeapPressureInBytes, boolean fsyncOnFlush) throws Exception {
         if (lab.approximateHeapPressureInBytes() > labMaxHeapPressureInBytes) {
             LOG.inc("lab>pressure>commit>" + name);
-            labs.remove(lab);
+            commitableLabs.remove(lab);
             lab.commit(fsyncOnFlush, false); // todo config
             stats.pressureCommit.increment();
         } else {
-            labs.compute(lab, (LAB t, Boolean u) -> {
+            commitableLabs.compute(lab, (LAB t, Boolean u) -> {
                 return u == null ? fsyncOnFlush : (boolean) u || fsyncOnFlush;
             });
         }
         long globalHeap = globalHeapCostInBytes.get();
         LOG.set(ValueType.VALUE, "lab>heap>pressure>" + name, globalHeap);
-        LOG.set(ValueType.VALUE, "lab>commitable>" + name, labs.size());
+        LOG.set(ValueType.VALUE, "lab>commitable>" + name, commitableLabs.size());
         if (globalHeap > maxHeapPressureInBytes) {
 
             synchronized (globalHeapCostInBytes) {
@@ -171,14 +171,14 @@ public class LabHeapPressure {
                                     continue;
                                 }
                             }
-                            LAB[] keys = labs.keySet().toArray(new LAB[0]);
-                            Freeable[] freeables = new Freeable[keys.length];
-                            long[] pressures = new long[keys.length];
-                            for (int i = 0; i < keys.length; i++) {
-                                freeables[i] = new Freeable(keys[i],
-                                    keys[i].approximateHeapPressureInBytes(),
-                                    keys[i].lastAppendTimestamp(),
-                                    keys[i].lastCommitTimestamp()
+                            LAB[] labs = commitableLabs.keySet().toArray(new LAB[0]);
+                            Freeable[] freeables = new Freeable[labs.length];
+                            long[] pressures = new long[labs.length];
+                            for (int i = 0; i < labs.length; i++) {
+                                freeables[i] = new Freeable(labs[i],
+                                    labs[i].approximateHeapPressureInBytes(),
+                                    labs[i].lastAppendTimestamp(),
+                                    labs[i].lastCommitTimestamp()
                                 );
                             }
                             if (freeHeapStrategy == FreeHeapStrategy.mostBytesFirst) {
@@ -189,7 +189,7 @@ public class LabHeapPressure {
                                 Arrays.sort(freeables, (o1, o2) -> Long.compare(o1.lastCommitTimestamp, o2.lastCommitTimestamp));
                             }
 
-                            if (keys.length == 0) {
+                            if (labs.length == 0) {
                                 LOG.error("LAB has a memory accounting leak. debt:{} waiting:{}", new Object[]{debtInBytes, waiting.get()});
                                 Thread.sleep(1000);
                             }
@@ -197,15 +197,15 @@ public class LabHeapPressure {
                             int i = 0;
                             while (i < freeables.length && debtInBytes > 0) {
                                 debtInBytes -= freeables[i].approximateHeapPressureInBytes;
-                                Boolean efsyncOnFlush = this.labs.remove(keys[i]);
+                                Boolean efsyncOnFlush = this.commitableLabs.remove(freeables[i].lab);
                                 if (efsyncOnFlush != null) {
                                     try {
-                                        keys[i].commit(efsyncOnFlush, false); // todo config
+                                        labs[i].commit(efsyncOnFlush, false); // todo config
                                         stats.gcCommit.increment();
                                     } catch (LABCorruptedException | LABClosedException x) {
                                         LOG.error("Failed to commit.", x);
                                     } catch (Exception x) {
-                                        this.labs.compute(keys[i], (LAB t, Boolean u) -> {
+                                        this.commitableLabs.compute(freeables[i].lab, (LAB t, Boolean u) -> {
                                             return u == null ? efsyncOnFlush : (boolean) u || efsyncOnFlush;
                                         });
                                         throw x;
@@ -235,7 +235,7 @@ public class LabHeapPressure {
     }
 
     void close(LAB lab) {
-        labs.remove(lab);
+        commitableLabs.remove(lab);
     }
 
 }
