@@ -91,7 +91,7 @@ public class LABStats {
 
         for (int i = 0; i < 32; i++) {
             entriesWrittenBatchPower[i] = new LongAdder();
-            mEntriesWrittenBatchPower[i] = new LABSparseCircularMetricBuffer(i, i, i);
+            mEntriesWrittenBatchPower[i] = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
         }
 
         this.mOpen = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
