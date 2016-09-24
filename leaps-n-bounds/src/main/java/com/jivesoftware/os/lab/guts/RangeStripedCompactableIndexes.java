@@ -322,11 +322,9 @@ public class RangeStripedCompactableIndexes {
 
             long count = memoryIndex.count();
             LOG.debug("Commiting memory index to on disk index: {}", count, activeRoot);
-            LOG.inc("flushMemoryIndexToDisk");
-            LOG.inc("flushMemoryIndexToDisk>" + rawhideName);
-            int histo = (int) Math.pow(2, UIO.chunkPower(count, 0));
-            LOG.inc("flushMemoryIndexToDisk>" + histo);
-            LOG.inc("flushMemoryIndexToDisk>" + rawhideName + ">" + histo);
+
+            stats.entriesWritten.increment();
+            stats.entriesWrittenBatchPower[Math.min(31, UIO.chunkPower(count, 0))].increment();
 
             int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);

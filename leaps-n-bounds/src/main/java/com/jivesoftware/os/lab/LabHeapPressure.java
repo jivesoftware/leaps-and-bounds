@@ -130,14 +130,14 @@ public class LabHeapPressure {
         }
     }
 
-    static class Freeable {
+    private static class Freeable {
 
         private final LAB lab;
         private final long approximateHeapPressureInBytes;
         private final long lastAppendTimestamp;
         private final long lastCommitTimestamp;
 
-        public Freeable(LAB lab, long approximateHeapPressureInBytes, long lastAppendTimestamp, long lastCommitTimestamp) {
+        Freeable(LAB lab, long approximateHeapPressureInBytes, long lastAppendTimestamp, long lastCommitTimestamp) {
             this.lab = lab;
             this.approximateHeapPressureInBytes = approximateHeapPressureInBytes;
             this.lastAppendTimestamp = lastAppendTimestamp;
@@ -173,7 +173,6 @@ public class LabHeapPressure {
                             }
                             LAB[] labs = commitableLabs.keySet().toArray(new LAB[0]);
                             Freeable[] freeables = new Freeable[labs.length];
-                            long[] pressures = new long[labs.length];
                             for (int i = 0; i < labs.length; i++) {
                                 freeables[i] = new Freeable(labs[i],
                                     labs[i].approximateHeapPressureInBytes(),
@@ -189,7 +188,7 @@ public class LabHeapPressure {
                                 Arrays.sort(freeables, (o1, o2) -> Long.compare(o1.lastCommitTimestamp, o2.lastCommitTimestamp));
                             }
 
-                            if (labs.length == 0) {
+                            if (freeables.length == 0) {
                                 LOG.error("LAB has a memory accounting leak. debt:{} waiting:{}", new Object[]{debtInBytes, waiting.get()});
                                 Thread.sleep(1000);
                             }
@@ -200,7 +199,7 @@ public class LabHeapPressure {
                                 Boolean efsyncOnFlush = this.commitableLabs.remove(freeables[i].lab);
                                 if (efsyncOnFlush != null) {
                                     try {
-                                        labs[i].commit(efsyncOnFlush, false); // todo config
+                                        freeables[i].lab.commit(efsyncOnFlush, false); // todo config
                                         stats.gcCommit.increment();
                                     } catch (LABCorruptedException | LABClosedException x) {
                                         LOG.error("Failed to commit.", x);

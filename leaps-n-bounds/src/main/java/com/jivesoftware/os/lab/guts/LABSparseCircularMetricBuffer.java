@@ -20,7 +20,7 @@ public class LABSparseCircularMetricBuffer {
     private final long bucketWidthMillis;
     private int cursor; // always points oldest bucket. cursor - 1 is the newestBucket
     private final int numberOfBuckets;
-    private final double[] metric;
+    private volatile double[] metric;
     private long grandTotal = 0;
 
     public LABSparseCircularMetricBuffer(int numberOfBuckets, long utcOffset, long bucketWidthMillis) {
@@ -71,6 +71,11 @@ public class LABSparseCircularMetricBuffer {
         } else {
             metric[nextCursor] += sumThenReset;
         }
+    }
+
+    public void reset() {
+        metric = new double[numberOfBuckets];
+        Arrays.fill(metric, Double.NaN);
     }
 
     public long total() {
