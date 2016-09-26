@@ -175,9 +175,9 @@ public class LABStats {
 
     public static class Written {
 
-        public final LongAdder[] entriesWrittenBatchPower = new LongAdder[32];
         public final LongAdder entriesWritten = new LongAdder();
         public final LABSparseCircularMetricBuffer mEntriesWritten;
+        public final LongAdder[] entriesWrittenBatchPower = new LongAdder[32];
         public final LABSparseCircularMetricBuffer[] mEntriesWrittenBatchPower = new LABSparseCircularMetricBuffer[32];
 
         public Written(int numberOfBuckets, long utcOffset, long bucketWidthMillis) {
@@ -189,6 +189,7 @@ public class LABStats {
         }
 
         public void refresh(long timestamp) {
+            mEntriesWritten.add(timestamp, entriesWritten);
             for (int i = 0; i < 32; i++) {
                 mEntriesWrittenBatchPower[i].add(timestamp, entriesWrittenBatchPower[i]);
             }
