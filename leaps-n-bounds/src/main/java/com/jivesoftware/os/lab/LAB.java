@@ -51,8 +51,7 @@ public class LAB implements ValueIndex<byte[]> {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final static byte[] SMALLEST_POSSIBLE_KEY = new byte[0];
-    private final static BolBuffer SMALLES_POSSIBLE_BOL_BUFFER_KEY = new BolBuffer(SMALLEST_POSSIBLE_KEY);
-
+    
     private final ExecutorService schedule;
     private final ExecutorService compact;
     private final ExecutorService destroy;
@@ -64,7 +63,7 @@ public class LAB implements ValueIndex<byte[]> {
     private final long maxHeapPressureInBytes;
     private final int minDebt;
     private final int maxDebt;
-    private final String indexName;
+    private final String primaryName;
     private final RangeStripedCompactableIndexes rangeStripedCompactableIndexes;
     private final Semaphore commitSemaphore = new Semaphore(Short.MAX_VALUE, true);
     private final CompactLock compactLock = new CompactLock();
@@ -94,7 +93,7 @@ public class LAB implements ValueIndex<byte[]> {
         File root,
         LabWAL wal,
         byte[] walId,
-        String indexName,
+        String primaryName,
         int entriesBetweenLeaps,
         LabHeapPressure labHeapPressure,
         long maxHeapPressureInBytes,
@@ -121,11 +120,11 @@ public class LAB implements ValueIndex<byte[]> {
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, indexProvider.create(rawhide, -1));
         this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
-        this.indexName = indexName;
+        this.primaryName = primaryName;
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(stats,
             destroy,
             root,
-            indexName,
+            primaryName,
             entriesBetweenLeaps,
             splitWhenKeysTotalExceedsNBytes,
             splitWhenValuesTotalExceedsNBytes,
@@ -142,7 +141,7 @@ public class LAB implements ValueIndex<byte[]> {
 
     @Override
     public String name() {
-        return indexName;
+        return primaryName;
     }
 
     @Override

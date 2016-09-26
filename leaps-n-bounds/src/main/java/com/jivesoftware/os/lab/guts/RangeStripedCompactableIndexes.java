@@ -55,7 +55,7 @@ public class RangeStripedCompactableIndexes {
     private final LABStats stats;
     private final ExecutorService destroy;
     private final File root;
-    private final String indexName;
+    private final String primaryName;
     private final int entriesBetweenLeaps;
     private final Object copyIndexOnWrite = new Object();
     private volatile ConcurrentSkipListMap<byte[], FileBackMergableIndexs> indexes;
@@ -72,7 +72,7 @@ public class RangeStripedCompactableIndexes {
     public RangeStripedCompactableIndexes(LABStats stats,
         ExecutorService destroy,
         File root,
-        String indexName,
+        String primaryName,
         int entriesBetweenLeaps,
         long splitWhenKeysTotalExceedsNBytes,
         long splitWhenValuesTotalExceedsNBytes,
@@ -86,7 +86,7 @@ public class RangeStripedCompactableIndexes {
         this.stats = stats;
         this.destroy = destroy;
         this.root = root;
-        this.indexName = indexName;
+        this.primaryName = primaryName;
         this.entriesBetweenLeaps = entriesBetweenLeaps;
         this.splitWhenKeysTotalExceedsNBytes = splitWhenKeysTotalExceedsNBytes;
         this.splitWhenValuesTotalExceedsNBytes = splitWhenValuesTotalExceedsNBytes;
@@ -98,7 +98,7 @@ public class RangeStripedCompactableIndexes {
         this.fsyncFileRenames = fsyncFileRenames;
         this.indexes = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
-        File indexRoot = new File(root, indexName);
+        File indexRoot = new File(root, primaryName);
         File[] stripeDirs = indexRoot.listFiles();
         if (stripeDirs != null) {
             Map<File, Stripe> stripes = new HashMap<>();
@@ -138,7 +138,7 @@ public class RangeStripedCompactableIndexes {
                         largestStripeId,
                         largestIndexId,
                         root,
-                        indexName,
+                        primaryName,
                         stripeId,
                         entry.getValue().mergeableIndexes));
                 }
@@ -152,7 +152,7 @@ public class RangeStripedCompactableIndexes {
             + "largestStripeId=" + largestStripeId
             + ", largestIndexId=" + largestIndexId
             + ", root=" + root
-            + ", indexName=" + indexName
+            + ", indexName=" + primaryName
             + ", entriesBetweenLeaps=" + entriesBetweenLeaps
             + ", splitWhenKeysTotalExceedsNBytes=" + splitWhenKeysTotalExceedsNBytes
             + ", splitWhenValuesTotalExceedsNBytes=" + splitWhenValuesTotalExceedsNBytes
@@ -290,7 +290,8 @@ public class RangeStripedCompactableIndexes {
             BolBuffer entryBuffer,
             BolBuffer entryKeyBuffer) throws Exception {
 
-            ReadOnlyIndex lab = flushMemoryIndexToDisk(rawhideName,
+            ReadOnlyIndex lab = flushMemoryIndexToDisk(primaryName,
+                rawhideName,
                 memoryIndex,
                 minKey,
                 maxKey,
@@ -304,7 +305,9 @@ public class RangeStripedCompactableIndexes {
             compactableIndexes.append(lab);
         }
 
-        private ReadOnlyIndex flushMemoryIndexToDisk(String rawhideName, LABMemoryIndex memoryIndex,
+        private ReadOnlyIndex flushMemoryIndexToDisk(String primaryName,
+            String rawhideName,
+            LABMemoryIndex memoryIndex,
             byte[] minKey,
             byte[] maxKey,
             long nextIndexId,
@@ -323,8 +326,10 @@ public class RangeStripedCompactableIndexes {
             long count = memoryIndex.count();
             LOG.debug("Commiting memory index to on disk index: {}", count, activeRoot);
 
-            stats.entriesWritten.increment();
-            stats.entriesWrittenBatchPower[Math.min(31, UIO.chunkPower(count, 0))].increment();
+            int p = Math.min(31, UIO.chunkPower(count, 0));
+            stats.written("all", p);
+            stats.written("rawhide-" + rawhideName, p);
+            stats.written("family-" + primaryName, p);
 
             int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
@@ -625,7 +630,7 @@ public class RangeStripedCompactableIndexes {
                     largestStripeId,
                     largestIndexId,
                     root,
-                    indexName,
+                    primaryName,
                     stripeId,
                     new CompactableIndexes(rawhide));
                 index.append(rawhideName, memoryIndex, null, null, fsync, keyBuffer, entryBuffer, entryKeyBuffer);

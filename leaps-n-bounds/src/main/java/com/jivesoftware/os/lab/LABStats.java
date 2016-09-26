@@ -1,8 +1,10 @@
 package com.jivesoftware.os.lab;
 
+import com.google.common.collect.Maps;
 import com.jivesoftware.os.lab.guts.LABSparseCircularMetricBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -45,9 +47,6 @@ public class LABStats {
     public final LongAdder bytesWrittenAsSplit = new LongAdder();
     public final LongAdder bytesWrittenAsMerge = new LongAdder();
 
-    public final LongAdder[] entriesWrittenBatchPower = new LongAdder[32];
-    public final LongAdder entriesWritten = new LongAdder();
-
     public final LABSparseCircularMetricBuffer mOpen;
     public final LABSparseCircularMetricBuffer mClosed;
 
@@ -80,8 +79,11 @@ public class LABStats {
     public final LABSparseCircularMetricBuffer mBytesWrittenAsSplit;
     public final LABSparseCircularMetricBuffer mBytesWrittenAsMerge;
 
-    public final LABSparseCircularMetricBuffer mEntriesWritten;
-    public final LABSparseCircularMetricBuffer[] mEntriesWrittenBatchPower = new LABSparseCircularMetricBuffer[32];
+    public final ConcurrentMap<String, Written> writtenBrokenDownByName = Maps.newConcurrentMap();
+
+    private final int numberOfBuckets;
+    private final long utcOffset;
+    private final long bucketWidthMillis;
 
     public LABStats() {
         this(180, 0, 10_000);
@@ -89,10 +91,9 @@ public class LABStats {
 
     public LABStats(int numberOfBuckets, long utcOffset, long bucketWidthMillis) {
 
-        for (int i = 0; i < 32; i++) {
-            entriesWrittenBatchPower[i] = new LongAdder();
-            mEntriesWrittenBatchPower[i] = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
-        }
+        this.numberOfBuckets = numberOfBuckets;
+        this.utcOffset = utcOffset;
+        this.bucketWidthMillis = bucketWidthMillis;
 
         this.mOpen = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
         this.mClosed = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
@@ -125,8 +126,6 @@ public class LABStats {
         this.mBytesWrittenAsIndex = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
         this.mBytesWrittenAsSplit = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
         this.mBytesWrittenAsMerge = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
-
-        this.mEntriesWritten = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
     }
 
     public void refresh() {
@@ -163,11 +162,38 @@ public class LABStats {
         mBytesWrittenAsSplit.add(timestamp, bytesWrittenAsSplit);
         mBytesWrittenAsMerge.add(timestamp, bytesWrittenAsMerge);
 
-        mEntriesWritten.add(timestamp, entriesWritten);
-
-        for (int i = 0; i < 32; i++) {
-            mEntriesWrittenBatchPower[i].add(timestamp, entriesWrittenBatchPower[i]);
+        for (Written value : writtenBrokenDownByName.values()) {
+            value.refresh(timestamp);
         }
+    }
+
+    public void written(String key, int power) {
+        Written written = writtenBrokenDownByName.computeIfAbsent(key, (t) -> new Written(numberOfBuckets, utcOffset, bucketWidthMillis));
+        written.entriesWritten.increment();
+        written.entriesWrittenBatchPower[power].increment();
+    }
+
+    static class Written {
+
+        public final LongAdder[] entriesWrittenBatchPower = new LongAdder[32];
+        public final LongAdder entriesWritten = new LongAdder();
+        public final LABSparseCircularMetricBuffer mEntriesWritten;
+        public final LABSparseCircularMetricBuffer[] mEntriesWrittenBatchPower = new LABSparseCircularMetricBuffer[32];
+
+        public Written(int numberOfBuckets, long utcOffset, long bucketWidthMillis) {
+            for (int i = 0; i < 32; i++) {
+                entriesWrittenBatchPower[i] = new LongAdder();
+                mEntriesWrittenBatchPower[i] = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+            }
+            this.mEntriesWritten = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
+        }
+
+        public void refresh(long timestamp) {
+            for (int i = 0; i < 32; i++) {
+                mEntriesWrittenBatchPower[i].add(timestamp, entriesWrittenBatchPower[i]);
+            }
+        }
+
     }
 
 }
