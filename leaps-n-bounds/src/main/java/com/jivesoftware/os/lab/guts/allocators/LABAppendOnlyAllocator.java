@@ -78,7 +78,7 @@ public class LABAppendOnlyAllocator {
         LABMemorySlabs m = memory;
         while (length > m.powerLength && m.powerSize < MAX_POWER) {
             LOG.warn("Uping Power to {}  because of length={} for {}. Consider changing you config to {}.", m.powerSize + 1, length, name, m.powerSize + 1);
-            m = powerUp(m);
+            m = powerUp(m, costInBytes);
         }
         memory = m;
 
@@ -119,10 +119,10 @@ public class LABAppendOnlyAllocator {
             }
             m.slabs[index] = bytes; // uck
 
-            if (m.slabs.length >= 2 && m.powerSize < MAX_POWER) { // config?
+            if (m.slabs.length == 3 && m.powerSize < MAX_POWER) { // 3
                 LOG.warn("Uping Power to {} because slab count={} for {}. Consider changing you config to {}.",
                     m.powerSize + 1, m.slabs.length, name, m.powerSize + 1);
-                m = powerUp(m);
+                m = powerUp(m, costInBytes);
             }
             memory = m;
         }
@@ -131,7 +131,7 @@ public class LABAppendOnlyAllocator {
 
     }
 
-    static LABMemorySlabs powerUp(LABMemorySlabs m) {
+    static LABMemorySlabs powerUp(LABMemorySlabs m, LABCostChangeInBytes costInBytes) {
         LABMemorySlabs nm;
         int nextPowerSize = m.powerSize + 1;
         if (nextPowerSize > MAX_POWER) {
@@ -153,6 +153,7 @@ public class LABAppendOnlyAllocator {
                     newSlabs[npi] = new byte[1 << nextPowerSize];
                     System.arraycopy(m.slabs[i], 0, newSlabs[npi], 0, m.slabs[i].length);
                     System.arraycopy(m.slabs[i + 1], 0, newSlabs[npi], offset, m.slabs[i + 1].length);
+                    costInBytes.cost(newSlabs[npi].length - (offset + m.slabs[i + 1].length), 0);
                 }
             }
             nm = new LABMemorySlabs(nextPowerSize, newSlabs);

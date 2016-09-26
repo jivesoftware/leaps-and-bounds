@@ -36,7 +36,8 @@ public class LABAppendOnlyAllocatorNGTest {
     public void testPowerUp1() {
         int power = 1;
         LABMemorySlabs memory = new LABMemorySlabs(power, null);
-        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory, (allocated, reused) -> {
+        });
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + power);
         Assert.assertEquals(poweredUp.slabs, null);
     }
@@ -50,7 +51,8 @@ public class LABAppendOnlyAllocatorNGTest {
         rand.nextBytes(slabs[0]);
 
         LABMemorySlabs memory = new LABMemorySlabs(power, slabs);
-        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory, (allocated, reused) -> {
+        });
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
         Assert.assertEquals(poweredUp.slabs.length, 1);
         Assert.assertEquals(poweredUp.slabs[0], slabs[0]);
@@ -67,7 +69,8 @@ public class LABAppendOnlyAllocatorNGTest {
         rand.nextBytes(slabs[1]);
 
         LABMemorySlabs memory = new LABMemorySlabs(power, slabs);
-        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory, (allocated, reused) -> {
+        });
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
         Assert.assertEquals(poweredUp.slabs.length, 1);
         Assert.assertEquals(poweredUp.slabs[0], Bytes.concat(slabs[0], slabs[1]));
@@ -86,7 +89,8 @@ public class LABAppendOnlyAllocatorNGTest {
         rand.nextBytes(slabs[2]);
 
         LABMemorySlabs memory = new LABMemorySlabs(power, slabs);
-        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory);
+        LABMemorySlabs poweredUp = LABAppendOnlyAllocator.powerUp(memory, (allocated, reused) -> {
+        });
         Assert.assertEquals(poweredUp.powerSize, memory.powerSize + 1);
         Assert.assertEquals(poweredUp.slabs.length, 2);
         Assert.assertEquals(poweredUp.slabs[0], Bytes.concat(slabs[0], slabs[1]));

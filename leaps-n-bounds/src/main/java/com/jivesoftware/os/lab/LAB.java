@@ -13,6 +13,7 @@ import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
+import com.jivesoftware.os.lab.guts.LABIndex;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.LABMemoryIndex;
 import com.jivesoftware.os.lab.guts.Leaps;
@@ -245,7 +246,10 @@ public class LAB implements ValueIndex<byte[]> {
 
     public long approximateHeapPressureInBytes() {
         LABMemoryIndex stackCopyFlushingMemoryIndex = flushingMemoryIndex;
-        return memoryIndex.sizeInBytes() + ((stackCopyFlushingMemoryIndex == null) ? 0 : stackCopyFlushingMemoryIndex.sizeInBytes());
+        LABMemoryIndex stackCopyMemoryIndex = memoryIndex;
+
+        return memoryIndex.sizeInBytes()
+            + ((stackCopyFlushingMemoryIndex != null && stackCopyFlushingMemoryIndex != stackCopyMemoryIndex) ? stackCopyFlushingMemoryIndex.sizeInBytes() : 0);
     }
 
     public long lastAppendTimestamp() {
@@ -556,7 +560,8 @@ public class LAB implements ValueIndex<byte[]> {
                 stats.commit.increment();
             }
             flushingMemoryIndex = stackCopy;
-            memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo()));
+            LABIndex labIndex = indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo());
+            memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, labIndex);
             rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, keyBuffer, entryBuffer, entryKeyBuffer);
             flushingMemoryIndex = null;
             stackCopy.destroy();

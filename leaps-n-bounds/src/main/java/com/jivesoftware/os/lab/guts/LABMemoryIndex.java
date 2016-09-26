@@ -178,7 +178,9 @@ public class LABMemoryIndex implements RawAppendableIndex {
             try {
                 disposed.set(true);
                 index.clear();
-                labHeapPressure.change(-costInBytes.get());
+                long cost = costInBytes.get();
+                labHeapPressure.change(-cost);
+                costInBytes.addAndGet(-cost);
             } catch (Throwable t) {
                 LOG.error("Destroy failed horribly!", t);
                 throw t;
