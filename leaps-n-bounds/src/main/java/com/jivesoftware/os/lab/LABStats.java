@@ -173,7 +173,7 @@ public class LABStats {
         written.entriesWrittenBatchPower[power].increment();
     }
 
-    static class Written {
+    public static class Written {
 
         public final LongAdder[] entriesWrittenBatchPower = new LongAdder[32];
         public final LongAdder entriesWritten = new LongAdder();
