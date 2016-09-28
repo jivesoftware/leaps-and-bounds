@@ -159,6 +159,7 @@ public class LABAppendOnlyAllocatorNGTest {
         };
         allocator[0] = new LABAppendOnlyAllocator("test", 2);
 
+        // 8007104495249922497L
         Random rand = new Random();
         byte[] bytes = new byte[(int) UIO.chunkLength(maxAllocatePower)];
         rand.nextBytes(bytes);

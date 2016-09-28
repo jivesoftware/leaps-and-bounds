@@ -84,7 +84,7 @@ public class LABAppendOnlyAllocator {
 
         long address = allocateNext;
         int index = (int) (address >>> m.powerSize);
-        int tailIndex = (int) ((address + length) >>> m.powerSize);
+        int tailIndex = (int) ((address + (length - 1)) >>> m.powerSize);
         if (index == tailIndex) {
             allocateNext = address + length;
         } else {
@@ -93,7 +93,7 @@ public class LABAppendOnlyAllocator {
             address = desiredAddress;
             index = (int) (desiredAddress >>> m.powerSize);
         }
-
+        
         int indexAlignedAddress = (int) (address & m.powerMask);
         if (m.slabs == null
             || index >= m.slabs.length

@@ -134,7 +134,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
     private long acquireValue(int address) throws InterruptedException {
         long v = nodeValue(address);
-        if (v != NIL) {
+        if (v != NIL && v != SELF) {
             long at = nodesArray.get(address + NODE_REF_COUNT_OFFSET);
             while (true) {
                 if (at >= 0 && nodesArray.compareAndSet(address + NODE_REF_COUNT_OFFSET, at, at + 1)) {
@@ -147,9 +147,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     }
                 }
             }
-            return v;
         }
-        return NIL;
+        return v;
     }
 
     void releaseValue(int address) throws InterruptedException {
@@ -239,14 +238,15 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         }
 
         address = allocateIndex.getAndAdd(INDEX_SIZE_IN_INTS);
-        if (address + INDEX_SIZE_IN_INTS >= indexsArray.length()) {
+        int endOfAddress = address + INDEX_SIZE_IN_INTS;
+        if (endOfAddress >= indexsArray.length()) {
 
             growSemaphore.release();
             try {
                 growSemaphore.acquire(ALL);
                 try {
-                    if (address + INDEX_SIZE_IN_INTS >= indexsArray.length()) {
-                        int newSize = Math.max(indexsArray.length() + INDEX_SIZE_IN_INTS, indexsArray.length() * 2);
+                    if (endOfAddress >= indexsArray.length()) {
+                        int newSize = (endOfAddress) * 2;
                         int[] newIndexsArray = new int[newSize];
                         for (int i = 0; i < indexsArray.length(); i++) { // LAME!!!
                             newIndexsArray[i] = indexsArray.get(i);
@@ -710,9 +710,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                         }
                     } else if ((v = nodeValue(n)) != NIL) {
                         long va = acquireValue(n);
-                        if (va == NIL || va == SELF) {
-                            releaseValue(n);
-                        } else {
+                        if (va != NIL && va != SELF) {
                             long rid;
                             try {
                                 BolBuffer acquired = memory.acquireBytes(va, valueBuffer);
@@ -1012,9 +1010,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 long x = nodeValue(next);
                 if (x != NIL && x != SELF) {
                     long va = acquireValue(next);
-                    if (va == NIL || va == SELF) {
-                        releaseValue(next);
-                    } else {
+                    if (va != NIL && va != SELF) {
                         nextValue = va;
                         break;
                     }
@@ -1064,9 +1060,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 long x = nodeValue(next);
                 if (x != NIL && x != SELF) {
                     long va = acquireValue(next);
-                    if (va == NIL || va == SELF) {
-                        releaseValue(next);
-                    } else {
+                    if (va != NIL && va != SELF) {
                         nextValue = va;
                         break;
                     }
@@ -1144,9 +1138,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                             next = (int) NIL;
                         } else {
                             long va = m.acquireValue(next);
-                            if (va == NIL) {
-                                m.releaseValue(next);
-                            } else {
+                            if (va != NIL && va != SELF) {
                                 nextValue = va;
                             }
                         }
@@ -1205,9 +1197,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                         next = (int) NIL;
                     } else {
                         long va = m.acquireValue(next);
-                        if (va == NIL || va == SELF) {
-                            m.releaseValue(next);
-                        } else {
+                        if (va != NIL && va != SELF) {
                             nextValue = va;
                         }
                     }
@@ -1358,7 +1348,12 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
     public boolean contains(byte[] from, byte[] to) throws Exception {
         growSemaphore.acquire();
         try {
-            return rangeMap(from, to).hasNext();
+            EntryStream entryStream = rangeMap(from, to);
+            try {
+                return entryStream.hasNext();
+            } finally {
+                entryStream.close();
+            }
         } finally {
             growSemaphore.release();
         }

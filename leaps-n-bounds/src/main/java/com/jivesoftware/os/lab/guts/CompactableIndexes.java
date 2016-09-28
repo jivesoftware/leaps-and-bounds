@@ -33,6 +33,7 @@ public class CompactableIndexes {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     // newest to oldest
+    private final LABStats stats;
     private final Rawhide rawhide;
     private final IndexesLock indexesLock = new IndexesLock();
     private volatile boolean[] merging = new boolean[0]; // is volatile for reference changes not value changes.
@@ -43,11 +44,13 @@ public class CompactableIndexes {
     private final AtomicBoolean compacting = new AtomicBoolean();
     private volatile TimestampAndVersion maxTimestampAndVersion = TimestampAndVersion.NULL;
 
-    public CompactableIndexes(Rawhide rawhide) {
+    public CompactableIndexes(LABStats stats,Rawhide rawhide) {
+        this.stats = stats;
         this.rawhide = rawhide;
     }
 
     public boolean append(ReadOnlyIndex index) {
+        int indexLengthChange = 0;
         synchronized (indexesLock) {
             if (disposed) {
                 return false;
@@ -63,10 +66,12 @@ public class CompactableIndexes {
             System.arraycopy(indexes, 0, prependToIndexes, 1, indexes.length);
 
             merging = prependToMerging;
+            indexLengthChange = prependToIndexes.length - indexes.length;
             indexes = prependToIndexes;
             refreshMaxTimestamp(prependToIndexes);
             version++;
         }
+        stats.debt.add(indexLengthChange);
         return true;
     }
 
@@ -364,6 +369,7 @@ public class CompactableIndexes {
                                     for (ReadOnlyIndex destroy : all) {
                                         destroy.destroy();
                                     }
+                                    stats.debt.add(-indexes.length);
                                     indexes = new ReadOnlyIndex[0]; // TODO go handle null so that thread wait rety higher up
                                     refreshMaxTimestamp(indexes);
                                     version++;
@@ -459,6 +465,16 @@ public class CompactableIndexes {
                     }
 
                 } catch (Exception x) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("[");
+                    for (int i = 0; i < all.length; i++) {
+                        if (i > 0) {
+                            sb.append(", ");
+                        }
+                        sb.append(all[i].name());
+                    }
+                    sb.append("]");
+                    LOG.error("Failed to split:" + allVersion + " for " + sb.toString(), x);
                     synchronized (indexesLock) {
                         Arrays.fill(merging, false);
                     }
@@ -606,6 +622,7 @@ public class CompactableIndexes {
 
                 index = commitIndex.commit(Arrays.asList(mergeRangeId));
 
+                int indexLengthChange = 0;
                 synchronized (indexesLock) {
                     int newLength = (indexes.length - mergeSet.length) + 1;
                     boolean[] updateMerging = new boolean[newLength];
@@ -629,10 +646,12 @@ public class CompactableIndexes {
                     }
 
                     merging = updateMerging;
+                    indexLengthChange = updateIndexes.length - indexes.length;
                     indexes = updateIndexes;
                     refreshMaxTimestamp(updateIndexes);
                     version++;
                 }
+                stats.debt.add(indexLengthChange);
 
                 LOG.debug("Merged:  {} millis counts:{} gens:{} {}",
                     (System.currentTimeMillis() - startMerge),
@@ -655,7 +674,7 @@ public class CompactableIndexes {
                     sb.append(mergeSet[i].name());
                 }
                 sb.append("]");
-                LOG.warn("Failed to merge range:" + mergeRangeId + " for " + sb.toString(), x);
+                LOG.error("Failed to merge range:" + mergeRangeId + " for " + sb.toString(), x);
 
                 synchronized (indexesLock) {
                     boolean[] updateMerging = new boolean[merging.length];

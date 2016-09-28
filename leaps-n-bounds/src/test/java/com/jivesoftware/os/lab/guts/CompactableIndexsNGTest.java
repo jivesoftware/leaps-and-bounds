@@ -45,7 +45,7 @@ public class CompactableIndexsNGTest {
     public void testPointGets() throws Exception {
 
         ExecutorService destroy = Executors.newSingleThreadExecutor();
-        CompactableIndexes indexs = new CompactableIndexes(rawhide);
+        CompactableIndexes indexs = new CompactableIndexes(new LABStats(), rawhide);
         AtomicLong id = new AtomicLong();
         BolBuffer keyBuffer = new BolBuffer();
 
@@ -121,7 +121,7 @@ public class CompactableIndexsNGTest {
         boolean fsync = true;
         int minimumRun = 4;
 
-        CompactableIndexes indexs = new CompactableIndexes(rawhide);
+        CompactableIndexes indexs = new CompactableIndexes(new LABStats(), rawhide);
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
@@ -191,7 +191,7 @@ public class CompactableIndexsNGTest {
         boolean fsync = true;
         int minimumRun = 4;
 
-        CompactableIndexes indexs = new CompactableIndexes(rawhide);
+        CompactableIndexes indexs = new CompactableIndexes(new LABStats(), rawhide);
         long time = System.currentTimeMillis();
         System.out.println("Seed:" + time);
         Random rand = new Random(1446914103456L);
@@ -278,7 +278,7 @@ public class CompactableIndexsNGTest {
             return true;
         }, true);
 
-        indexs = new CompactableIndexes(rawhide);
+        indexs = new CompactableIndexes(new LABStats(), rawhide);
         IndexRangeId indexRangeId = new IndexRangeId(0, 0, 0);
         ReadOnlyFile indexFile = new ReadOnlyFile(indexFiler);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);

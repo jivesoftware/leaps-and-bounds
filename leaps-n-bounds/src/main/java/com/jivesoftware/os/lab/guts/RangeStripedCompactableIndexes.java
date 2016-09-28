@@ -209,7 +209,7 @@ public class RangeStripedCompactableIndexes {
                  2/1-3-2 x,y,z
                  - delete 0/*
                  */
-                CompactableIndexes mergeableIndexes = new CompactableIndexes(rawhide);
+                CompactableIndexes mergeableIndexes = new CompactableIndexes(stats, rawhide);
                 KeyRange keyRange = null;
                 for (IndexRangeId range : ranges) {
                     File file = range.toFile(activeDir);
@@ -632,7 +632,7 @@ public class RangeStripedCompactableIndexes {
                     root,
                     primaryName,
                     stripeId,
-                    new CompactableIndexes(rawhide));
+                    new CompactableIndexes(stats, rawhide));
                 index.append(rawhideName, memoryIndex, null, null, fsync, keyBuffer, entryBuffer, entryKeyBuffer);
 
                 synchronized (copyIndexOnWrite) {

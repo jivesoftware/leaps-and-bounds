@@ -42,7 +42,7 @@ public class IndexStressNGTest {
         Random rand = new Random(12345);
 
         long start = System.currentTimeMillis();
-        CompactableIndexes indexs = new CompactableIndexes(rawhide);
+        CompactableIndexes indexs = new CompactableIndexes(new LABStats(), rawhide);
         int count = 0;
 
         boolean fsync = true;

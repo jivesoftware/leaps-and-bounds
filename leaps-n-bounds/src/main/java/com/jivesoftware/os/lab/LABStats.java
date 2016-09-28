@@ -15,6 +15,7 @@ public class LABStats {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
+    public final LongAdder debt = new LongAdder();
     public final LongAdder open = new LongAdder();
     public final LongAdder closed = new LongAdder();
 
@@ -47,6 +48,7 @@ public class LABStats {
     public final LongAdder bytesWrittenAsSplit = new LongAdder();
     public final LongAdder bytesWrittenAsMerge = new LongAdder();
 
+    public final LABSparseCircularMetricBuffer mDebt;
     public final LABSparseCircularMetricBuffer mOpen;
     public final LABSparseCircularMetricBuffer mClosed;
 
@@ -95,6 +97,7 @@ public class LABStats {
         this.utcOffset = utcOffset;
         this.bucketWidthMillis = bucketWidthMillis;
 
+        this.mDebt = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
         this.mOpen = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
         this.mClosed = new LABSparseCircularMetricBuffer(numberOfBuckets, utcOffset, bucketWidthMillis);
 
@@ -130,6 +133,7 @@ public class LABStats {
 
     public void refresh() {
         long timestamp = System.currentTimeMillis();
+        mDebt.add(timestamp, debt);
         mOpen.add(timestamp, open);
         mClosed.add(timestamp, closed);
 
