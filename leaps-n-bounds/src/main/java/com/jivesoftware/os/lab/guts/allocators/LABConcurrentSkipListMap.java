@@ -156,8 +156,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
     }
 
     boolean casValue(int address, LABConcurrentSkipListMemory memory, long cmp, long val) throws Exception {
-        if (!nodesArray.compareAndSet(address + NODE_REF_COUNT_OFFSET, 0, -1)) {
-            return false;
+        while (!nodesArray.compareAndSet(address + NODE_REF_COUNT_OFFSET, 0, -1)) {
+            Thread.yield();
+            if (Thread.interrupted()) {
+                throw new InterruptedException();
+            }
         }
         try {
             boolean cas = nodesArray.compareAndSet(address + NODE_VALUE_OFFSET, cmp, val);
