@@ -237,7 +237,7 @@ public class LABEnvironment {
                 }
 
             } finally {
-                pointerReadable.close();
+                readOnlyFile.close();
             }
 
             if (!equal) {
