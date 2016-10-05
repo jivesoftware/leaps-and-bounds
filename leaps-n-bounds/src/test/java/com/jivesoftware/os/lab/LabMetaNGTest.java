@@ -26,8 +26,8 @@ public class LabMetaNGTest {
         }
 
         for (int i = 0; i < 10; i++) {
-            BolBuffer value = meta.get(UIO.longBytes(i), new BolBuffer());
-            Assert.assertTrue(UIO.bytesLong(value.copy()) == i);
+            byte[] value = meta.get(UIO.longBytes(i), BolBuffer::copy);
+            Assert.assertTrue(UIO.bytesLong(value) == i);
         }
 
         for (int i = 0; i < 10; i++) {
@@ -35,8 +35,8 @@ public class LabMetaNGTest {
         }
 
         for (int i = 0; i < 10; i++) {
-            BolBuffer value = meta.get(UIO.longBytes(i), new BolBuffer());
-            Assert.assertTrue(UIO.bytesLong(value.copy()) == i * 2);
+            byte[] value = meta.get(UIO.longBytes(i), BolBuffer::copy);
+            Assert.assertTrue(UIO.bytesLong(value) == i * 2);
         }
 
         meta.close();
@@ -55,8 +55,8 @@ public class LabMetaNGTest {
         }
 
         for (int i = 0; i < 10; i++) {
-            BolBuffer value = meta.get(UIO.longBytes(i), new BolBuffer());
-            Assert.assertTrue(UIO.bytesLong(value.copy()) == i * 3);
+            byte[] value = meta.get(UIO.longBytes(i), BolBuffer::copy);
+            Assert.assertTrue(UIO.bytesLong(value) == i * 3);
         }
 
         meta.metaKeys((byte[] metaKey) -> {

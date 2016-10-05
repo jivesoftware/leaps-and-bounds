@@ -207,22 +207,26 @@ public class LABEnvironment {
     }
 
     ValueIndexConfig valueIndexConfig(byte[] valueIndexId) throws Exception {
-        BolBuffer configBolBuffer = meta.get(valueIndexId, new BolBuffer());
-        if (configBolBuffer != null) {
-            return MAPPER.readValue(configBolBuffer.copy(), ValueIndexConfig.class);
-        } else {
+        ValueIndexConfig config = meta.get(valueIndexId, (metaValue) -> {
+            if (metaValue != null) {
+                return MAPPER.readValue(metaValue.copy(), ValueIndexConfig.class);
+            } else {
+                return null;
+            }
+        });
+        if (config == null) {
             // Fallback to the old way :(
             String primaryName = new String(valueIndexId, StandardCharsets.UTF_8);
             File configFile = new File(labRoot, primaryName + ".json");
             if (configFile.exists()) {
-                ValueIndexConfig config = MAPPER.readValue(configFile, ValueIndexConfig.class);
+                config = MAPPER.readValue(configFile, ValueIndexConfig.class);
                 meta.append(valueIndexId, MAPPER.writeValueAsBytes(config));
                 FileUtils.deleteQuietly(configFile);
-                return config;
             } else {
                 throw new IllegalStateException("There is no config for lab value index:" + new String(valueIndexId, StandardCharsets.UTF_8));
             }
         }
+        return config;
     }
 
     public ValueIndex open(ValueIndexConfig config) throws Exception {
@@ -248,10 +252,10 @@ public class LABEnvironment {
             if (metaValue == null) {
                 return false;
             } else {
-                boolean equal1 = configBolBuffer.length == configAsBytes.length;
+                boolean equal1 = metaValue.length == configAsBytes.length;
                 if (equal1) {
-                    for (int i = 0; i < configBolBuffer.length; i++) {
-                        if (configAsBytes[i] != configBolBuffer.get(i)) {
+                    for (int i = 0; i < metaValue.length; i++) {
+                        if (configAsBytes[i] != metaValue.get(i)) {
                             equal1 = false;
                             break;
                         }
@@ -311,10 +315,10 @@ public class LABEnvironment {
         File newFileName = new File(labRoot, newName);
         if (oldFileName.exists()) {
             byte[] oldKey = oldName.getBytes(StandardCharsets.UTF_8);
-            BolBuffer value = meta.get(oldKey, new BolBuffer());
+            byte[] value = meta.get(oldKey, BolBuffer::copy);
 
             byte[] newKey = newName.getBytes(StandardCharsets.UTF_8);
-            meta.append(newKey, value.copy());
+            meta.append(newKey, value);
 
             Files.move(oldFileName.toPath(), newFileName.toPath(), StandardCopyOption.ATOMIC_MOVE);
             FileUtils.deleteDirectory(oldFileName);
