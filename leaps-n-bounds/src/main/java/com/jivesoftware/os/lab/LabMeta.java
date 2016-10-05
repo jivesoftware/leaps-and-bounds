@@ -28,7 +28,12 @@ public class LabMeta {
         File activeMeta = new File(metaRoot, "active.meta");
 
         if (!activeMeta.exists()) {
-            activeMeta.getParentFile().mkdirs();
+            File backupMeta = new File(metaRoot, "backup.meta");
+            if (backupMeta.exists()) {
+                 FileUtils.moveFile(backupMeta, activeMeta);
+            } else {
+                activeMeta.getParentFile().mkdirs();
+            }
         }
         Meta m = new Meta(activeMeta);
         if (activeMeta.exists()) {
@@ -40,7 +45,12 @@ public class LabMeta {
                 m.copyTo(mc);
                 m.close();
                 mc.close();
+                File backupMeta = new File(metaRoot, "backup.meta");
+                FileUtils.deleteQuietly(backupMeta);
+                FileUtils.moveFile(activeMeta, backupMeta);
                 FileUtils.moveFile(compactingMeta, activeMeta);
+                FileUtils.deleteQuietly(backupMeta);
+                // TODO filesystem meta fsync?
                 m = new Meta(activeMeta);
                 m.load();
             }
@@ -189,7 +199,7 @@ public class LabMeta {
         }
 
         public void append(byte[] key, byte[] value) throws Exception {
-            
+
             appender.appendInt(key.length);
             appender.append(key, 0, key.length);
             long filePointer = appender.getFilePointer();
