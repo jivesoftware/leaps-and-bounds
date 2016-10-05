@@ -195,6 +195,15 @@ public class LABEnvironment {
         return indexes;
     }
 
+    public boolean exists(String name) {
+        if (name.equals(walName)) {
+            return false;
+        }
+
+        File labDir = new File(labRoot, name);
+        return labDir.exists();
+    }
+
     ValueIndexConfig valueIndexConfig(byte[] valueIndexId) throws Exception {
         String primaryName = new String(valueIndexId, StandardCharsets.UTF_8);
         File configFile = new File(labRoot, primaryName + ".json");
