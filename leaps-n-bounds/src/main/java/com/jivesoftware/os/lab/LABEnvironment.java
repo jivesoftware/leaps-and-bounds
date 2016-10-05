@@ -215,7 +215,10 @@ public class LABEnvironment {
             String primaryName = new String(valueIndexId, StandardCharsets.UTF_8);
             File configFile = new File(labRoot, primaryName + ".json");
             if (configFile.exists()) {
-                return MAPPER.readValue(configFile, ValueIndexConfig.class);
+                ValueIndexConfig config = MAPPER.readValue(configFile, ValueIndexConfig.class);
+                meta.append(valueIndexId, MAPPER.writeValueAsBytes(config));
+                FileUtils.deleteQuietly(configFile);
+                return config;
             } else {
                 throw new IllegalStateException("There is no config for lab value index:" + new String(valueIndexId, StandardCharsets.UTF_8));
             }
