@@ -243,24 +243,26 @@ public class LABEnvironment {
 
         byte[] valueIndexId = config.primaryName.getBytes(StandardCharsets.UTF_8);
 
-        BolBuffer configBolBuffer = new BolBuffer();
-        configBolBuffer = meta.get(valueIndexId, configBolBuffer);
         byte[] configAsBytes = MAPPER.writeValueAsBytes(config);
-        if (configBolBuffer == null) {
-            meta.append(valueIndexId, configAsBytes);
-        } else {
-            boolean equal = configBolBuffer.length == configAsBytes.length;
-            if (equal) {
-                for (int i = 0; i < configBolBuffer.length; i++) {
-                    if (configAsBytes[i] != configBolBuffer.get(i)) {
-                        equal = false;
-                        break;
+        boolean equal = meta.get(valueIndexId, (metaValue) -> {
+            if (metaValue == null) {
+                return false;
+            } else {
+                boolean equal1 = configBolBuffer.length == configAsBytes.length;
+                if (equal1) {
+                    for (int i = 0; i < configBolBuffer.length; i++) {
+                        if (configAsBytes[i] != configBolBuffer.get(i)) {
+                            equal1 = false;
+                            break;
+                        }
                     }
                 }
+                return equal1;
             }
-            if (!equal) {
-                meta.append(valueIndexId, configAsBytes);
-            }
+        });
+
+        if (!equal) {
+            meta.append(valueIndexId, configAsBytes);
         }
 
         LABIndexProvider indexProvider = (rawhide1, poweredUpToHint) -> {

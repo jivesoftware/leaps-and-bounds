@@ -30,7 +30,7 @@ public class LabMeta {
         if (!activeMeta.exists()) {
             File backupMeta = new File(metaRoot, "backup.meta");
             if (backupMeta.exists()) {
-                 FileUtils.moveFile(backupMeta, activeMeta);
+                FileUtils.moveFile(backupMeta, activeMeta);
             } else {
                 activeMeta.getParentFile().mkdirs();
             }
@@ -58,10 +58,16 @@ public class LabMeta {
         meta.set(m);
     }
 
-    public BolBuffer get(byte[] key, BolBuffer valueBolBuffer) throws Exception {
+    public static interface GetMeta<R> {
+
+        R metaValue(BolBuffer metaValue) throws Exception;
+    }
+
+    public <R> R get(byte[] key, GetMeta<R> getMeta) throws Exception {
         writeSemaphore.acquire();
         try {
-            return meta.get().get(key, valueBolBuffer);
+            BolBuffer metaValue = meta.get().get(key, new BolBuffer());
+            return getMeta.metaValue(metaValue);
         } finally {
             writeSemaphore.release();
         }
@@ -70,7 +76,7 @@ public class LabMeta {
     public void append(byte[] key, byte[] value) throws Exception {
         writeSemaphore.acquire(Short.MAX_VALUE);
         try {
-            meta.get().append(key, value);
+           meta.get().append(key, value);
         } finally {
             writeSemaphore.release(Short.MAX_VALUE);
         }
