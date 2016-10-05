@@ -16,14 +16,20 @@ import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.rawhide.KeyValueRawhide;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
+import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.LABCSLMIndex;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.Leaps;
+import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.io.api.IAppendOnly;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -41,6 +47,7 @@ import org.apache.commons.io.FileUtils;
  */
 public class LABEnvironment {
 
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     static {
@@ -212,10 +219,43 @@ public class LABEnvironment {
         Preconditions.checkNotNull(formatTransformerProvider, "No RawEntryFormat registered for " + config.rawEntryFormatName);
 
         File configFile = new File(labRoot, config.primaryName + ".json");
-
         if (configFile.exists()) {
-            // TODO read compare and other cool stuff
-            MAPPER.writeValue(configFile, config);
+            byte[] configAsBytes = MAPPER.writeValueAsBytes(config);
+            ReadOnlyFile readOnlyFile = new ReadOnlyFile(configFile);
+            boolean equal = false;
+            IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+            try {
+                long l = pointerReadable.length();
+                equal = configAsBytes.length == l;
+                if (equal) {
+                    for (int i = 0; i < l; i++) {
+                        if (configAsBytes[i] != pointerReadable.read(i)) {
+                            equal = false;
+                            break;
+                        }
+                    }
+                }
+
+            } finally {
+                pointerReadable.close();
+            }
+
+            if (!equal) {
+                LOG.info("Updating config for {}", config.primaryName);
+                FileUtils.deleteQuietly(configFile);
+                AppendOnlyFile appendOnlyFile = new AppendOnlyFile(configFile);
+                IAppendOnly appender = null;
+                try {
+                    appender = appendOnlyFile.appender();
+                    appender.append(configAsBytes, 0, configAsBytes.length);
+                } finally {
+                    if (appender != null) {
+                        appender.flush(true);
+                        appender.close();
+                    }
+                }
+            }
+
         } else {
             configFile.getParentFile().mkdirs();
             MAPPER.writeValue(configFile, config);
