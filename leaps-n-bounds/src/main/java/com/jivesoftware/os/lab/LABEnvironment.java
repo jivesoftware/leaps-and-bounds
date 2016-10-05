@@ -16,18 +16,15 @@ import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.rawhide.KeyValueRawhide;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
-import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.LABCSLMIndex;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.Leaps;
-import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
@@ -66,6 +63,9 @@ public class LABEnvironment {
     private final boolean useIndexableMemory;
     private final boolean fsyncFileRenames;
 
+    private final String metaName;
+    private final LabMeta meta;
+
     private final String walName;
     private final LabWAL wal;
     private final Map<String, FormatTransformerProvider> formatTransformerProviderRegistry = Maps.newConcurrentMap();
@@ -103,6 +103,7 @@ public class LABEnvironment {
         ExecutorService compact,
         final ExecutorService destroy,
         String walName,
+        String metaName,
         long maxWALSizeInBytes,
         long maxEntriesPerWAL,
         long maxEntrySizeInBytes,
@@ -114,7 +115,7 @@ public class LABEnvironment {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         StripingBolBufferLocks bolBufferLocks,
         boolean useIndexableMemory,
-        boolean fsyncFileRenames) throws IOException {
+        boolean fsyncFileRenames) throws Exception {
 
         register(NoOpFormatTransformerProvider.NAME, NoOpFormatTransformerProvider.NO_OP);
         register(KeyValueRawhide.NAME, KeyValueRawhide.SINGLETON);
@@ -130,6 +131,8 @@ public class LABEnvironment {
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
+        this.metaName = metaName;
+        this.meta = new LabMeta(new File(labRoot, metaName));
         this.walName = walName;
         this.wal = new LabWAL(stats, new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
         this.useIndexableMemory = useIndexableMemory;
@@ -180,18 +183,15 @@ public class LABEnvironment {
 
     public void close() throws Exception {
         this.wal.close(this);
+        this.meta.close();
     }
 
-    public List<String> list() {
+    public List<String> list() throws Exception {
         List<String> indexes = Lists.newArrayList();
-        File[] files = labRoot.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory() && !file.getName().equals(walName)) {
-                    indexes.add(file.getName());
-                }
-            }
-        }
+        meta.metaKeys((metaKey) -> {
+            indexes.add(new String(metaKey, StandardCharsets.UTF_8));
+            return true;
+        });
         return indexes;
     }
 
@@ -199,18 +199,26 @@ public class LABEnvironment {
         if (name.equals(walName)) {
             return false;
         }
-
+        if (name.equals(metaName)) {
+            return false;
+        }
         File labDir = new File(labRoot, name);
         return labDir.exists();
     }
 
     ValueIndexConfig valueIndexConfig(byte[] valueIndexId) throws Exception {
-        String primaryName = new String(valueIndexId, StandardCharsets.UTF_8);
-        File configFile = new File(labRoot, primaryName + ".json");
-        if (configFile.exists()) {
-            return MAPPER.readValue(configFile, ValueIndexConfig.class);
+        BolBuffer configBolBuffer = meta.get(valueIndexId, new BolBuffer());
+        if (configBolBuffer != null) {
+            return MAPPER.readValue(configBolBuffer.copy(), ValueIndexConfig.class);
         } else {
-            throw new IllegalStateException("There is no config for lab value index:" + primaryName);
+            // Fallback to the old way :(
+            String primaryName = new String(valueIndexId, StandardCharsets.UTF_8);
+            File configFile = new File(labRoot, primaryName + ".json");
+            if (configFile.exists()) {
+                return MAPPER.readValue(configFile, ValueIndexConfig.class);
+            } else {
+                throw new IllegalStateException("There is no config for lab value index:" + new String(valueIndexId, StandardCharsets.UTF_8));
+            }
         }
     }
 
@@ -218,6 +226,9 @@ public class LABEnvironment {
 
         if (config.primaryName.equals(walName)) {
             throw new IllegalStateException("primaryName:" + config.primaryName + " cannot collide with walName");
+        }
+        if (config.primaryName.equals(metaName)) {
+            throw new IllegalStateException("primaryName:" + config.primaryName + " cannot collide with metaName");
         }
 
         FormatTransformerProvider formatTransformerProvider = formatTransformerProviderRegistry.get(config.formatTransformerProviderName);
@@ -227,47 +238,26 @@ public class LABEnvironment {
         RawEntryFormat rawEntryFormat = rawEntryFormatRegistry.get(config.rawEntryFormatName);
         Preconditions.checkNotNull(formatTransformerProvider, "No RawEntryFormat registered for " + config.rawEntryFormatName);
 
-        File configFile = new File(labRoot, config.primaryName + ".json");
-        if (configFile.exists()) {
-            byte[] configAsBytes = MAPPER.writeValueAsBytes(config);
-            ReadOnlyFile readOnlyFile = new ReadOnlyFile(configFile);
-            boolean equal = false;
-            IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
-            try {
-                long l = pointerReadable.length();
-                equal = configAsBytes.length == l;
-                if (equal) {
-                    for (int i = 0; i < l; i++) {
-                        if (configAsBytes[i] != pointerReadable.read(i)) {
-                            equal = false;
-                            break;
-                        }
-                    }
-                }
+        byte[] valueIndexId = config.primaryName.getBytes(StandardCharsets.UTF_8);
 
-            } finally {
-                readOnlyFile.close();
-            }
-
-            if (!equal) {
-                LOG.info("Updating config for {}", config.primaryName);
-                FileUtils.deleteQuietly(configFile);
-                AppendOnlyFile appendOnlyFile = new AppendOnlyFile(configFile);
-                IAppendOnly appender = null;
-                try {
-                    appender = appendOnlyFile.appender();
-                    appender.append(configAsBytes, 0, configAsBytes.length);
-                } finally {
-                    if (appender != null) {
-                        appender.flush(true);
-                        appender.close();
-                    }
-                }
-            }
-
+        BolBuffer configBolBuffer = new BolBuffer();
+        configBolBuffer = meta.get(valueIndexId, configBolBuffer);
+        byte[] configAsBytes = MAPPER.writeValueAsBytes(config);
+        if (configBolBuffer == null) {
+            meta.append(valueIndexId, configAsBytes);
         } else {
-            configFile.getParentFile().mkdirs();
-            MAPPER.writeValue(configFile, config);
+            boolean equal = configBolBuffer.length == configAsBytes.length;
+            if (equal) {
+                for (int i = 0; i < configBolBuffer.length; i++) {
+                    if (configAsBytes[i] != configBolBuffer.get(i)) {
+                        equal = false;
+                        break;
+                    }
+                }
+            }
+            if (!equal) {
+                meta.append(valueIndexId, configAsBytes);
+            }
         }
 
         LABIndexProvider indexProvider = (rawhide1, poweredUpToHint) -> {
@@ -293,7 +283,7 @@ public class LABEnvironment {
             destroy,
             labRoot,
             wal,
-            config.primaryName.getBytes(StandardCharsets.UTF_8),
+            valueIndexId,
             config.primaryName,
             config.entriesBetweenLeaps,
             labHeapPressure,
@@ -309,21 +299,32 @@ public class LABEnvironment {
 
     }
 
-    public boolean rename(String oldName, String newName) throws IOException {
+    private static final byte[] EMPTY = new byte[0];
+
+    public boolean rename(String oldName, String newName) throws Exception {
         File oldFileName = new File(labRoot, oldName);
         File newFileName = new File(labRoot, newName);
         if (oldFileName.exists()) {
+            byte[] oldKey = oldName.getBytes(StandardCharsets.UTF_8);
+            BolBuffer value = meta.get(oldKey, new BolBuffer());
+
+            byte[] newKey = newName.getBytes(StandardCharsets.UTF_8);
+            meta.append(newKey, value.copy());
+
             Files.move(oldFileName.toPath(), newFileName.toPath(), StandardCopyOption.ATOMIC_MOVE);
             FileUtils.deleteDirectory(oldFileName);
+            meta.append(oldKey, EMPTY);
             return true;
         } else {
             return false;
         }
     }
 
-    public void remove(String primaryName) throws IOException {
+    public void remove(String primaryName) throws Exception {
         File fileName = new File(labRoot, primaryName);
         FileUtils.deleteDirectory(fileName);
+        byte[] metaKey = primaryName.getBytes(StandardCharsets.UTF_8);
+        meta.append(metaKey, EMPTY);
     }
 
     public void delete() throws IOException {

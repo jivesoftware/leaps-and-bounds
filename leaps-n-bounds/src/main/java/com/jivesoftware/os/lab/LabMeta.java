@@ -7,8 +7,13 @@ import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
+import java.util.Arrays;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.io.FileUtils;
 
 /**
  *
@@ -16,11 +21,10 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class LabMeta {
 
-    private final File metaRoot;
+    private final Semaphore writeSemaphore = new Semaphore(Short.MAX_VALUE);
     private final AtomicReference<Meta> meta = new AtomicReference<>();
 
-    public LabMeta(LABStats stats, File metaRoot) throws Exception {
-        this.metaRoot = metaRoot;
+    public LabMeta(File metaRoot) throws Exception {
         File activeMeta = new File(metaRoot, "active.meta");
 
         if (!activeMeta.exists()) {
@@ -28,25 +32,98 @@ public class LabMeta {
         }
         Meta m = new Meta(activeMeta);
         if (activeMeta.exists()) {
-            m.load();
+            int collisions = m.load();
+            if (collisions > 1000) { // todo config
+                File compactingMeta = new File(metaRoot, "compacting.meta");
+                FileUtils.deleteQuietly(compactingMeta);
+                Meta mc = new Meta(compactingMeta);
+                m.copyTo(mc);
+                m.close();
+                mc.close();
+                FileUtils.moveFile(compactingMeta, activeMeta);
+                m = new Meta(activeMeta);
+                m.load();
+            }
         }
-
+        meta.set(m);
     }
 
-    static class Meta {
+    public BolBuffer get(byte[] key, BolBuffer valueBolBuffer) throws Exception {
+        writeSemaphore.acquire();
+        try {
+            return meta.get().get(key, valueBolBuffer);
+        } finally {
+            writeSemaphore.release();
+        }
+    }
 
-        private final ReadOnlyFile readOnlyFile;
+    public void append(byte[] key, byte[] value) throws Exception {
+        writeSemaphore.acquire(Short.MAX_VALUE);
+        try {
+            meta.get().append(key, value);
+        } finally {
+            writeSemaphore.release(Short.MAX_VALUE);
+        }
+    }
+
+    public void close() throws Exception {
+        writeSemaphore.acquire(Short.MAX_VALUE);
+        try {
+            meta.get().close();
+        } finally {
+            writeSemaphore.release(Short.MAX_VALUE);
+        }
+    }
+
+    public void metaKeys(MetaKeys metaKeys) throws Exception {
+        writeSemaphore.acquire();
+        try {
+            meta.get().metaKeys(metaKeys);
+        } finally {
+            writeSemaphore.release();
+        }
+    }
+
+    public static interface MetaKeys {
+
+        boolean metaKey(byte[] metaKey);
+    }
+
+    static private class Meta {
+
+        private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
+        private final File metaFile;
+        private volatile ReadOnlyFile readOnlyFile;
         private final AppendOnlyFile appendOnlyFile;
         private final IAppendOnly appender;
         private final ConcurrentBAHash<byte[]> keyOffsetCache;
 
-        public Meta(File metaFile) throws Exception {
-
+        private Meta(File metaFile) throws Exception {
+            this.metaFile = metaFile;
             this.appendOnlyFile = new AppendOnlyFile(metaFile);
-            this.readOnlyFile = new ReadOnlyFile(metaFile);
             this.appender = appendOnlyFile.appender();
-            this.keyOffsetCache = new ConcurrentBAHash<>(16, true, 1024);
+            this.readOnlyFile = new ReadOnlyFile(metaFile);
+            this.keyOffsetCache = new ConcurrentBAHash<>(16, true, 1024); // TODO config?
 
+        }
+
+        public void metaKeys(MetaKeys keys) throws Exception {
+            IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+            keyOffsetCache.stream((key, valueOffset) -> {
+                long offset = UIO.bytesLong(valueOffset);
+                int length = pointerReadable.readInt(offset);
+                if (length > 0) {
+                    return keys.metaKey(key);
+                }
+                return true;
+            });
+        }
+
+        public void close() throws Exception {
+            readOnlyFile.close();
+            appendOnlyFile.close();
+            appender.close();
         }
 
         public int load() throws Exception {
@@ -63,10 +140,16 @@ public class LabMeta {
                 if (got != null) {
                     collisions++;
                 }
-                keyOffsetCache.put(key, UIO.longBytes(o));
+                long valueFp = o;
                 int valueLength = readable.readInt(o);
                 o += 4;
                 o += valueLength;
+
+                if (valueLength > 0) {
+                    keyOffsetCache.put(key, UIO.longBytes(valueFp));
+                } else {
+                    keyOffsetCache.remove(key);
+                }
             }
             return collisions;
         }
@@ -78,7 +161,10 @@ public class LabMeta {
                 long offset = UIO.bytesLong(valueOffset);
                 int length = pointerReadable.readInt(offset);
                 pointerReadable.sliceIntoBuffer(offset, length, valueBolBuffer);
-                to.append(key, valueOffset);
+                byte[] value = valueBolBuffer.copy();
+                if (value.length > 0) {
+                    to.append(key, value);
+                }
                 return true;
             });
         }
@@ -88,21 +174,39 @@ public class LabMeta {
             if (offsetBytes == null) {
                 return null;
             }
-            long offset = UIO.bytesLong(offsetBytes);
-            IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
-            int length = pointerReadable.readInt(offset);
-            pointerReadable.sliceIntoBuffer(offset + 4, length, valueBolBuffer);
-            return valueBolBuffer;
+            long offset = -1;
+            int length = -1;
+            try {
+                offset = UIO.bytesLong(offsetBytes);
+                IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+                length = pointerReadable.readInt(offset);
+                pointerReadable.sliceIntoBuffer(offset + 4, length, valueBolBuffer);
+                return valueBolBuffer;
+            } catch (Exception x) {
+                LOG.error("Failed to get({}) offset:{} length:{}", Arrays.toString(key), offset, length);
+                throw x;
+            }
         }
 
-        synchronized public void append(byte[] key, byte[] value) throws Exception {
+        public void append(byte[] key, byte[] value) throws Exception {
+            
             appender.appendInt(key.length);
             appender.append(key, 0, key.length);
             long filePointer = appender.getFilePointer();
             appender.appendInt(value.length);
-            appender.appendInt(key.length);
+            appender.append(value, 0, value.length);
+            appender.flush(true);
 
-            keyOffsetCache.put(key, UIO.longBytes(filePointer));
+            ReadOnlyFile current = readOnlyFile;
+            readOnlyFile = new ReadOnlyFile(metaFile);
+            current.close();
+
+            if (value.length == 0) {
+                keyOffsetCache.remove(key);
+            } else {
+                keyOffsetCache.put(key, UIO.longBytes(filePointer));
+            }
         }
+
     }
 }

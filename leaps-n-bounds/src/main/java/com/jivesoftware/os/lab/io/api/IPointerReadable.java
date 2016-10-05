@@ -21,6 +21,6 @@ public interface IPointerReadable {
 
     void close() throws IOException;
 
-    BolBuffer sliceIntoBuffer(long offset, int i, BolBuffer entryBuffer) throws IOException;
+    BolBuffer sliceIntoBuffer(long offset, int length, BolBuffer entryBuffer) throws IOException;
 
 }
