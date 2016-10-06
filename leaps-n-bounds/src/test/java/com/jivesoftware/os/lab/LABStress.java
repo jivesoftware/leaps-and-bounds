@@ -147,7 +147,6 @@ public class LABStress {
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
             null,
-            1024 * 1024 * 10,
             root, // rootFile
             labHeapPressure,
             4, // minMergeDebt

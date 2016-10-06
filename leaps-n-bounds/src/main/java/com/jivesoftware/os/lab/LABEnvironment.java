@@ -121,7 +121,6 @@ public class LABEnvironment {
         ExecutorService compact,
         final ExecutorService destroy,
         LalWALConfig walConfig,
-        long maxValueIndexHeapPressureOverride,
         File labRoot,
         LabHeapPressure labHeapPressure,
         int minMergeDebt,
@@ -155,7 +154,7 @@ public class LABEnvironment {
                 walConfig.maxWALSizeInBytes,
                 walConfig.maxEntriesPerWAL,
                 walConfig.maxEntrySizeInBytes,
-                maxValueIndexHeapPressureOverride
+                walConfig.maxValueIndexHeapPressureOverride
             );
         } else {
             this.metaName = null;
