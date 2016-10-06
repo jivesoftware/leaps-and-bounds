@@ -46,7 +46,7 @@ public class LabMeta {
         if (activeMeta.exists()) {
             int collisions = m.load();
             if (collisions > m.size() / 2) {
-                m = compact(metaRoot, activeMeta, m, collisions, m.size());
+                m = compact(m, collisions, m.size());
             }
         }
         meta.set(m);
@@ -75,10 +75,9 @@ public class LabMeta {
             if (m.append(key, value, flush)) {
                 long count = collisionCount.incrementAndGet();
                 if (count > m.size() / 2) {
-//                    File activeMeta = new File(metaRoot, "active.meta");
-//                    Meta compacted = compact(metaRoot, activeMeta, m, count, m.size());
-//                    meta.set(compacted);
-//                    collisionCount.set(0);
+                    Meta compacted = compact(m, count, m.size());
+                    meta.set(compacted);
+                    collisionCount.set(0);
                 }
             }
         } finally {
@@ -86,23 +85,33 @@ public class LabMeta {
         }
     }
 
-    private Meta compact(File metaRoot, File activeMeta, Meta m, long collisions, long total) throws Exception, IOException {
-        LOG.info("Compacting meta:{} because there were collisions:{}/{}", activeMeta, collisions, total);
+    private Meta compact(Meta active, long collisions, long total) throws Exception, IOException {
+        active.flush();
+        File activeMeta = new File(metaRoot, "active.meta");
         File compactingMeta = new File(metaRoot, "compacting.meta");
-        FileUtils.deleteQuietly(compactingMeta);
+
+        LOG.info("Compacting meta:{} because there were collisions:{} / {}", activeMeta, collisions, total);
+        if (compactingMeta.exists()) {
+            FileUtils.forceDelete(compactingMeta);
+        }
         Meta compacting = new Meta(compactingMeta);
-        m.copyTo(compacting);
-        m.close();
+        active.copyTo(compacting);
+        compacting.flush();
+        active.close();
         compacting.close();
         File backupMeta = new File(metaRoot, "backup.meta");
-        FileUtils.deleteQuietly(backupMeta);
+        if (backupMeta.exists()) {
+            FileUtils.forceDelete(backupMeta);
+        }
         FileUtils.moveFile(activeMeta, backupMeta);
         FileUtils.moveFile(compactingMeta, activeMeta);
-        FileUtils.deleteQuietly(backupMeta);
+        if (backupMeta.exists()) {
+            FileUtils.forceDelete(backupMeta);
+        }
         // TODO filesystem meta fsync?
-        Meta active = new Meta(activeMeta);
-        active.load();
-        return active;
+        Meta compacted = new Meta(activeMeta);
+        compacted.load();
+        return compacted;
     }
 
     public void close() throws Exception {
@@ -136,14 +145,14 @@ public class LabMeta {
         private volatile ReadOnlyFile readOnlyFile;
         private final AppendOnlyFile appendOnlyFile;
         private final IAppendOnly appender;
-        private final ConcurrentBAPHash<byte[]> keyOffsetCache;
+        private final ConcurrentBAPHash<byte[]> offsetKeyOffsetValueCache;
 
         private Meta(File metaFile) throws Exception {
             this.metaFile = metaFile;
             this.appendOnlyFile = new AppendOnlyFile(metaFile);
             this.appender = appendOnlyFile.appender();
             this.readOnlyFile = new ReadOnlyFile(metaFile);
-            this.keyOffsetCache = new ConcurrentBAPHash<>(16, true, 1024, (offset) -> {
+            this.offsetKeyOffsetValueCache = new ConcurrentBAPHash<>(16, true, 1024, (offset) -> {
                 IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
                 int length = pointerReadable.readInt(offset);
                 byte[] bytes = new byte[length];
@@ -154,7 +163,7 @@ public class LabMeta {
 
         public void metaKeys(MetaKeys keys) throws Exception {
             IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
-            keyOffsetCache.stream((key, valueOffset) -> {
+            offsetKeyOffsetValueCache.stream((key, valueOffset) -> {
                 long offset = UIO.bytesLong(valueOffset);
                 int length = pointerReadable.readInt(offset);
                 if (length > 0) {
@@ -182,7 +191,7 @@ public class LabMeta {
                     byte[] key = new byte[keyLength];
                     readable.read(o, key, 0, keyLength);
                     o += keyLength;
-                    byte[] got = keyOffsetCache.get(key);
+                    byte[] got = offsetKeyOffsetValueCache.get(key);
                     if (got != null) {
                         collisions++;
                     }
@@ -192,9 +201,9 @@ public class LabMeta {
                     o += valueLength;
 
                     if (valueLength > 0) {
-                        keyOffsetCache.put(keyFP, key, UIO.longBytes(valueFp));
+                        offsetKeyOffsetValueCache.put(keyFP, key, UIO.longBytes(valueFp));
                     } else {
-                        keyOffsetCache.remove(key);
+                        offsetKeyOffsetValueCache.remove(key);
                     }
                 }
             } catch (Exception x) {
@@ -205,13 +214,12 @@ public class LabMeta {
 
         public void copyTo(Meta to) throws Exception {
             IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
-            BolBuffer valueBolBuffer = new BolBuffer();
-            keyOffsetCache.stream((key, valueOffset) -> {
+            offsetKeyOffsetValueCache.stream((key, valueOffset) -> {
                 long offset = UIO.bytesLong(valueOffset);
                 int length = pointerReadable.readInt(offset);
-                pointerReadable.sliceIntoBuffer(offset, length, valueBolBuffer);
-                byte[] value = valueBolBuffer.copy();
-                if (value.length > 0) {
+                if (length > 0) {
+                    byte[] value = new byte[length];
+                    pointerReadable.read(offset + 4, value, 0, length);
                     to.append(key, value, false);
                 }
                 return true;
@@ -220,7 +228,7 @@ public class LabMeta {
         }
 
         public BolBuffer get(byte[] key, BolBuffer valueBolBuffer) throws Exception {
-            byte[] offsetBytes = keyOffsetCache.get(key, 0, key.length);
+            byte[] offsetBytes = offsetKeyOffsetValueCache.get(key, 0, key.length);
             if (offsetBytes == null) {
                 return null;
             }
@@ -256,11 +264,11 @@ public class LabMeta {
             }
 
             if (value.length == 0) {
-                keyOffsetCache.remove(key);
+                offsetKeyOffsetValueCache.remove(key);
                 return true;
             } else {
-                byte[] had = keyOffsetCache.get(key);
-                keyOffsetCache.put(keyPointer, key, UIO.longBytes(valuePointer));
+                byte[] had = offsetKeyOffsetValueCache.get(key);
+                offsetKeyOffsetValueCache.put(keyPointer, key, UIO.longBytes(valuePointer));
                 return had != null;
             }
         }
@@ -274,7 +282,7 @@ public class LabMeta {
         }
 
         private int size() {
-            return keyOffsetCache.size();
+            return offsetKeyOffsetValueCache.size();
         }
     }
 }
