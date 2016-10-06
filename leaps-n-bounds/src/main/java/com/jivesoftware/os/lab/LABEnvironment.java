@@ -331,9 +331,11 @@ public class LABEnvironment {
 
     public void remove(String primaryName) throws Exception {
         File fileName = new File(labRoot, primaryName);
-        FileUtils.deleteDirectory(fileName);
-        byte[] metaKey = primaryName.getBytes(StandardCharsets.UTF_8);
-        meta.append(metaKey, EMPTY);
+        if (fileName.exists()) {
+            FileUtils.deleteDirectory(fileName);
+            byte[] metaKey = primaryName.getBytes(StandardCharsets.UTF_8);
+            meta.append(metaKey, EMPTY);
+        }
     }
 
     public void delete() throws IOException {
