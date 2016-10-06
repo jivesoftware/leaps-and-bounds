@@ -78,7 +78,7 @@ public class LabMeta {
     public void append(byte[] key, byte[] value) throws Exception {
         writeSemaphore.acquire(Short.MAX_VALUE);
         try {
-            meta.get().append(key, value);
+            meta.get().append(key, value, true);
         } finally {
             writeSemaphore.release(Short.MAX_VALUE);
         }
@@ -185,10 +185,11 @@ public class LabMeta {
                 pointerReadable.sliceIntoBuffer(offset, length, valueBolBuffer);
                 byte[] value = valueBolBuffer.copy();
                 if (value.length > 0) {
-                    to.append(key, value);
+                    to.append(key, value, false);
                 }
                 return true;
             });
+            to.flush();
         }
 
         public BolBuffer get(byte[] key, BolBuffer valueBolBuffer) throws Exception {
@@ -210,24 +211,35 @@ public class LabMeta {
             }
         }
 
-        public void append(byte[] key, byte[] value) throws Exception {
+        public void append(byte[] key, byte[] value, boolean flush) throws Exception {
 
             appender.appendInt(key.length);
             appender.append(key, 0, key.length);
             long filePointer = appender.getFilePointer();
             appender.appendInt(value.length);
             appender.append(value, 0, value.length);
-            appender.flush(true);
 
-            ReadOnlyFile current = readOnlyFile;
-            readOnlyFile = new ReadOnlyFile(metaFile);
-            current.close();
+            if (flush) {
+                appender.flush(true);
+
+                ReadOnlyFile current = readOnlyFile;
+                readOnlyFile = new ReadOnlyFile(metaFile);
+                current.close();
+            }
 
             if (value.length == 0) {
                 keyOffsetCache.remove(key);
             } else {
                 keyOffsetCache.put(key, UIO.longBytes(filePointer));
             }
+        }
+
+        public void flush() throws Exception {
+            appender.flush(true);
+
+            ReadOnlyFile current = readOnlyFile;
+            readOnlyFile = new ReadOnlyFile(metaFile);
+            current.close();
         }
 
     }
