@@ -224,7 +224,7 @@ public class LABEnvironment {
         File[] files = labRoot.listFiles();
         if (files != null) {
             for (File file : files) {
-                if (file.isDirectory() && !file.getName().equals(walName)) {
+                if (file.isDirectory() && !file.getName().equals(walName) && !file.getName().equals(metaName)) {
                     indexes.add(file.getName());
                 }
             }
