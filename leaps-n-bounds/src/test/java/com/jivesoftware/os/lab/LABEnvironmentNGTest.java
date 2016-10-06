@@ -52,8 +52,8 @@ public class LABEnvironmentNGTest {
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4),
                 LABEnvironment.buildLABDestroyThreadPool(1),
-                "labWal",
-                "labMeta",
+                null,
+                null,
                 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
@@ -68,7 +68,7 @@ public class LABEnvironmentNGTest {
 
             ValueIndex index = env.open(valueIndexConfig);
             System.out.println("Lets index so stuff....");
-            index(index, "foo", idProvider, 34, 3_000, false, true);
+            index(index, "foo", idProvider, 34, 3_000, true);
             System.out.println("Lets test its all there....");
 
             test(index, "foo", idProvider, 34, 3_000);
@@ -85,8 +85,8 @@ public class LABEnvironmentNGTest {
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4),
                 LABEnvironment.buildLABDestroyThreadPool(1),
-                "labWal",
-                "labMeta",
+                null,
+                null,
                 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
@@ -100,7 +100,7 @@ public class LABEnvironmentNGTest {
             System.out.println("\nLets re-test its all there....");
             test(index, "foo", idProvider, 34, 3_000);
             System.out.println("Lets re-index so stuff....");
-            index(index, "foo", idProvider, 34, 3_000, false, true);
+            index(index, "foo", idProvider, 34, 3_000, true);
             System.out.println("Lets re-re-test its all there....");
             test(index, "foo", idProvider, 34, 3_000);
 
@@ -116,8 +116,8 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-                "labWal",
-                "labMeta",
+                null,
+                null,
                 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
@@ -138,7 +138,7 @@ public class LABEnvironmentNGTest {
             System.out.println("Lets test its all there after move....");
             test(index, "bar", idProvider, 34, 3_000);
             System.out.println("Lets re-re-re-index so stuff after move....");
-            index(index, "bar", idProvider, 34, 3_000, false, true);
+            index(index, "bar", idProvider, 34, 3_000, true);
             System.out.println("Lets re-test its all there after move....");
             test(index, "bar", idProvider, 34, 3_000);
 
@@ -156,8 +156,8 @@ public class LABEnvironmentNGTest {
             env = new LABEnvironment(labStats,
                 LABEnvironment.buildLABSchedulerThreadPool(1),
                 LABEnvironment.buildLABCompactorThreadPool(4), LABEnvironment.buildLABDestroyThreadPool(1),
-                "labWal",
-                "labMeta",
+                null,
+                null,
                 1024 * 1024 * 10,
                 1000, 1024 * 1024 * 10,
                 1024 * 1024 * 10, root,
@@ -241,8 +241,8 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
-            "labWal",
-            "labMeta",
+            null,
+            null,
             1024 * 1024 * 10,
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
@@ -258,7 +258,7 @@ public class LABEnvironmentNGTest {
 
         ValueIndex index = env.open(valueIndexConfig);
         System.out.println("Open env");
-        index(index, "foo", idProvider, 34, 3_000, false, true);
+        index(index, "foo", idProvider, 34, 3_000, true);
         test(index, "foo", idProvider, 34, 3_000);
         System.out.println("Indexed");
 
@@ -276,8 +276,8 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
-            "labWal",
-            "labMeta",
+            null,
+            null,
             1024 * 1024 * 10,
             1000, 1024 * 1024 * 10,
             1024 * 1024 * 10, root,
@@ -290,7 +290,7 @@ public class LABEnvironmentNGTest {
         index = env.open(valueIndexConfig);
         System.out.println("Re-open env");
         test(index, "foo", idProvider, 34, 3_000);
-        index(index, "foo", idProvider, 34, 3_000, true, false);
+        index(index, "foo", idProvider, 34, 3_000, true);
         test(index, "foo", idProvider, 34, 3_000);
         System.out.println("Re-indexed");
         env.shutdown();
@@ -335,7 +335,7 @@ public class LABEnvironmentNGTest {
 
         ValueIndex index = env.open(valueIndexConfig);
         System.out.println("Open env");
-        index(index, "foo", idProvider, 34, 3_000, true, false);
+        index(index, "foo", idProvider, 34, 3_000, false);
         test(index, "foo", idProvider, 34, 3_000);
         System.out.println("Indexed");
         env.close();
@@ -368,7 +368,7 @@ public class LABEnvironmentNGTest {
         System.out.println("Re-open index");
         index = env.open(valueIndexConfig);
         test(index, "foo", idProvider, 34, 3_000);
-        index(index, "foo", idProvider, 34, 3_000, true, true);
+        index(index, "foo", idProvider, 34, 3_000, true);
         test(index, "foo", idProvider, 34, 3_000);
         System.out.println("Re-indexed");
         env.shutdown();
@@ -411,7 +411,6 @@ public class LABEnvironmentNGTest {
         IdProvider idProvider,
         int commitCount,
         int batchCount,
-        boolean useWAL,
         boolean commit) throws Exception {
 
         idProvider.reset();
@@ -424,37 +423,20 @@ public class LABEnvironmentNGTest {
         BolBuffer keyBuffer = new BolBuffer();
         for (int c = 0; c < commitCount; c++) {
             long start = System.currentTimeMillis();
-            if (useWAL) {
-                index.journaledAppend((stream) -> {
-                    for (int i = 0; i < batchCount; i++) {
-                        count.incrementAndGet();
-                        int nextI = idProvider.nextId();
-                        //System.out.print(nextI + ", ");
-                        stream.stream(-1,
-                            UIO.longBytes(nextI, new byte[8], 0),
-                            System.currentTimeMillis(),
-                            false,
-                            version.incrementAndGet(),
-                            UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
-                    }
-                    return true;
-                }, true, rawEntryBuffer, keyBuffer);
-            } else {
-                index.append((stream) -> {
-                    for (int i = 0; i < batchCount; i++) {
-                        count.incrementAndGet();
-                        int nextI = idProvider.nextId();
-                        //System.out.print(nextI + ", ");
-                        stream.stream(-1,
-                            UIO.longBytes(nextI, new byte[8], 0),
-                            System.currentTimeMillis(),
-                            false,
-                            version.incrementAndGet(),
-                            UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
-                    }
-                    return true;
-                }, true, rawEntryBuffer, keyBuffer);
-            }
+            index.append((stream) -> {
+                for (int i = 0; i < batchCount; i++) {
+                    count.incrementAndGet();
+                    int nextI = idProvider.nextId();
+                    //System.out.print(nextI + ", ");
+                    stream.stream(-1,
+                        UIO.longBytes(nextI, new byte[8], 0),
+                        System.currentTimeMillis(),
+                        false,
+                        version.incrementAndGet(),
+                        UIO.longBytes(value.incrementAndGet(), new byte[8], 0));
+                }
+                return true;
+            }, true, rawEntryBuffer, keyBuffer);
 
             System.out.println("Append Elapse:" + (System.currentTimeMillis() - start));
             if (commit) {

@@ -98,6 +98,28 @@ public class LABEnvironment {
         return new LRUConcurrentBAHLinkedHash<>(10, maxCapacity, 0.5f, true, concurrency);
     }
 
+    /**
+
+    @param stats
+    @param scheduler
+    @param compact
+    @param destroy
+    @param walName Optional if non-null all appends will be journaled to the 'WAL'
+    @param metaName if walName is non-null metaName must all also be non-null
+    @param maxWALSizeInBytes
+    @param maxEntriesPerWAL
+    @param maxEntrySizeInBytes
+    @param maxValueIndexHeapPressureOverride
+    @param labRoot
+    @param labHeapPressure
+    @param minMergeDebt
+    @param maxMergeDebt
+    @param leapsCache
+    @param bolBufferLocks
+    @param useIndexableMemory
+    @param fsyncFileRenames
+    @throws Exception
+     */
     public LABEnvironment(LABStats stats,
         ExecutorService scheduler,
         ExecutorService compact,
@@ -131,10 +153,18 @@ public class LABEnvironment {
         this.minMergeDebt = minMergeDebt;
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
-        this.metaName = metaName;
-        this.meta = new LabMeta(new File(labRoot, metaName));
-        this.walName = walName;
-        this.wal = new LabWAL(stats, new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
+
+        if (metaName != null || walName != null) {
+            this.metaName = metaName;
+            this.meta = new LabMeta(new File(labRoot, metaName));
+            this.walName = walName;
+            this.wal = new LabWAL(stats, new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
+        } else {
+            this.metaName = null;
+            this.meta = null;
+            this.walName = null;
+            this.wal = null;
+        }
         this.useIndexableMemory = useIndexableMemory;
         this.fsyncFileRenames = fsyncFileRenames;
         this.stripingBolBufferLocks = bolBufferLocks;
@@ -178,20 +208,30 @@ public class LABEnvironment {
     }
 
     public void open() throws Exception {
-        this.wal.open(this);
+        if (this.wal != null) {
+            this.wal.open(this);
+        }
     }
 
     public void close() throws Exception {
-        this.wal.close(this);
-        this.meta.close();
+        if (this.wal != null) {
+            this.wal.close(this);
+        }
+        if (this.meta != null) {
+            this.meta.close();
+        }
     }
 
-    public List<String> list() throws Exception {
+    public List<String> list() {
         List<String> indexes = Lists.newArrayList();
-        meta.metaKeys((metaKey) -> {
-            indexes.add(new String(metaKey, StandardCharsets.UTF_8));
-            return true;
-        });
+        File[] files = labRoot.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory() && !file.getName().equals(walName)) {
+                    indexes.add(file.getName());
+                }
+            }
+        }
         return indexes;
     }
 
@@ -207,6 +247,9 @@ public class LABEnvironment {
     }
 
     ValueIndexConfig valueIndexConfig(byte[] valueIndexId) throws Exception {
+        if (meta == null) {
+            throw new IllegalStateException("This enviromnet doesn't support journaled appends");
+        }
         ValueIndexConfig config = meta.get(valueIndexId, (metaValue) -> {
             if (metaValue != null) {
                 return MAPPER.readValue(metaValue.copy(), ValueIndexConfig.class);
@@ -246,27 +289,29 @@ public class LABEnvironment {
         Preconditions.checkNotNull(formatTransformerProvider, "No RawEntryFormat registered for " + config.rawEntryFormatName);
 
         byte[] valueIndexId = config.primaryName.getBytes(StandardCharsets.UTF_8);
+        if (meta != null) {
 
-        byte[] configAsBytes = MAPPER.writeValueAsBytes(config);
-        boolean equal = meta.get(valueIndexId, (metaValue) -> {
-            if (metaValue == null) {
-                return false;
-            } else {
-                boolean equal1 = metaValue.length == configAsBytes.length;
-                if (equal1) {
-                    for (int i = 0; i < metaValue.length; i++) {
-                        if (configAsBytes[i] != metaValue.get(i)) {
-                            equal1 = false;
-                            break;
+            byte[] configAsBytes = MAPPER.writeValueAsBytes(config);
+            boolean equal = meta.get(valueIndexId, (metaValue) -> {
+                if (metaValue == null) {
+                    return false;
+                } else {
+                    boolean equal1 = metaValue.length == configAsBytes.length;
+                    if (equal1) {
+                        for (int i = 0; i < metaValue.length; i++) {
+                            if (configAsBytes[i] != metaValue.get(i)) {
+                                equal1 = false;
+                                break;
+                            }
                         }
                     }
+                    return equal1;
                 }
-                return equal1;
-            }
-        });
+            });
 
-        if (!equal) {
-            meta.append(valueIndexId, configAsBytes, true);
+            if (!equal) {
+                meta.append(valueIndexId, configAsBytes, true);
+            }
         }
 
         LABIndexProvider indexProvider = (rawhide1, poweredUpToHint) -> {
@@ -315,14 +360,16 @@ public class LABEnvironment {
         File newFileName = new File(labRoot, newName);
         if (oldFileName.exists()) {
             byte[] oldKey = oldName.getBytes(StandardCharsets.UTF_8);
-            byte[] value = meta.get(oldKey, BolBuffer::copy);
-
-            byte[] newKey = newName.getBytes(StandardCharsets.UTF_8);
-            meta.append(newKey, value, flush);
-
+            if (meta != null) {
+                byte[] value = meta.get(oldKey, BolBuffer::copy);
+                byte[] newKey = newName.getBytes(StandardCharsets.UTF_8);
+                meta.append(newKey, value, flush);
+            }
             Files.move(oldFileName.toPath(), newFileName.toPath(), StandardCopyOption.ATOMIC_MOVE);
             FileUtils.deleteDirectory(oldFileName);
-            meta.append(oldKey, EMPTY, flush);
+            if (meta != null) {
+                meta.append(oldKey, EMPTY, flush);
+            }
             return true;
         } else {
             return false;
@@ -333,8 +380,10 @@ public class LABEnvironment {
         File fileName = new File(labRoot, primaryName);
         if (fileName.exists()) {
             FileUtils.deleteDirectory(fileName);
-            byte[] metaKey = primaryName.getBytes(StandardCharsets.UTF_8);
-            meta.append(metaKey, EMPTY, flush);
+            if (meta != null) {
+                byte[] metaKey = primaryName.getBytes(StandardCharsets.UTF_8);
+                meta.append(metaKey, EMPTY, flush);
+            }
         }
     }
 

@@ -51,7 +51,7 @@ public class LAB implements ValueIndex<byte[]> {
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final static byte[] SMALLEST_POSSIBLE_KEY = new byte[0];
-    
+
     private final ExecutorService schedule;
     private final ExecutorService compact;
     private final ExecutorService destroy;
@@ -448,23 +448,17 @@ public class LAB implements ValueIndex<byte[]> {
     }
 
     @Override
-    public boolean journaledAppend(AppendValues<byte[]> values, boolean fsyncAfterAppend,
-        BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
-        return internalAppend(true, values, fsyncAfterAppend, -1, rawEntryBuffer, keyBuffer);
-    }
-
-    @Override
     public boolean append(AppendValues<byte[]> values, boolean fsyncOnFlush,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
-        return internalAppend(false, values, fsyncOnFlush, -1, rawEntryBuffer, keyBuffer);
+        return internalAppend(values, fsyncOnFlush, -1, rawEntryBuffer, keyBuffer);
     }
 
     public boolean onOpenAppend(AppendValues<byte[]> values, boolean fsyncOnFlush, long overrideMaxHeapPressureInBytes,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
-        return internalAppend(false, values, fsyncOnFlush, overrideMaxHeapPressureInBytes, rawEntryBuffer, keyBuffer);
+        return internalAppend(values, fsyncOnFlush, overrideMaxHeapPressureInBytes, rawEntryBuffer, keyBuffer);
     }
 
-    private boolean internalAppend(boolean appendToWal,
+    private boolean internalAppend(
         AppendValues<byte[]> values,
         boolean fsyncOnFlush,
         long overrideMaxHeapPressureInBytes,
@@ -483,7 +477,7 @@ public class LAB implements ValueIndex<byte[]> {
             }
 
             long appendVersion;
-            if (appendToWal) {
+            if (wal != null) {
                 appendVersion = walAppendVersion.incrementAndGet();
             } else {
                 appendVersion = -1;
@@ -497,7 +491,7 @@ public class LAB implements ValueIndex<byte[]> {
                         (index, key, timestamp, tombstoned, version, value) -> {
 
                             BolBuffer rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value, rawEntryBuffer);
-                            if (appendToWal) {
+                            if (wal != null) {
                                 wal.append(walId, appendVersion, rawEntry);
                                 stats.journaledAppend.increment();
                             } else {
@@ -512,7 +506,7 @@ public class LAB implements ValueIndex<byte[]> {
             );
             LOG.inc("append>count", count[0]);
 
-            if (appendToWal) {
+            if (wal != null) {
                 wal.flush(walId, appendVersion, fsyncOnFlush);
             }
 
@@ -564,7 +558,9 @@ public class LAB implements ValueIndex<byte[]> {
             rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, keyBuffer, entryBuffer, entryKeyBuffer);
             flushingMemoryIndex = null;
             stackCopy.destroy();
-            wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
+            if (wal != null) {
+                wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
+            }
             lastCommitTimestamp = System.currentTimeMillis();
         } finally {
             commitSemaphore.release(Short.MAX_VALUE);
