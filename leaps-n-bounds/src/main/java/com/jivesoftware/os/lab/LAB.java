@@ -450,12 +450,12 @@ public class LAB implements ValueIndex<byte[]> {
     @Override
     public boolean append(AppendValues<byte[]> values, boolean fsyncOnFlush,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
-        return internalAppend(values, fsyncOnFlush, -1, rawEntryBuffer, keyBuffer);
+        return internalAppend(values, fsyncOnFlush, -1, rawEntryBuffer, keyBuffer, true);
     }
 
     public boolean onOpenAppend(AppendValues<byte[]> values, boolean fsyncOnFlush, long overrideMaxHeapPressureInBytes,
         BolBuffer rawEntryBuffer, BolBuffer keyBuffer) throws Exception {
-        return internalAppend(values, fsyncOnFlush, overrideMaxHeapPressureInBytes, rawEntryBuffer, keyBuffer);
+        return internalAppend(values, fsyncOnFlush, overrideMaxHeapPressureInBytes, rawEntryBuffer, keyBuffer, false);
     }
 
     private boolean internalAppend(
@@ -463,7 +463,8 @@ public class LAB implements ValueIndex<byte[]> {
         boolean fsyncOnFlush,
         long overrideMaxHeapPressureInBytes,
         BolBuffer rawEntryBuffer,
-        BolBuffer keyBuffer) throws Exception, InterruptedException {
+        BolBuffer keyBuffer,
+        boolean journal) throws Exception, InterruptedException {
 
         if (values == null) {
             return false;
@@ -477,7 +478,7 @@ public class LAB implements ValueIndex<byte[]> {
             }
 
             long appendVersion;
-            if (wal != null) {
+            if (journal && wal != null) {
                 appendVersion = walAppendVersion.incrementAndGet();
             } else {
                 appendVersion = -1;
@@ -491,7 +492,7 @@ public class LAB implements ValueIndex<byte[]> {
                         (index, key, timestamp, tombstoned, version, value) -> {
 
                             BolBuffer rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value, rawEntryBuffer);
-                            if (wal != null) {
+                            if (journal && wal != null) {
                                 wal.append(walId, appendVersion, rawEntry);
                                 stats.journaledAppend.increment();
                             } else {
@@ -506,7 +507,7 @@ public class LAB implements ValueIndex<byte[]> {
             );
             LOG.inc("append>count", count[0]);
 
-            if (wal != null) {
+            if (journal && wal != null) {
                 wal.flush(walId, appendVersion, fsyncOnFlush);
             }
 
