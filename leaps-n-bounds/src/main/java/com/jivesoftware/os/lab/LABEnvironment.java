@@ -104,11 +104,7 @@ public class LABEnvironment {
     @param scheduler
     @param compact
     @param destroy
-    @param walName Optional if non-null all appends will be journaled to the 'WAL'
-    @param metaName if walName is non-null metaName must all also be non-null
-    @param maxWALSizeInBytes
-    @param maxEntriesPerWAL
-    @param maxEntrySizeInBytes
+    @param walConfig Optional
     @param maxValueIndexHeapPressureOverride
     @param labRoot
     @param labHeapPressure
@@ -124,11 +120,7 @@ public class LABEnvironment {
         ExecutorService scheduler,
         ExecutorService compact,
         final ExecutorService destroy,
-        String walName,
-        String metaName,
-        long maxWALSizeInBytes,
-        long maxEntriesPerWAL,
-        long maxEntrySizeInBytes,
+        LalWALConfig walConfig,
         long maxValueIndexHeapPressureOverride,
         File labRoot,
         LabHeapPressure labHeapPressure,
@@ -154,11 +146,17 @@ public class LABEnvironment {
         this.maxMergeDebt = maxMergeDebt;
         this.leapsCache = leapsCache;
 
-        if (metaName != null || walName != null) {
-            this.metaName = metaName;
-            this.meta = new LabMeta(new File(labRoot, metaName));
-            this.walName = walName;
-            this.wal = new LabWAL(stats, new File(labRoot, walName), maxWALSizeInBytes, maxEntriesPerWAL, maxEntrySizeInBytes, maxValueIndexHeapPressureOverride);
+        if (walConfig != null) {
+            this.metaName = walConfig.metaName;
+            this.meta = new LabMeta(new File(labRoot, walConfig.metaName));
+            this.walName = walConfig.walName;
+            this.wal = new LabWAL(stats,
+                new File(labRoot, walName),
+                walConfig.maxWALSizeInBytes,
+                walConfig.maxEntriesPerWAL,
+                walConfig.maxEntrySizeInBytes,
+                maxValueIndexHeapPressureOverride
+            );
         } else {
             this.metaName = null;
             this.meta = null;

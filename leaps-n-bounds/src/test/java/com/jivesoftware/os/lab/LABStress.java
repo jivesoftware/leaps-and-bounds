@@ -146,11 +146,7 @@ public class LABStress {
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
-            "labWal",
-            "labMeta",
-            1024 * 1024 * 10,
-            1000,
-            1024 * 1024 * 10,
+            null,
             1024 * 1024 * 10,
             root, // rootFile
             labHeapPressure,
