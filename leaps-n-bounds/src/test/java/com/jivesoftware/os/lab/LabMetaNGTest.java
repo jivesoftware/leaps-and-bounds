@@ -22,7 +22,7 @@ public class LabMetaNGTest {
         LabMeta meta = new LabMeta(tmpDir);
 
         for (int i = 0; i < 10; i++) {
-            meta.append(UIO.longBytes(i), UIO.longBytes(i));
+            meta.append(UIO.longBytes(i), UIO.longBytes(i), true);
         }
 
         for (int i = 0; i < 10; i++) {
@@ -31,7 +31,7 @@ public class LabMetaNGTest {
         }
 
         for (int i = 0; i < 10; i++) {
-            meta.append(UIO.longBytes(i), UIO.longBytes(i * 2));
+            meta.append(UIO.longBytes(i), UIO.longBytes(i * 2), true);
         }
 
         for (int i = 0; i < 10; i++) {
@@ -51,7 +51,7 @@ public class LabMetaNGTest {
         Assert.assertTrue(keys.size() == 10);
 
         for (int i = 0; i < 10; i++) {
-            meta.append(UIO.longBytes(i), UIO.longBytes(i * 3));
+            meta.append(UIO.longBytes(i), UIO.longBytes(i * 3), true);
         }
 
         for (int i = 0; i < 10; i++) {

@@ -220,7 +220,7 @@ public class LABEnvironment {
             File configFile = new File(labRoot, primaryName + ".json");
             if (configFile.exists()) {
                 config = MAPPER.readValue(configFile, ValueIndexConfig.class);
-                meta.append(valueIndexId, MAPPER.writeValueAsBytes(config));
+                meta.append(valueIndexId, MAPPER.writeValueAsBytes(config), true);
                 FileUtils.deleteQuietly(configFile);
             } else {
                 throw new IllegalStateException("There is no config for lab value index:" + new String(valueIndexId, StandardCharsets.UTF_8));
@@ -266,7 +266,7 @@ public class LABEnvironment {
         });
 
         if (!equal) {
-            meta.append(valueIndexId, configAsBytes);
+            meta.append(valueIndexId, configAsBytes, true);
         }
 
         LABIndexProvider indexProvider = (rawhide1, poweredUpToHint) -> {
@@ -310,7 +310,7 @@ public class LABEnvironment {
 
     private static final byte[] EMPTY = new byte[0];
 
-    public boolean rename(String oldName, String newName) throws Exception {
+    public boolean rename(String oldName, String newName, boolean flush) throws Exception {
         File oldFileName = new File(labRoot, oldName);
         File newFileName = new File(labRoot, newName);
         if (oldFileName.exists()) {
@@ -318,23 +318,23 @@ public class LABEnvironment {
             byte[] value = meta.get(oldKey, BolBuffer::copy);
 
             byte[] newKey = newName.getBytes(StandardCharsets.UTF_8);
-            meta.append(newKey, value);
+            meta.append(newKey, value, flush);
 
             Files.move(oldFileName.toPath(), newFileName.toPath(), StandardCopyOption.ATOMIC_MOVE);
             FileUtils.deleteDirectory(oldFileName);
-            meta.append(oldKey, EMPTY);
+            meta.append(oldKey, EMPTY, flush);
             return true;
         } else {
             return false;
         }
     }
 
-    public void remove(String primaryName) throws Exception {
+    public void remove(String primaryName, boolean flush) throws Exception {
         File fileName = new File(labRoot, primaryName);
         if (fileName.exists()) {
             FileUtils.deleteDirectory(fileName);
             byte[] metaKey = primaryName.getBytes(StandardCharsets.UTF_8);
-            meta.append(metaKey, EMPTY);
+            meta.append(metaKey, EMPTY, flush);
         }
     }
 

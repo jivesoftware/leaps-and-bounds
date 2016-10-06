@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.jive.utils.collections.bah.ConcurrentBAHash;
+import com.jivesoftware.os.jive.utils.collections.baph.ConcurrentBAPHash;
 import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -10,8 +10,10 @@ import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.io.FileUtils;
 
@@ -22,10 +24,14 @@ import org.apache.commons.io.FileUtils;
 public class LabMeta {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
+    private final File metaRoot;
     private final Semaphore writeSemaphore = new Semaphore(Short.MAX_VALUE);
     private final AtomicReference<Meta> meta = new AtomicReference<>();
+    private final AtomicLong collisionCount = new AtomicLong();
 
     public LabMeta(File metaRoot) throws Exception {
+        this.metaRoot = metaRoot;
         File activeMeta = new File(metaRoot, "active.meta");
 
         if (!activeMeta.exists()) {
@@ -39,22 +45,8 @@ public class LabMeta {
         Meta m = new Meta(activeMeta);
         if (activeMeta.exists()) {
             int collisions = m.load();
-            if (collisions > 1000) { // todo config
-                LOG.info("Compacting meta:{} because there were collisions:", activeMeta, collisions);
-                File compactingMeta = new File(metaRoot, "compacting.meta");
-                FileUtils.deleteQuietly(compactingMeta);
-                Meta mc = new Meta(compactingMeta);
-                m.copyTo(mc);
-                m.close();
-                mc.close();
-                File backupMeta = new File(metaRoot, "backup.meta");
-                FileUtils.deleteQuietly(backupMeta);
-                FileUtils.moveFile(activeMeta, backupMeta);
-                FileUtils.moveFile(compactingMeta, activeMeta);
-                FileUtils.deleteQuietly(backupMeta);
-                // TODO filesystem meta fsync?
-                m = new Meta(activeMeta);
-                m.load();
+            if (collisions > m.size() / 2) {
+                m = compact(metaRoot, activeMeta, m, collisions, m.size());
             }
         }
         meta.set(m);
@@ -68,20 +60,49 @@ public class LabMeta {
     public <R> R get(byte[] key, GetMeta<R> getMeta) throws Exception {
         writeSemaphore.acquire();
         try {
-            BolBuffer metaValue = meta.get().get(key, new BolBuffer());
+            Meta m = meta.get();
+            BolBuffer metaValue = m.get(key, new BolBuffer());
             return getMeta.metaValue(metaValue);
         } finally {
             writeSemaphore.release();
         }
     }
 
-    public void append(byte[] key, byte[] value) throws Exception {
+    public void append(byte[] key, byte[] value, boolean flush) throws Exception {
         writeSemaphore.acquire(Short.MAX_VALUE);
         try {
-            meta.get().append(key, value, true);
+            Meta m = meta.get();
+            if (m.append(key, value, flush)) {
+                long count = collisionCount.incrementAndGet();
+                if (count > m.size() / 2) {
+//                    File activeMeta = new File(metaRoot, "active.meta");
+//                    Meta compacted = compact(metaRoot, activeMeta, m, count, m.size());
+//                    meta.set(compacted);
+//                    collisionCount.set(0);
+                }
+            }
         } finally {
             writeSemaphore.release(Short.MAX_VALUE);
         }
+    }
+
+    private Meta compact(File metaRoot, File activeMeta, Meta m, long collisions, long total) throws Exception, IOException {
+        LOG.info("Compacting meta:{} because there were collisions:{}/{}", activeMeta, collisions, total);
+        File compactingMeta = new File(metaRoot, "compacting.meta");
+        FileUtils.deleteQuietly(compactingMeta);
+        Meta compacting = new Meta(compactingMeta);
+        m.copyTo(compacting);
+        m.close();
+        compacting.close();
+        File backupMeta = new File(metaRoot, "backup.meta");
+        FileUtils.deleteQuietly(backupMeta);
+        FileUtils.moveFile(activeMeta, backupMeta);
+        FileUtils.moveFile(compactingMeta, activeMeta);
+        FileUtils.deleteQuietly(backupMeta);
+        // TODO filesystem meta fsync?
+        Meta active = new Meta(activeMeta);
+        active.load();
+        return active;
     }
 
     public void close() throws Exception {
@@ -115,15 +136,20 @@ public class LabMeta {
         private volatile ReadOnlyFile readOnlyFile;
         private final AppendOnlyFile appendOnlyFile;
         private final IAppendOnly appender;
-        private final ConcurrentBAHash<byte[]> keyOffsetCache;
+        private final ConcurrentBAPHash<byte[]> keyOffsetCache;
 
         private Meta(File metaFile) throws Exception {
             this.metaFile = metaFile;
             this.appendOnlyFile = new AppendOnlyFile(metaFile);
             this.appender = appendOnlyFile.appender();
             this.readOnlyFile = new ReadOnlyFile(metaFile);
-            this.keyOffsetCache = new ConcurrentBAHash<>(16, true, 1024); // TODO config?
-
+            this.keyOffsetCache = new ConcurrentBAPHash<>(16, true, 1024, (offset) -> {
+                IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+                int length = pointerReadable.readInt(offset);
+                byte[] bytes = new byte[length];
+                pointerReadable.read(offset + 4, bytes, 0, length);
+                return bytes;
+            });
         }
 
         public void metaKeys(MetaKeys keys) throws Exception {
@@ -150,6 +176,7 @@ public class LabMeta {
             long o = 0;
             try {
                 while (o < readable.length()) {
+                    long keyFP = o;
                     int keyLength = readable.readInt(o);
                     o += 4;
                     byte[] key = new byte[keyLength];
@@ -165,7 +192,7 @@ public class LabMeta {
                     o += valueLength;
 
                     if (valueLength > 0) {
-                        keyOffsetCache.put(key, UIO.longBytes(valueFp));
+                        keyOffsetCache.put(keyFP, key, UIO.longBytes(valueFp));
                     } else {
                         keyOffsetCache.remove(key);
                     }
@@ -211,16 +238,17 @@ public class LabMeta {
             }
         }
 
-        public void append(byte[] key, byte[] value, boolean flush) throws Exception {
+        public boolean append(byte[] key, byte[] value, boolean flush) throws Exception {
 
+            long keyPointer = appender.getFilePointer();
             appender.appendInt(key.length);
             appender.append(key, 0, key.length);
-            long filePointer = appender.getFilePointer();
+            long valuePointer = appender.getFilePointer();
             appender.appendInt(value.length);
             appender.append(value, 0, value.length);
 
             if (flush) {
-                appender.flush(true);
+                appender.flush(flush);
 
                 ReadOnlyFile current = readOnlyFile;
                 readOnlyFile = new ReadOnlyFile(metaFile);
@@ -229,8 +257,11 @@ public class LabMeta {
 
             if (value.length == 0) {
                 keyOffsetCache.remove(key);
+                return true;
             } else {
-                keyOffsetCache.put(key, UIO.longBytes(filePointer));
+                byte[] had = keyOffsetCache.get(key);
+                keyOffsetCache.put(keyPointer, key, UIO.longBytes(valuePointer));
+                return had != null;
             }
         }
 
@@ -242,5 +273,8 @@ public class LabMeta {
             current.close();
         }
 
+        private int size() {
+            return keyOffsetCache.size();
+        }
     }
 }

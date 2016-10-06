@@ -126,7 +126,7 @@ public class LABEnvironmentNGTest {
                 true,
                 false);
             assertEquals(env.list(), Collections.singletonList("foo"));
-            env.rename("foo", "bar");
+            env.rename("foo", "bar", true);
             System.out.println(env.list() + " vs " + Collections.singletonList("bar"));
             assertEquals(env.list(), Collections.singletonList("bar"));
 
@@ -167,7 +167,7 @@ public class LABEnvironmentNGTest {
                 false);
             System.out.println(env.list() + " vs " + Collections.singletonList("bar"));
             assertEquals(env.list(), Collections.singletonList("bar"));
-            env.remove("bar");
+            env.remove("bar", true);
             assertEquals(env.list(), Collections.emptyList());
         } catch (Throwable x) {
             System.out.println("________________________________________________________");
