@@ -1,6 +1,6 @@
 package com.jivesoftware.os.lab;
 
-import com.jivesoftware.os.jive.utils.collections.baph.ConcurrentBAPHash;
+import com.jivesoftware.os.jive.utils.collections.bah.ConcurrentBAHash;
 import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -145,20 +145,14 @@ public class LabMeta {
         private volatile ReadOnlyFile readOnlyFile;
         private final AppendOnlyFile appendOnlyFile;
         private final IAppendOnly appender;
-        private final ConcurrentBAPHash<byte[]> offsetKeyOffsetValueCache;
+        private final ConcurrentBAHash<byte[]> offsetKeyOffsetValueCache;
 
         private Meta(File metaFile) throws Exception {
             this.metaFile = metaFile;
             this.appendOnlyFile = new AppendOnlyFile(metaFile);
             this.appender = appendOnlyFile.appender();
             this.readOnlyFile = new ReadOnlyFile(metaFile);
-            this.offsetKeyOffsetValueCache = new ConcurrentBAPHash<>(16, true, 1024, (offset) -> {
-                IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
-                int length = pointerReadable.readInt(offset);
-                byte[] bytes = new byte[length];
-                pointerReadable.read(offset + 4, bytes, 0, length);
-                return bytes;
-            });
+            this.offsetKeyOffsetValueCache = new ConcurrentBAHash<>(16, true, 1024);
         }
 
         public void metaKeys(MetaKeys keys) throws Exception {
@@ -185,7 +179,6 @@ public class LabMeta {
             long o = 0;
             try {
                 while (o < readable.length()) {
-                    long keyFP = o;
                     int keyLength = readable.readInt(o);
                     o += 4;
                     byte[] key = new byte[keyLength];
@@ -201,7 +194,7 @@ public class LabMeta {
                     o += valueLength;
 
                     if (valueLength > 0) {
-                        offsetKeyOffsetValueCache.put(keyFP, key, UIO.longBytes(valueFp));
+                        offsetKeyOffsetValueCache.put(key, UIO.longBytes(valueFp));
                     } else {
                         offsetKeyOffsetValueCache.remove(key);
                     }
@@ -268,7 +261,7 @@ public class LabMeta {
                 return true;
             } else {
                 byte[] had = offsetKeyOffsetValueCache.get(key);
-                offsetKeyOffsetValueCache.put(keyPointer, key, UIO.longBytes(valuePointer));
+                offsetKeyOffsetValueCache.put(key, UIO.longBytes(valuePointer));
                 return had != null;
             }
         }
