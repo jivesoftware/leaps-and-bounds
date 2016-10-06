@@ -21,6 +21,7 @@ import org.apache.commons.io.FileUtils;
  */
 public class LabMeta {
 
+    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
     private final Semaphore writeSemaphore = new Semaphore(Short.MAX_VALUE);
     private final AtomicReference<Meta> meta = new AtomicReference<>();
 
@@ -39,6 +40,7 @@ public class LabMeta {
         if (activeMeta.exists()) {
             int collisions = m.load();
             if (collisions > 1000) { // todo config
+                LOG.info("Compacting meta:{} because there were collisions:", activeMeta, collisions);
                 File compactingMeta = new File(metaRoot, "compacting.meta");
                 FileUtils.deleteQuietly(compactingMeta);
                 Meta mc = new Meta(compactingMeta);
@@ -76,7 +78,7 @@ public class LabMeta {
     public void append(byte[] key, byte[] value) throws Exception {
         writeSemaphore.acquire(Short.MAX_VALUE);
         try {
-           meta.get().append(key, value);
+            meta.get().append(key, value);
         } finally {
             writeSemaphore.release(Short.MAX_VALUE);
         }
@@ -146,26 +148,30 @@ public class LabMeta {
             int collisions = 0;
             IPointerReadable readable = readOnlyFile.pointerReadable(-1);
             long o = 0;
-            while (o < readable.length()) {
-                int keyLength = readable.readInt(o);
-                o += 4;
-                byte[] key = new byte[keyLength];
-                readable.read(o, key, 0, keyLength);
-                o += keyLength;
-                byte[] got = keyOffsetCache.get(key);
-                if (got != null) {
-                    collisions++;
-                }
-                long valueFp = o;
-                int valueLength = readable.readInt(o);
-                o += 4;
-                o += valueLength;
+            try {
+                while (o < readable.length()) {
+                    int keyLength = readable.readInt(o);
+                    o += 4;
+                    byte[] key = new byte[keyLength];
+                    readable.read(o, key, 0, keyLength);
+                    o += keyLength;
+                    byte[] got = keyOffsetCache.get(key);
+                    if (got != null) {
+                        collisions++;
+                    }
+                    long valueFp = o;
+                    int valueLength = readable.readInt(o);
+                    o += 4;
+                    o += valueLength;
 
-                if (valueLength > 0) {
-                    keyOffsetCache.put(key, UIO.longBytes(valueFp));
-                } else {
-                    keyOffsetCache.remove(key);
+                    if (valueLength > 0) {
+                        keyOffsetCache.put(key, UIO.longBytes(valueFp));
+                    } else {
+                        keyOffsetCache.remove(key);
+                    }
                 }
+            } catch (Exception x) {
+                LOG.error("Failed to full load labMeta: {} fp:{} length:{}", new Object[]{metaFile, o, metaFile.length()}, x);
             }
             return collisions;
         }
