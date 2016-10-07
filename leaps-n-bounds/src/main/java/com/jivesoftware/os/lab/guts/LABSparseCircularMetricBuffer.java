@@ -39,6 +39,36 @@ public class LABSparseCircularMetricBuffer {
         return bucketWidthMillis * numberOfBuckets;
     }
 
+    public void set(long time, LongAdder value) {
+        if (time > mostRecentTimeStamp) {
+            mostRecentTimeStamp = time;
+        }
+        long absBucketNumber = absBucketNumber(time);
+        if (oldestBucketNumber == Long.MIN_VALUE) {
+            oldestBucketNumber = absBucketNumber - (numberOfBuckets - 1);
+            youngestBucketNumber = absBucketNumber;
+        } else {
+            if (absBucketNumber < oldestBucketNumber) {
+                return;
+            }
+            if (absBucketNumber > youngestBucketNumber) {
+                // we need to slide the buffer to accommodate younger values
+                long delta = absBucketNumber - youngestBucketNumber;
+                for (int i = 0; i < delta; i++) {
+                    metric[cursor] = Double.NaN; // zero out oldest
+                    cursor = nextCursor(cursor, 1); // move cursor
+                }
+                oldestBucketNumber += delta;
+                youngestBucketNumber = absBucketNumber;
+            }
+        }
+        int delta = (int) (absBucketNumber - oldestBucketNumber);
+        long v = value.longValue();
+        grandTotal = v;
+        int nextCursor = nextCursor(cursor, delta);
+        metric[nextCursor] = v;
+    }
+
     public void add(long time, LongAdder value) {
         if (time > mostRecentTimeStamp) {
             mostRecentTimeStamp = time;
