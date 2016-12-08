@@ -118,6 +118,7 @@ public class LabWAL {
         List<ReadOnlyFile> deleteableIndexFiles = Lists.newArrayList();
         Map<String, ListMultimap<Long, byte[]>> allEntries = Maps.newHashMap();
 
+        Semaphore valueIndexesSemaphore = new Semaphore(Short.MAX_VALUE, true);
         BAHash<ValueIndex> valueIndexes = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
         BolBuffer rawEntryBuffer = new BolBuffer();
         BolBuffer keyBuffer = new BolBuffer();
@@ -225,7 +226,7 @@ public class LabWAL {
         }
 
         try {
-            valueIndexes.stream((byte[] key, ValueIndex value) -> {
+            valueIndexes.stream(valueIndexesSemaphore, (byte[] key, ValueIndex value) -> {
                 value.close(true, true);
                 return true;
             });
