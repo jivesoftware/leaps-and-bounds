@@ -26,15 +26,22 @@ public class InterleaveStream implements Scanner {
         this.rawhide = rawhide;
         boolean rowScan = from == null && to == null;
         for (int i = 0; i < indexs.length; i++) {
-            Scanner scanner;
-            if (rowScan) {
-                scanner = indexs[i].rowScan(new BolBuffer(), new BolBuffer());
-            } else {
-                scanner = indexs[i].rangeScan(from, to, new BolBuffer(), new BolBuffer());
+            Scanner scanner = null;
+            try {
+                if (rowScan) {
+                    scanner = indexs[i].rowScan(new BolBuffer(), new BolBuffer());
+                } else {
+                    scanner = indexs[i].rangeScan(from, to, new BolBuffer(), new BolBuffer());
+                }
+                Feed feed = new Feed(i, scanner, rawhide);
+                feed.feedNext();
+                feeds.add(feed);
+            } catch (Throwable t) {
+                if (scanner != null) {
+                    scanner.close();
+                }
+                throw t;
             }
-            Feed feed = new Feed(i, scanner, rawhide);
-            feed.feedNext();
-            feeds.add(feed);
         }
         LOG.inc((rowScan ? "rowScan>" : "rangeScan>") + indexs.length);
     }
