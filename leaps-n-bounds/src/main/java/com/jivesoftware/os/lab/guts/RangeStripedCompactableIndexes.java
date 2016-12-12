@@ -329,7 +329,8 @@ public class RangeStripedCompactableIndexes {
             int p = Math.min(31, UIO.chunkPower(count, 0));
             stats.written("all", p);
             stats.written("rawhide-" + rawhideName, p);
-            stats.written("family-" + primaryName, p);
+            //TODO fix, this leaks like crazy
+            //stats.written("family-" + primaryName, p);
 
             int maxLeaps = calculateIdealMaxLeaps(count, entriesBetweenLeaps);
             IndexRangeId indexRangeId = new IndexRangeId(nextIndexId, nextIndexId, generation);
