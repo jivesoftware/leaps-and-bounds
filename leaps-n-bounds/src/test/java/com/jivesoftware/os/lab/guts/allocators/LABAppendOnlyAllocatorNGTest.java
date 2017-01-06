@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts.allocators;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.primitives.Bytes;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.Arrays;
@@ -8,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -129,7 +129,7 @@ public class LABAppendOnlyAllocatorNGTest {
 
         int maxAllocatePower = 4;
 
-        Map<Long, byte[]> allocated = new ConcurrentHashMap<>();
+        Map<Long, byte[]> allocated = Maps.newConcurrentMap();
         List<Long> arrayOfAllocated = Lists.newArrayListWithCapacity(count);
 
         long[] timeInGC = {0};

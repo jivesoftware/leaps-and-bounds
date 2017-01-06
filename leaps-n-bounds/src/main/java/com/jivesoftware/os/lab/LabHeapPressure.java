@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
 import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -8,7 +9,6 @@ import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import com.jivesoftware.os.mlogger.core.ValueType;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -30,7 +30,7 @@ public class LabHeapPressure {
     private final long maxHeapPressureInBytes;
     private final long blockOnHeapPressureInBytes;
     private final AtomicLong globalHeapCostInBytes;
-    private final Map<LAB, Boolean> commitableLabs = new ConcurrentHashMap<>();
+    private final Map<LAB, Boolean> commitableLabs = Maps.newConcurrentMap();
     private volatile boolean running = false;
     private final AtomicLong changed = new AtomicLong();
     private final AtomicLong waiting = new AtomicLong();
