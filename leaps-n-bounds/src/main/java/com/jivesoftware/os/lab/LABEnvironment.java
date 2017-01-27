@@ -105,7 +105,6 @@ public class LABEnvironment {
     @param compact
     @param destroy
     @param walConfig Optional
-    @param maxValueIndexHeapPressureOverride
     @param labRoot
     @param labHeapPressure
     @param minMergeDebt
@@ -269,7 +268,7 @@ public class LABEnvironment {
         return config;
     }
 
-    public ValueIndex open(ValueIndexConfig config) throws Exception {
+    public ValueIndex<byte[]> open(ValueIndexConfig config) throws Exception {
 
         if (config.primaryName.equals(walName)) {
             throw new IllegalStateException("primaryName:" + config.primaryName + " cannot collide with walName");
