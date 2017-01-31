@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.guts;
 
 import com.google.common.collect.Lists;
 import com.jivesoftware.os.lab.LABStats;
+import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABConcurrentSplitException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.CommitIndex;
@@ -40,6 +41,7 @@ public class CompactableIndexes {
     private volatile ReadOnlyIndex[] indexes = new ReadOnlyIndex[0];  // is volatile for reference changes not value changes.
     private volatile long version;
     private volatile boolean disposed = false;
+    private volatile boolean closed = false;
     private final AtomicLong compactorCheckVersion = new AtomicLong();
     private final AtomicBoolean compacting = new AtomicBoolean();
     private volatile TimestampAndVersion maxTimestampAndVersion = TimestampAndVersion.NULL;
@@ -713,6 +715,9 @@ public class CompactableIndexes {
                 if (disposed) {
                     throw new LABConcurrentSplitException();
                 }
+                if (closed) {
+                    throw new LABClosedException();
+                }
                 stackIndexes = indexes;
             }
             readIndexs = new ReadIndex[stackIndexes.length];
@@ -760,6 +765,7 @@ public class CompactableIndexes {
             for (ReadOnlyIndex index : indexes) {
                 index.closeReadable();
             }
+            closed = true;
         }
     }
 
@@ -768,6 +774,7 @@ public class CompactableIndexes {
             for (ReadOnlyIndex index : indexes) {
                 index.destroy();
             }
+            closed = true;
         }
     }
 
