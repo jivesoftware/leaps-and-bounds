@@ -485,7 +485,7 @@ public class LAB implements ValueIndex<byte[]> {
             }
 
             lastAppendTimestamp = System.currentTimeMillis();
-            long[] count = {0};
+            long[] count = { 0 };
             appended = memoryIndex.append(
                 (stream) -> {
                     return values.consume(
@@ -542,31 +542,47 @@ public class LAB implements ValueIndex<byte[]> {
     }
 
     private boolean internalCommit(boolean fsync, BolBuffer keyBuffer, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception, InterruptedException {
-        commitSemaphore.acquire(Short.MAX_VALUE);
-        try {
-            LABMemoryIndex stackCopy = memoryIndex;
-            if (stackCopy.isEmpty()) {
-                return false;
+        synchronized (commitSemaphore) {
+            // open new memory index and mark existing for flush
+            commitSemaphore.acquire(Short.MAX_VALUE);
+            try {
+                if (memoryIndex.isEmpty()) {
+                    return false;
+                }
+                if (fsync) {
+                    stats.fsyncedCommit.increment();
+                } else {
+                    stats.commit.increment();
+                }
+                flushingMemoryIndex = memoryIndex;
+                LABIndex labIndex = indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo());
+                memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, labIndex);
+            } finally {
+                commitSemaphore.release(Short.MAX_VALUE);
             }
-            if (fsync) {
-                stats.fsyncedCommit.increment();
-            } else {
-                stats.commit.increment();
+
+            // flush existing memory index to disk
+            rangeStripedCompactableIndexes.append(rawhideName, flushingMemoryIndex, fsync, keyBuffer, entryBuffer, entryKeyBuffer);
+
+            // destroy existing memory index
+            LABMemoryIndex destroyableMemoryIndex;
+            commitSemaphore.acquire(Short.MAX_VALUE);
+            try {
+                destroyableMemoryIndex = flushingMemoryIndex;
+                flushingMemoryIndex = null;
+            } finally {
+                commitSemaphore.release(Short.MAX_VALUE);
             }
-            flushingMemoryIndex = stackCopy;
-            LABIndex labIndex = indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo());
-            memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, labIndex);
-            rangeStripedCompactableIndexes.append(rawhideName, stackCopy, fsync, keyBuffer, entryBuffer, entryKeyBuffer);
-            flushingMemoryIndex = null;
-            stackCopy.destroy();
+            destroyableMemoryIndex.destroy();
+
+            // commit to WAL
             if (wal != null) {
                 wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
             }
             lastCommitTimestamp = System.currentTimeMillis();
-        } finally {
-            commitSemaphore.release(Short.MAX_VALUE);
+
+            return true;
         }
-        return true;
     }
 
     @Override
