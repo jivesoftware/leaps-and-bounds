@@ -5,7 +5,6 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
-import com.jivesoftware.os.lab.guts.api.Scanner.Next;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
@@ -71,7 +70,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
             @Override
             public Next next(RawEntryStream stream) throws Exception {
                 BolBuffer entryBuffer = new BolBuffer();
-                boolean[] once = new boolean[]{false};
+                boolean[] once = new boolean[] { false };
                 boolean more = true;
                 while (!once[0] && more) {
                     more = scan.next(fp,

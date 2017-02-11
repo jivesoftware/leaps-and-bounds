@@ -61,7 +61,7 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.emptyList());
 
             ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
 
             ValueIndex index = env.open(valueIndexConfig);
             System.out.println("Lets index so stuff....");
@@ -122,7 +122,7 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.singletonList("bar"));
 
             valueIndexConfig = new ValueIndexConfig("bar", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
             assertEquals(env.list(), Collections.singletonList("bar"));
             index = env.open(valueIndexConfig);
 
@@ -237,7 +237,7 @@ public class LABEnvironmentNGTest {
             false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
 
         System.out.println("Created env");
 
@@ -299,7 +299,7 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
-            new LalWALConfig("labWal",
+            new LabWALConfig("labWal",
                 "labMeta",
                 1024 * 1024 * 10,
                 1000,
@@ -312,7 +312,7 @@ public class LABEnvironmentNGTest {
             false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
 
         System.out.println("Created env");
 
@@ -336,7 +336,7 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
-            new LalWALConfig("labWal",
+            new LabWALConfig("labWal",
                 "labMeta",
                 1024 * 1024 * 10,
                 1000,
@@ -369,7 +369,7 @@ public class LABEnvironmentNGTest {
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4),
             LABEnvironment.buildLABDestroyThreadPool(1),
-            new LalWALConfig("labWal",
+            new LabWALConfig("labWal",
                 "labMeta",
                 1024 * 1024 * 10,
                 1000,

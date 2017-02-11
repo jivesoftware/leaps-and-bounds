@@ -4,7 +4,7 @@ package com.jivesoftware.os.lab;
  *
  * @author jonathan.colt
  */
-public class LalWALConfig {
+public class LabWALConfig {
 
     public final String walName;
     public final String metaName;
@@ -13,7 +13,8 @@ public class LalWALConfig {
     public final long maxEntrySizeInBytes;
     public final long maxValueIndexHeapPressureOverride;
 
-    public LalWALConfig(String walName, String metaName, long maxWALSizeInBytes, long maxEntriesPerWAL, long maxEntrySizeInBytes,
+
+    public LabWALConfig(String walName, String metaName, long maxWALSizeInBytes, long maxEntriesPerWAL, long maxEntrySizeInBytes,
         long maxValueIndexHeapPressureOverride
     ) {
         this.walName = walName;

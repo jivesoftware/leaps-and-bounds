@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- *
  * @author jonathan.colt
  */
 public class ValueIndexConfig {
@@ -19,6 +18,7 @@ public class ValueIndexConfig {
     public final String rawhideName;
     public final String rawEntryFormatName;
     public final int entryLengthPower;
+    public final double hashIndexLoadFactor;
 
     @JsonCreator
     public ValueIndexConfig(@JsonProperty("primaryName") String primaryName,
@@ -30,7 +30,8 @@ public class ValueIndexConfig {
         @JsonProperty("formatTransformerProviderName") String formatTransformerProviderName,
         @JsonProperty("rawhideName") String rawhideName,
         @JsonProperty("rawEntryFormatName") String rawEntryFormatName,
-        @JsonProperty("entryLengthPower") int entryLengthPower
+        @JsonProperty("entryLengthPower") int entryLengthPower,
+        @JsonProperty("hashIndexLoadFactor") double hashIndexLoadFactor
     ) {
 
         this.primaryName = primaryName;
@@ -43,6 +44,7 @@ public class ValueIndexConfig {
         this.rawhideName = rawhideName;
         this.rawEntryFormatName = rawEntryFormatName;
         this.entryLengthPower = entryLengthPower;
+        this.hashIndexLoadFactor = hashIndexLoadFactor;
     }
 
 }

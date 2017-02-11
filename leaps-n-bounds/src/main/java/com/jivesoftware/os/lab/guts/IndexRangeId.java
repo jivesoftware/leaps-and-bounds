@@ -3,7 +3,6 @@ package com.jivesoftware.os.lab.guts;
 import java.io.File;
 
 /**
- *
  * @author jonathan.colt
  */
 public class IndexRangeId implements Comparable<IndexRangeId> {

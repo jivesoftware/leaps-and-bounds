@@ -119,7 +119,7 @@ public class LABEnvironment {
         ExecutorService scheduler,
         ExecutorService compact,
         final ExecutorService destroy,
-        LalWALConfig walConfig,
+        LabWALConfig walConfig,
         File labRoot,
         LabHeapPressure labHeapPressure,
         int minMergeDebt,
@@ -345,7 +345,8 @@ public class LABEnvironment {
             config.splitWhenValuesAndKeysTotalExceedsNBytes,
             leapsCache,
             indexProvider,
-            fsyncFileRenames);
+            fsyncFileRenames,
+            config.hashIndexLoadFactor);
 
     }
 

@@ -104,7 +104,8 @@ public class LAB implements ValueIndex<byte[]> {
         long splitWhenValuesAndKeysTotalExceedsNBytes,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         LABIndexProvider indexProvider,
-        boolean fsyncFileRenames) throws Exception {
+        boolean fsyncFileRenames,
+        double hashIndexLoadFactor) throws Exception {
 
         stats.open.increment();
 
@@ -133,7 +134,8 @@ public class LAB implements ValueIndex<byte[]> {
             rawhide,
             this.rawEntryFormat,
             leapsCache,
-            fsyncFileRenames);
+            fsyncFileRenames,
+            hashIndexLoadFactor);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
         this.indexProvider = indexProvider;

@@ -34,6 +34,7 @@ public class ReadOnlyIndex {
     private final FormatTransformer readKeyFormatTransformer;
     private final FormatTransformer readValueFormatTransformer;
     private final Rawhide rawhide;
+    private long hashIndexMaxCapacity = 0;
     private Leaps leaps; // loaded when reading
     private ReadLeapsAndBoundsIndex readLeapsAndBoundsIndex; // allocated when reading
 
@@ -63,27 +64,40 @@ public class ReadOnlyIndex {
     private Footer readFooter(IPointerReadable readable) throws IOException, LABCorruptedException {
         long indexLength = readable.length();
         long seekTo = indexLength - 4;
-        if (seekTo < 0 || seekTo > indexLength) {
-            throw new LABCorruptedException(
-                "1. Footer Corruption! trying to seek to: " + seekTo + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length());
+        seekToBoundsCheck(seekTo, indexLength);
+        int footerLength = readable.readInt(seekTo);
+        long hashIndexSizeInBytes = 0;
+        if (footerLength == -1) { // has hash index tacked onto the end.
+            seekTo = indexLength - (4 + 8);
+            seekToBoundsCheck(seekTo, indexLength);
+            hashIndexMaxCapacity = readable.readLong(seekTo);
+            hashIndexSizeInBytes = (hashIndexMaxCapacity * (8 + 1)) + 4 + 8;
+            seekTo = indexLength - (hashIndexSizeInBytes + 4);
+            seekToBoundsCheck(seekTo, indexLength);
+            footerLength = readable.readInt(seekTo);
+            seekTo = indexLength - (hashIndexSizeInBytes + 1 + footerLength);
+        } else {
+            seekTo = indexLength - (1 + footerLength);
         }
-        int footerLength = readable.readInt(indexLength - 4);
 
-        seekTo = indexLength - (1 + footerLength);
-        if (seekTo < 0 || seekTo > indexLength) {
-            throw new LABCorruptedException(
-                "2. Footer Corruption! trying to seek to: " + seekTo + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length());
-        }
-
+        seekToBoundsCheck(seekTo, indexLength);
         int type = readable.read(seekTo);
         seekTo++;
         if (type != FOOTER) {
             throw new LABCorruptedException(
-                "4. Footer Corruption! Found " + type + " expected " + FOOTER + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile
-                .length());
+                "Footer Corruption! Found " + type + " expected " + FOOTER + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile
+                    .length());
         }
         return Footer.read(readable, seekTo);
     }
+
+    private void seekToBoundsCheck(long seekTo, long indexLength) throws IOException, LABCorruptedException {
+        if (seekTo < 0 || seekTo > indexLength) {
+            throw new LABCorruptedException(
+                "Corruption! trying to seek to: " + seekTo + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length());
+        }
+    }
+
 
     public String name() {
         return id + " " + readOnlyFile.getFileName();
@@ -106,37 +120,37 @@ public class ReadOnlyIndex {
                 IPointerReadable readableIndex = readOnlyFile.pointerReadable(-1);
                 long indexLength = readableIndex.length();
 
-                long offset = indexLength - 4;
-                if (offset < 0 || offset > indexLength) {
-                    throw new LABCorruptedException(
-                        "1. Leaps Corruption! trying to seek to: " + offset + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
-                    );
+                long seekTo = indexLength - 4;
+                seekToBoundsCheck(seekTo, indexLength);
+                int footerLength = readableIndex.readInt(seekTo);
+                long hashIndexSizeInBytes = 0;
+                if (footerLength == -1) { // has hash index tacked onto the end.
+                    seekTo = indexLength - (4 + 8);
+                    seekToBoundsCheck(seekTo, indexLength);
+                    long hashIndexMaxCapacity = readableIndex.readLong(seekTo);
+                    hashIndexSizeInBytes = (hashIndexMaxCapacity * (8 + 1)) + 4 + 8;
+                    seekTo = indexLength - (hashIndexSizeInBytes + 4);
+                    seekToBoundsCheck(seekTo, indexLength);
+                    footerLength = readableIndex.readInt(seekTo);
+                    seekTo = indexLength - (hashIndexSizeInBytes + footerLength + 1 + 4);
+                } else {
+                    seekTo = indexLength - (footerLength + 1 + 4);
                 }
-                int footerLength = readableIndex.readInt(offset);
-                offset = indexLength - (footerLength + 1 + 4);
-                if (offset < 0 || offset > indexLength) {
-                    throw new LABCorruptedException(
-                        "2. Leaps Corruption! trying to seek to: " + offset + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
-                    );
-                }
-                int leapLength = readableIndex.readInt(offset);
+                seekToBoundsCheck(seekTo, indexLength);
+                int leapLength = readableIndex.readInt(seekTo);
 
-                offset = indexLength - (1 + leapLength + 1 + footerLength);
-                if (offset < 0 || offset > indexLength) {
-                    throw new LABCorruptedException(
-                        "3. Leaps Corruption! trying to seek to: " + offset + " within file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
-                    );
-                }
-                offset = indexLength - (1 + leapLength + 1 + footerLength);
+                seekTo = indexLength - (hashIndexSizeInBytes + 1 + leapLength + 1 + footerLength);
+                seekToBoundsCheck(seekTo, indexLength);
+                seekTo = indexLength - (hashIndexSizeInBytes + 1 + leapLength + 1 + footerLength);
 
-                int type = readableIndex.read(offset);
-                offset++;
+                int type = readableIndex.read(seekTo);
+                seekTo++;
                 if (type != LEAP) {
                     throw new LABCorruptedException(
                         "4. Leaps Corruption! " + type + " expected " + LEAP + " file:" + readOnlyFile.getFileName() + " length:" + readOnlyFile.length()
                     );
                 }
-                leaps = Leaps.read(readKeyFormatTransformer, readableIndex, offset);
+                leaps = Leaps.read(readKeyFormatTransformer, readableIndex, seekTo);
             }
 
             if (readLeapsAndBoundsIndex == null) {
@@ -145,7 +159,8 @@ public class ReadOnlyIndex {
                     footer,
                     () -> {
 
-                        ActiveScan activeScan = new ActiveScan(rawhide,
+                        ActiveScan activeScan = new ActiveScan(readOnlyFile.getFileName(),
+                            rawhide,
                             readKeyFormatTransformer,
                             readValueFormatTransformer,
                             leaps,
@@ -153,7 +168,8 @@ public class ReadOnlyIndex {
                             leapsCache,
                             footer,
                             readOnlyFile.pointerReadable(-1),
-                            new byte[16]);
+                            new byte[16],
+                            hashIndexMaxCapacity);
                         return activeScan;
                     }
                 );
@@ -166,20 +182,26 @@ public class ReadOnlyIndex {
         }
     }
 
-    public void destroy() throws Exception {
-        destroy.submit(() -> {
 
-            hideABone.acquire(Short.MAX_VALUE);
-            disposed.set(true);
-            try {
-                readOnlyFile.close();
-                readOnlyFile.delete();
-                //LOG.info("Destroyed {} {}", id, index.getFile());
-            } finally {
-                hideABone.release(Short.MAX_VALUE);
-            }
-            return null;
-        });
+    public void destroy() throws Exception {
+        if (destroy != null) {
+            destroy.submit(() -> {
+
+                hideABone.acquire(Short.MAX_VALUE);
+                disposed.set(true);
+                try {
+                    readOnlyFile.close();
+                    readOnlyFile.delete();
+                    //LOG.info("Destroyed {} {}", id, index.getFile());
+                } finally {
+                    hideABone.release(Short.MAX_VALUE);
+                }
+                return null;
+            });
+        } else {
+            throw new UnsupportedOperationException("This was constructed such that destroy isn't supporte");
+        }
+
 
     }
 

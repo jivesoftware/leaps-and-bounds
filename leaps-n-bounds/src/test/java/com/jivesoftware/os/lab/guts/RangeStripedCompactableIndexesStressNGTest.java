@@ -70,7 +70,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
             LABRawhide.SINGLETON,
             new AtomicReference<>(new RawEntryFormat(0, 0)),
             leapsCache,
-            false);
+            false,
+            0.75d);
 
         int count = 0;
 
@@ -89,8 +90,8 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
         Future<Object> pointGets = Executors.newSingleThreadExecutor().submit(() -> {
 
-            int[] hits = {0};
-            int[] misses = {0};
+            int[] hits = { 0 };
+            int[] misses = { 0 };
             RawEntryStream hitsAndMisses = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 if (rawEntry != null) {
                     hits[0]++;
@@ -150,7 +151,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
 
                 System.out.println(
                     "Hits:" + hits[0] + " Misses:" + misses[0] + " Elapse:" + elapse + " Best:" + rps(logInterval, best) + " Avg:" + rps(logInterval,
-                    (long) (total / (double) samples)));
+                        (long) (total / (double) samples)));
                 hits[0] = 0;
                 misses[0] = 0;
                 getStart = getEnd;
@@ -246,7 +247,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
         merging.setValue(false);
         System.out.println(
             " **************   Total time to add " + (numBatches * batchSize) + " including all merging: "
-            + (System.currentTimeMillis() - start) + " millis *****************");
+                + (System.currentTimeMillis() - start) + " millis *****************");
 
         pointGets.get();
 

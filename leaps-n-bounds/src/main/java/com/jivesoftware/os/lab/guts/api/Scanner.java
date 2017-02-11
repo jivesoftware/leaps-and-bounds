@@ -6,7 +6,7 @@ package com.jivesoftware.os.lab.guts.api;
  */
 public interface Scanner {
 
-    static enum Next {
+    enum Next {
         eos, more, stopped;
     }
 

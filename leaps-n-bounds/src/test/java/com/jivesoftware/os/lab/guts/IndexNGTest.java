@@ -5,7 +5,6 @@ import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.LabHeapPressure;
 import com.jivesoftware.os.lab.TestUtils;
-import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
@@ -58,9 +57,9 @@ public class IndexNGTest {
             64,
             10,
             rawhide,
-            FormatTransformer.NO_OP,
-            FormatTransformer.NO_OP,
-            new RawEntryFormat(0, 0)
+            new RawEntryFormat(0, 0),
+            NoOpFormatTransformerProvider.NO_OP,
+            0.75d
         );
 
         BolBuffer keyBuffer = new BolBuffer();
@@ -71,7 +70,8 @@ public class IndexNGTest {
         ReadOnlyIndex leapsAndBoundsIndex = new ReadOnlyIndex(destroy,
             indexRangeId,
             new ReadOnlyFile(indexFiler),
-            NoOpFormatTransformerProvider.NO_OP, rawhide,
+            NoOpFormatTransformerProvider.NO_OP,
+            rawhide,
             leapsCache);
 
         assertions(leapsAndBoundsIndex, count, step, desired);
@@ -145,8 +145,15 @@ public class IndexNGTest {
 
         File indexFiler = File.createTempFile("c-index", ".tmp");
         IndexRangeId indexRangeId = new IndexRangeId(1, 1, 0);
-        LABAppendableIndex disIndex = new LABAppendableIndex(new LongAdder(), indexRangeId, new AppendOnlyFile(indexFiler),
-            64, 10, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+        LABAppendableIndex disIndex = new LABAppendableIndex(new LongAdder(),
+            indexRangeId,
+            new AppendOnlyFile(indexFiler),
+            64,
+            10,
+            rawhide,
+            new RawEntryFormat(0, 0),
+            NoOpFormatTransformerProvider.NO_OP,
+            0.75d);
         disIndex.append((stream) -> {
             ReadIndex reader = memoryIndex.acquireReader();
             try {

@@ -1,6 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
@@ -8,13 +9,19 @@ import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
+import com.jivesoftware.os.lab.io.api.IPointerReadable;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
  * @author jonathan.colt
  */
 public class LABAppendableIndex implements RawAppendableIndex {
+
+    public static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     public static final byte ENTRY = 0;
     public static final byte LEAP = 1;
@@ -26,9 +33,11 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final int maxLeaps;
     private final int updatesBetweenLeaps;
     private final Rawhide rawhide;
+    private final FormatTransformerProvider formatTransformerProvider;
     private final FormatTransformer writeKeyFormatTransormer;
     private final FormatTransformer writeValueFormatTransormer;
     private final RawEntryFormat rawhideFormat;
+    private final double hashIndexLoadFactor;
 
     private LeapFrog latestLeapFrog;
     private int updatesSinceLeap;
@@ -52,9 +61,9 @@ public class LABAppendableIndex implements RawAppendableIndex {
         int maxLeaps,
         int updatesBetweenLeaps,
         Rawhide rawhide,
-        FormatTransformer writeKeyFormatTransormer,
-        FormatTransformer writeValueFormatTransormer,
-        RawEntryFormat rawhideFormat) {
+        RawEntryFormat rawhideFormat,
+        FormatTransformerProvider formatTransformerProvider,
+        double hashIndexLoadFactor) throws Exception {
 
         this.appendedStat = appendedStat;
         this.indexRangeId = indexRangeId;
@@ -62,9 +71,12 @@ public class LABAppendableIndex implements RawAppendableIndex {
         this.maxLeaps = maxLeaps;
         this.updatesBetweenLeaps = updatesBetweenLeaps;
         this.rawhide = rawhide;
-        this.writeKeyFormatTransormer = writeKeyFormatTransormer;
-        this.writeValueFormatTransormer = writeValueFormatTransormer;
+        this.formatTransformerProvider = formatTransformerProvider;
         this.rawhideFormat = rawhideFormat;
+        this.hashIndexLoadFactor = hashIndexLoadFactor;
+
+        this.writeKeyFormatTransormer = formatTransformerProvider.write(rawhideFormat.getKeyFormat());
+        this.writeValueFormatTransormer = formatTransformerProvider.write(rawhideFormat.getValueFormat());
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
     }
 
@@ -169,6 +181,172 @@ public class LABAppendableIndex implements RawAppendableIndex {
         } finally {
             close();
         }
+
+        buildHashIndex(count); // HACKY :(
+    }
+
+
+    // TODO this could / should be rewritten to reduce seek thrashing by using batching.
+    private void buildHashIndex(long count) throws Exception {
+        if (hashIndexLoadFactor > 0) {
+            long[] runHisto = new long[33];
+            FormatTransformer readKeyFormatTransformer = formatTransformerProvider.read(rawhideFormat.getKeyFormat());
+            FormatTransformer readValueFormatTransformer = formatTransformerProvider.read(rawhideFormat.getValueFormat());
+
+            RandomAccessFile f = new RandomAccessFile(appendOnlyFile.getFile(), "rw");
+            long start = System.currentTimeMillis();
+            try {
+                long length = f.length();
+                long hashIndexMaxCapacity = count + (long) (count * hashIndexLoadFactor);
+                long hashIndexSizeInBytes = hashIndexMaxCapacity * (8 + 1);
+                f.setLength(length + hashIndexSizeInBytes + 8 + 4);
+                f.seek(length);
+                for (int i = 0; i < hashIndexMaxCapacity; i++) {
+                    f.writeLong(-1L);
+                    f.write(0);
+                }
+                f.writeLong(hashIndexMaxCapacity);
+                f.writeInt(-1);
+
+                BolBuffer key = new BolBuffer();
+                BolBuffer entryBuffer = new BolBuffer();
+
+                RandomAccessBackPointerReadable readable = new RandomAccessBackPointerReadable(f);
+                long activeOffset = 0;
+
+                NEXT_ENTRY:
+                while (true) {
+                    int type = readable.read(activeOffset);
+                    activeOffset++;
+
+                    if (type == ENTRY) {
+                        long startOfEntryOffset = activeOffset;
+                        activeOffset += rawhide.rawEntryToBuffer(readable, activeOffset, entryBuffer);
+
+                        BolBuffer k = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, key);
+
+                        long hashIndex = k.longHashCode() % hashIndexMaxCapacity;
+
+                        int i = 0;
+                        while (i < hashIndexMaxCapacity) {
+                            long pos = length + (hashIndex * (8 + 1));
+                            f.seek(pos);
+                            long v = f.readLong();
+                            if (v == -1) {
+                                f.seek(pos);
+                                f.writeLong(startOfEntryOffset);
+
+                                if (i < 32) {
+                                    runHisto[i]++;
+                                } else {
+                                    runHisto[32]++;
+                                }
+                                continue NEXT_ENTRY;
+                            } else {
+                                f.write(1);
+                                i++;
+                                hashIndex = (++hashIndex) % hashIndexMaxCapacity;
+                            }
+                        }
+                        throw new IllegalStateException("WriteHashIndex failed to add entry because there was no free slot.");
+
+
+                    } else if (type == FOOTER) {
+                        break;
+                    } else if (type == LEAP) {
+                        activeOffset += f.readInt();
+                    } else {
+                        throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
+                    }
+                }
+                f.getFD().sync();
+
+
+                /*String name = appendOnlyFile.getFile().getName();
+                System.out.println(">>>indexBegin " + name);
+                BolBuffer peek = new BolBuffer();
+                f.seek(length);
+                for (int i = 0; i < hashIndexMaxCapacity; i++) {
+                    long pos = length + (i * 9);
+                    f.seek(pos);
+                    long v = f.readLong();
+                    int run = f.read();
+                    peek.allocate(0);
+                    if (v != -1) {
+                        rawhide.rawEntryToBuffer(readable, v, entryBuffer);
+                        BolBuffer k = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, peek);
+                        System.out.println(pos + " index: " + name + " " + v + " " + run + " " + Arrays.toString(k.copy()));
+                    } else {
+                        System.out.println(pos + " index: " + name + " " + v + " " + run);
+                    }
+
+                }
+                System.out.println("<<<<indexEnd " + name);*/
+
+
+            } finally {
+                f.close();
+            }
+
+            LOG.info("Built hash index for {} entries in {} millis", count, System.currentTimeMillis() - start);
+
+            for (int i = 0; i < 32; i++) {
+                if (runHisto[i] > 0) {
+                    LOG.inc("write>runs>" + i, runHisto[i]);
+                }
+            }
+            if (runHisto[32] > 0) {
+                LOG.inc("write>runs>horrible", runHisto[32]);
+            }
+        }
+    }
+
+    private class RandomAccessBackPointerReadable implements IPointerReadable {
+        private final RandomAccessFile f;
+
+        private RandomAccessBackPointerReadable(RandomAccessFile f) {
+            this.f = f;
+        }
+
+        @Override
+        public long length() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int read(long readPointer) throws IOException {
+            f.seek(readPointer);
+            return f.read();
+        }
+
+        @Override
+        public int readInt(long readPointer) throws IOException {
+            f.seek(readPointer);
+            return f.readInt();
+        }
+
+        @Override
+        public long readLong(long readPointer) throws IOException {
+            f.seek(readPointer);
+            return f.readLong();
+        }
+
+        @Override
+        public int read(long readPointer, byte[] b, int _offset, int _len) throws IOException {
+            f.seek(readPointer);
+            return f.read(b, _offset, _len);
+        }
+
+        @Override
+        public void close() throws IOException {
+        }
+
+        @Override
+        public BolBuffer sliceIntoBuffer(long readPointer, int length, BolBuffer entryBuffer) throws IOException {
+            entryBuffer.allocate(length);
+            read(readPointer, entryBuffer.bytes, 0, length);
+            return null;
+        }
     }
 
     public void close() throws IOException {
@@ -208,5 +386,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
         nextLeaps.write(writeKeyFormatTransormer, appendableHeap);
         return new LeapFrog(startOfLeapFp, nextLeaps);
     }
+
 
 }

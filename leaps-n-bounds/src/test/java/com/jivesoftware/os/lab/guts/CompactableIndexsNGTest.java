@@ -58,10 +58,15 @@ public class CompactableIndexsNGTest {
 
             int entriesBetweenLeaps = 2;
             int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(counts[ci], entriesBetweenLeaps);
-            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), indexRangeId, appendOnlyFile, maxLeaps, entriesBetweenLeaps, rawhide,
-                FormatTransformer.NO_OP,
-                FormatTransformer.NO_OP,
-                MemoryRawEntryFormat.SINGLETON);
+            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(),
+                indexRangeId,
+                appendOnlyFile,
+                maxLeaps,
+                entriesBetweenLeaps,
+                rawhide,
+                MemoryRawEntryFormat.SINGLETON,
+                NoOpFormatTransformerProvider.NO_OP,
+                0.75d);
 
             write.append((stream) -> {
                 for (int i = 0; i < counts[ci]; i++) {
@@ -133,8 +138,15 @@ public class CompactableIndexsNGTest {
                 AppendOnlyFile appendOnlyFile = new AppendOnlyFile(file);
                 IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-                LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), indexRangeId, appendOnlyFile, 64, 2, rawhide, FormatTransformer.NO_OP,
-                    FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+                LABAppendableIndex write = new LABAppendableIndex(new LongAdder(),
+                    indexRangeId,
+                    appendOnlyFile,
+                    64,
+                    2,
+                    rawhide,
+                    new RawEntryFormat(0, 0),
+                    NoOpFormatTransformerProvider.NO_OP,
+                    0.75d);
                 TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
                 write.closeAppendable(fsync);
 
@@ -162,9 +174,9 @@ public class CompactableIndexsNGTest {
                         maxLeaps,
                         updatesBetweenLeaps,
                         rawhide,
-                        FormatTransformer.NO_OP,
-                        FormatTransformer.NO_OP,
-                        new RawEntryFormat(0, 0));
+                        new RawEntryFormat(0, 0),
+                        NoOpFormatTransformerProvider.NO_OP,
+                        0.75d);
                 },
                 (ids) -> {
                     LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
@@ -204,9 +216,15 @@ public class CompactableIndexsNGTest {
             AppendOnlyFile appendOnlyFile = new AppendOnlyFile(file);
             IndexRangeId indexRangeId = new IndexRangeId(wi, wi, 0);
 
-            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), indexRangeId, appendOnlyFile, 64, 2, rawhide, FormatTransformer.NO_OP,
-                FormatTransformer.NO_OP,
-                new RawEntryFormat(0, 0));
+            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(),
+                indexRangeId,
+                appendOnlyFile,
+                64,
+                2,
+                rawhide,
+                new RawEntryFormat(0, 0),
+                NoOpFormatTransformerProvider.NO_OP,
+                0.75d);
             TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
             write.closeAppendable(fsync);
 
@@ -248,10 +266,15 @@ public class CompactableIndexsNGTest {
                 fsync1, (id, worstCaseCount) -> {
                     int updatesBetweenLeaps = 2;
                     int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, updatesBetweenLeaps);
-                    return new LABAppendableIndex(new LongAdder(), id, new AppendOnlyFile(indexFiler), maxLeaps, updatesBetweenLeaps, rawhide,
-                        FormatTransformer.NO_OP,
-                        FormatTransformer.NO_OP,
-                        new RawEntryFormat(0, 0));
+                    return new LABAppendableIndex(new LongAdder(),
+                        id,
+                        new AppendOnlyFile(indexFiler),
+                        maxLeaps,
+                        updatesBetweenLeaps,
+                        rawhide,
+                        new RawEntryFormat(0, 0),
+                        NoOpFormatTransformerProvider.NO_OP,
+                        0.75d);
                 }, (ids) -> {
                     LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
                     return new ReadOnlyIndex(destroy, ids.get(0), new ReadOnlyFile(indexFiler), NoOpFormatTransformerProvider.NO_OP, rawhide,

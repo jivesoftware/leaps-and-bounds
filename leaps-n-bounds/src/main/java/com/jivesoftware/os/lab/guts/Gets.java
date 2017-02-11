@@ -39,6 +39,7 @@ public class Gets implements GetRaw, RawEntryStream {
     public boolean stream(FormatTransformer readKeyFormatTransformer,
         FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry) throws Exception {
+
         boolean result = activeStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
         found = true;
         return result;

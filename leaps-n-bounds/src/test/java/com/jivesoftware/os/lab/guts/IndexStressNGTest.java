@@ -5,7 +5,6 @@ import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash
 import com.jivesoftware.os.lab.LABEnvironment;
 import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.TestUtils;
-import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
@@ -73,8 +72,15 @@ public class IndexStressNGTest {
                                 long m = merge.incrementAndGet();
                                 int maxLeaps = RangeStripedCompactableIndexes.calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                                 File mergingFile = id.toFile(root);
-                                return new LABAppendableIndex(new LongAdder(), id, new AppendOnlyFile(mergingFile),
-                                    maxLeaps, entriesBetweenLeaps, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP, new RawEntryFormat(0, 0));
+                                return new LABAppendableIndex(new LongAdder(),
+                                    id,
+                                    new AppendOnlyFile(mergingFile),
+                                    maxLeaps,
+                                    entriesBetweenLeaps,
+                                    rawhide,
+                                    new RawEntryFormat(0, 0),
+                                    NoOpFormatTransformerProvider.NO_OP,
+                                    0.75d);
                             },
                             (ids) -> {
                                 File mergedFile = ids.get(0).toFile(root);
@@ -179,9 +185,15 @@ public class IndexStressNGTest {
             File indexFiler = File.createTempFile("s-index-merged-" + b, ".tmp");
 
             long startMerge = System.currentTimeMillis();
-            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(), id,
-                new AppendOnlyFile(indexFiler), maxLeaps, entriesBetweenLeaps, rawhide, FormatTransformer.NO_OP, FormatTransformer.NO_OP,
-                new RawEntryFormat(0, 0));
+            LABAppendableIndex write = new LABAppendableIndex(new LongAdder(),
+                id,
+                new AppendOnlyFile(indexFiler),
+                maxLeaps,
+                entriesBetweenLeaps,
+                rawhide,
+                new RawEntryFormat(0, 0),
+                NoOpFormatTransformerProvider.NO_OP,
+                0.75d);
             BolBuffer keyBuffer = new BolBuffer();
             long lastKey = TestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null, keyBuffer);
             write.closeAppendable(fsync);

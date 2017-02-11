@@ -24,6 +24,7 @@ public class ActiveScan {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
+    private final String name;
     private final Rawhide rawhide;
     private final FormatTransformer readKeyFormatTransormer;
     private final FormatTransformer readValueFormatTransormer;
@@ -33,11 +34,13 @@ public class ActiveScan {
     private final Footer footer;
     private final IPointerReadable readable;
     private final byte[] cacheKeyBuffer;
+    private final long hashIndexMaxCapacity;
     private long activeFp = Long.MAX_VALUE;
     private long activeOffset = -1;
     private boolean activeResult;
 
-    public ActiveScan(Rawhide rawhide,
+    public ActiveScan(String name,
+        Rawhide rawhide,
         FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         Leaps leaps,
@@ -45,7 +48,9 @@ public class ActiveScan {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         Footer footer,
         IPointerReadable readable,
-        byte[] cacheKeyBuffer) {
+        byte[] cacheKeyBuffer,
+        long hashIndexMaxCapacity) {
+        this.name = name;
 
         this.rawhide = rawhide;
         this.readKeyFormatTransormer = readKeyFormatTransormer;
@@ -56,6 +61,7 @@ public class ActiveScan {
         this.footer = footer;
         this.readable = readable;
         this.cacheKeyBuffer = cacheKeyBuffer;
+        this.hashIndexMaxCapacity = hashIndexMaxCapacity;
     }
 
     public boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
@@ -72,12 +78,12 @@ public class ActiveScan {
                 activeOffset += rawhide.rawEntryToBuffer(readable, activeOffset, entryBuffer);
                 activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer);
                 return false;
-            } else if (type == FOOTER) {
-                activeResult = false;
-                return false;
             } else if (type == LEAP) {
                 int length = readable.readInt(activeOffset); // entryLength
                 activeOffset += (length);
+            } else if (type == FOOTER) {
+                activeResult = false;
+                return false;
             } else {
                 throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
             }
@@ -104,6 +110,15 @@ public class ActiveScan {
         if (rawhide.compare(l.lastKey, bbKey) < 0) {
             return rowIndex;
         }
+
+        if (exact && hashIndexMaxCapacity > 0) {
+
+            long exactRowIndex = get(hashIndexMaxCapacity, bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
+            if (exactRowIndex >= -1) {
+                return exactRowIndex > -1 ? exactRowIndex - 1 : -1;
+            }
+        }
+
         Comparator<BolBuffer> byteBufferKeyComparator = rawhide.getBolBufferKeyComparator();
         int cacheMisses = 0;
         int cacheHits = 0;
@@ -148,6 +163,8 @@ public class ActiveScan {
         if (cacheMisses > 0) {
             LOG.inc("LAB>leapCache>misses", cacheMisses);
         }
+
+
         return rowIndex;
     }
 
@@ -189,5 +206,40 @@ public class ActiveScan {
                 throw x;
             }
         }
+    }
+
+    public long get(long hashIndexMaxCapacity,
+        BolBuffer compareKey,
+        BolBuffer entryBuffer,
+        BolBuffer keyBuffer,
+        FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
+        Rawhide rawhide) throws Exception {
+
+
+        long headOffset = readable.length() - (((8 + 1) * hashIndexMaxCapacity) + 8 + 4);
+        long hashIndex = compareKey.longHashCode() % hashIndexMaxCapacity;
+
+        int i = 0;
+        while (i < hashIndexMaxCapacity) {
+            long readPointer = headOffset + (hashIndex * (8 + 1));
+            long offset = readable.readLong(readPointer);
+            if (offset == -1L) {
+                return offset;
+            } else {
+                rawhide.rawEntryToBuffer(readable, offset, entryBuffer);
+                if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, keyBuffer, compareKey) == 0) {
+                    return offset;
+                }
+                int run = readable.read(readPointer + 8);
+                if (run == 0) {
+                    return -1L;
+                }
+            }
+            i++;
+            hashIndex = (++hashIndex) % hashIndexMaxCapacity;
+        }
+        throw new IllegalStateException("ReadOnlyHashIndex failed to get entry because programming is hard.");
+
     }
 }

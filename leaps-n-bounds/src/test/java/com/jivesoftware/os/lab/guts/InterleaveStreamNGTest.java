@@ -15,7 +15,6 @@ import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
-import com.jivesoftware.os.lab.guts.api.Scanner.Next;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.util.ArrayList;
@@ -30,7 +29,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
- *
  * @author jonathan.colt
  */
 public class InterleaveStreamNGTest {
@@ -38,8 +36,8 @@ public class InterleaveStreamNGTest {
     @Test
     public void testNext() throws Exception {
 
-        InterleaveStream ips = new InterleaveStream(new ReadIndex[]{
-            sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3})
+        InterleaveStream ips = new InterleaveStream(new ReadIndex[] {
+            sequenceIndex(new long[] { 1, 2, 3, 4, 5 }, new long[] { 3, 3, 3, 3, 3 })
         }, null, null, LABRawhide.SINGLETON);
 
         List<Expected> expected = new ArrayList<>();
@@ -56,10 +54,10 @@ public class InterleaveStreamNGTest {
     @Test
     public void testNext1() throws Exception {
 
-        InterleaveStream ips = new InterleaveStream(new ReadIndex[]{
-            sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{3, 3, 3, 3, 3}),
-            sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{2, 2, 2, 2, 2}),
-            sequenceIndex(new long[]{1, 2, 3, 4, 5}, new long[]{1, 1, 1, 1, 1})
+        InterleaveStream ips = new InterleaveStream(new ReadIndex[] {
+            sequenceIndex(new long[] { 1, 2, 3, 4, 5 }, new long[] { 3, 3, 3, 3, 3 }),
+            sequenceIndex(new long[] { 1, 2, 3, 4, 5 }, new long[] { 2, 2, 2, 2, 2 }),
+            sequenceIndex(new long[] { 1, 2, 3, 4, 5 }, new long[] { 1, 1, 1, 1, 1 })
         }, null, null, LABRawhide.SINGLETON);
 
         List<Expected> expected = new ArrayList<>();
@@ -76,10 +74,10 @@ public class InterleaveStreamNGTest {
     @Test
     public void testNext2() throws Exception {
 
-        InterleaveStream ips = new InterleaveStream(new ReadIndex[]{
-            sequenceIndex(new long[]{10, 21, 29, 41, 50}, new long[]{1, 0, 0, 0, 1}),
-            sequenceIndex(new long[]{10, 21, 29, 40, 50}, new long[]{0, 0, 0, 1, 0}),
-            sequenceIndex(new long[]{10, 20, 30, 39, 50}, new long[]{0, 1, 1, 0, 0})
+        InterleaveStream ips = new InterleaveStream(new ReadIndex[] {
+            sequenceIndex(new long[] { 10, 21, 29, 41, 50 }, new long[] { 1, 0, 0, 0, 1 }),
+            sequenceIndex(new long[] { 10, 21, 29, 40, 50 }, new long[] { 0, 0, 0, 1, 0 }),
+            sequenceIndex(new long[] { 10, 20, 30, 39, 50 }, new long[] { 0, 1, 1, 0, 0 })
         }, null, null, LABRawhide.SINGLETON);
 
         List<Expected> expected = new ArrayList<>();
@@ -102,17 +100,17 @@ public class InterleaveStreamNGTest {
         return new ReadIndex() {
             @Override
             public void release() {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                throw new UnsupportedOperationException("Not supported.");
             }
 
             @Override
             public GetRaw get() throws Exception {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                throw new UnsupportedOperationException("Not supported.");
             }
 
             @Override
             public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                throw new UnsupportedOperationException("Not supported.");
             }
 
             @Override
@@ -122,7 +120,7 @@ public class InterleaveStreamNGTest {
 
             @Override
             public long count() throws Exception {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                throw new UnsupportedOperationException("Not supported.");
             }
         };
     }
@@ -206,7 +204,7 @@ public class InterleaveStreamNGTest {
     }
 
     private void assertExpected(InterleaveStream ips, List<Expected> expected) throws Exception {
-        boolean[] passed = {true};
+        boolean[] passed = { true };
         while (ips.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
             Expected expect = expected.remove(0);
             long key = TestUtils.key(rawEntry);
@@ -248,7 +246,7 @@ public class InterleaveStreamNGTest {
     }
 
     public Scanner nextEntrySequence(long[] keys, long[] values) {
-        int[] index = {0};
+        int[] index = { 0 };
 
         return new Scanner() {
             @Override

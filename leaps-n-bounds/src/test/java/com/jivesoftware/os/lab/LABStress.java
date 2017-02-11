@@ -168,7 +168,8 @@ public class LABStress {
             NoOpFormatTransformerProvider.NAME,
             "8x8fixedWidthRawhide", //new LABRawhide(),
             MemoryRawEntryFormat.NAME,
-            2));
+            2,
+            0.75d));
         return index;
     }
 

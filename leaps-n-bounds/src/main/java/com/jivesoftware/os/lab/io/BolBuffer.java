@@ -7,7 +7,6 @@ import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
 /**
- *
  * @author jonathan.colt
  */
 public class BolBuffer {
@@ -247,16 +246,20 @@ public class BolBuffer {
 
     @Override
     public int hashCode() {
+        throw new UnsupportedOperationException("NOPE");
+    }
+
+    public long longHashCode() {
         if (length == 0) {
             return 0;
         }
 
         if (bb != null) {
-            int hash = 0;
+            long hash = 0;
             long randMult = 0x5DEECE66DL;
             long randAdd = 0xBL;
             long randMask = (1L << 48) - 1;
-            long seed = bytes.length;
+            long seed = length;
 
             for (int i = 0; i < length; i++) {
                 long x = (seed * randMult + randAdd) & randMask;
@@ -269,11 +272,11 @@ public class BolBuffer {
         }
 
         if (bytes != null) {
-            int hash = 0;
+            long hash = 0;
             long randMult = 0x5DEECE66DL;
             long randAdd = 0xBL;
             long randMask = (1L << 48) - 1;
-            long seed = bytes.length;
+            long seed = length;
 
             for (int i = 0; i < length; i++) {
                 long x = (seed * randMult + randAdd) & randMask;

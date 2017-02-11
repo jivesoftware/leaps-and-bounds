@@ -31,6 +31,10 @@ public class AppendOnlyFile {
         this.size = new AtomicLong(randomAccessFile.length());
     }
 
+    public File getFile() {
+        return file;
+    }
+
     public void delete() {
         file.delete();
     }
