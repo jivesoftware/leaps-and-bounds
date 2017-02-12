@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ReadOnlyFile {
 
-    private static final long BUFFER_SEGMENT_SIZE = 1024L * 1024 * 1024;
+    public static final long BUFFER_SEGMENT_SIZE = 1024L * 1024 * 1024;
 
     private final File file;
     private final RandomAccessFile randomAccessFile;
@@ -41,7 +41,7 @@ public class ReadOnlyFile {
 
     public IPointerReadable pointerReadable(long bufferSegmentSize) throws IOException {
         if (pointerReadable == null) {
-            pointerReadable = new PointerReadableByteBufferFile(bufferSegmentSize > 0 ? bufferSegmentSize : BUFFER_SEGMENT_SIZE, file);
+            pointerReadable = new PointerReadableByteBufferFile(bufferSegmentSize > 0 ? bufferSegmentSize : BUFFER_SEGMENT_SIZE, file, false);
         }
         return pointerReadable;
     }

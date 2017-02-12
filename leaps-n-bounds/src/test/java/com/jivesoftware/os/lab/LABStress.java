@@ -75,13 +75,13 @@ public class LABStress {
         // ---
         System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
 
-        totalCardinality = 100_000_000;
+        totalCardinality = 10_000_000;
 
         write = stress("stress:RW",
             index,
             totalCardinality,
             800_000, // writesPerSecond
-            1_000_000, //writeCount
+            10_000_000, //writeCount
             true, // writeMonotonicly
             0, //readForNSeconds
             0, // readCount
@@ -117,7 +117,7 @@ public class LABStress {
             0, // writesPerSecond
             0, //writeCount
             false, // writeMonotonicly
-            10, //readForNSeconds
+            60, //readForNSeconds
             1_000_000, // readCount
             false); // removes
 
@@ -168,8 +168,8 @@ public class LABStress {
             NoOpFormatTransformerProvider.NAME,
             "8x8fixedWidthRawhide", //new LABRawhide(),
             MemoryRawEntryFormat.NAME,
-            2,
-            0.75d));
+            1,
+            2d));
         return index;
     }
 

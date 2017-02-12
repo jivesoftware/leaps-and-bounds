@@ -8,8 +8,8 @@ import com.jivesoftware.os.lab.guts.api.AppendEntries;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
@@ -194,101 +194,84 @@ public class LABAppendableIndex implements RawAppendableIndex {
             FormatTransformer readValueFormatTransformer = formatTransformerProvider.read(rawhideFormat.getValueFormat());
 
             RandomAccessFile f = new RandomAccessFile(appendOnlyFile.getFile(), "rw");
+            long length = f.length();
+            long hashIndexMaxCapacity = count + (long) (count * hashIndexLoadFactor);
+            long hashIndexSizeInBytes = hashIndexMaxCapacity * (8 + 1);
+            f.setLength(length + hashIndexSizeInBytes + 8 + 4);
+
+            PointerReadableByteBufferFile c = new PointerReadableByteBufferFile(ReadOnlyFile.BUFFER_SEGMENT_SIZE, appendOnlyFile.getFile(), true);
+
             long start = System.currentTimeMillis();
+            long clear = 0;
             try {
-                long length = f.length();
-                long hashIndexMaxCapacity = count + (long) (count * hashIndexLoadFactor);
-                long hashIndexSizeInBytes = hashIndexMaxCapacity * (8 + 1);
-                f.setLength(length + hashIndexSizeInBytes + 8 + 4);
-                f.seek(length);
+                long offset = length;
                 for (int i = 0; i < hashIndexMaxCapacity; i++) {
-                    f.writeLong(-1L);
-                    f.write(0);
+                    c.writeLong(offset, -1L);
+                    offset += 8;
+                    c.write(offset, (byte) 0);
+                    offset++;
                 }
-                f.writeLong(hashIndexMaxCapacity);
-                f.writeInt(-1);
+                c.writeLong(offset, hashIndexMaxCapacity);
+                offset += 8;
+                c.writeInt(offset, -1);
+
+                long time = System.currentTimeMillis();
+                clear = time - start;
+                start = time;
+
 
                 BolBuffer key = new BolBuffer();
                 BolBuffer entryBuffer = new BolBuffer();
 
-                RandomAccessBackPointerReadable readable = new RandomAccessBackPointerReadable(f);
                 long activeOffset = 0;
+
+                int batchSize = 1024 * 10;
+                int batchCount = 0;
+                long[] hashIndexes = new long[batchSize];
+                long[] startOfEntryOffsets = new long[batchSize];
 
                 NEXT_ENTRY:
                 while (true) {
-                    int type = readable.read(activeOffset);
+                    int type = c.read(activeOffset);
                     activeOffset++;
 
                     if (type == ENTRY) {
                         long startOfEntryOffset = activeOffset;
-                        activeOffset += rawhide.rawEntryToBuffer(readable, activeOffset, entryBuffer);
+                        activeOffset += rawhide.rawEntryToBuffer(c, activeOffset, entryBuffer);
 
                         BolBuffer k = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, key);
 
                         long hashIndex = k.longHashCode() % hashIndexMaxCapacity;
 
-                        int i = 0;
-                        while (i < hashIndexMaxCapacity) {
-                            long pos = length + (hashIndex * (8 + 1));
-                            f.seek(pos);
-                            long v = f.readLong();
-                            if (v == -1) {
-                                f.seek(pos);
-                                f.writeLong(startOfEntryOffset);
+                        hashIndexes[batchCount] = hashIndex;
+                        startOfEntryOffsets[batchCount] = startOfEntryOffset;
+                        batchCount++;
 
-                                if (i < 32) {
-                                    runHisto[i]++;
-                                } else {
-                                    runHisto[32]++;
-                                }
-                                continue NEXT_ENTRY;
-                            } else {
-                                f.write(1);
-                                i++;
-                                hashIndex = (++hashIndex) % hashIndexMaxCapacity;
-                            }
+                        if (batchCount == batchSize) {
+                            hash(runHisto, length, hashIndexMaxCapacity, c, startOfEntryOffsets, hashIndexes, batchCount);
+                            batchCount = 0;
                         }
-                        throw new IllegalStateException("WriteHashIndex failed to add entry because there was no free slot.");
-
-
+                        continue NEXT_ENTRY;
                     } else if (type == FOOTER) {
                         break;
                     } else if (type == LEAP) {
-                        activeOffset += f.readInt();
+                        activeOffset += c.readInt(activeOffset);
                     } else {
                         throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
                     }
                 }
+                if (batchCount > 0) {
+                    hash(runHisto, length, hashIndexMaxCapacity, c, startOfEntryOffsets, hashIndexes, batchCount);
+                }
                 f.getFD().sync();
 
-
-                /*String name = appendOnlyFile.getFile().getName();
-                System.out.println(">>>indexBegin " + name);
-                BolBuffer peek = new BolBuffer();
-                f.seek(length);
-                for (int i = 0; i < hashIndexMaxCapacity; i++) {
-                    long pos = length + (i * 9);
-                    f.seek(pos);
-                    long v = f.readLong();
-                    int run = f.read();
-                    peek.allocate(0);
-                    if (v != -1) {
-                        rawhide.rawEntryToBuffer(readable, v, entryBuffer);
-                        BolBuffer k = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, peek);
-                        System.out.println(pos + " index: " + name + " " + v + " " + run + " " + Arrays.toString(k.copy()));
-                    } else {
-                        System.out.println(pos + " index: " + name + " " + v + " " + run);
-                    }
-
-                }
-                System.out.println("<<<<indexEnd " + name);*/
-
-
             } finally {
+                c.close();
                 f.close();
             }
 
-            LOG.info("Built hash index for {} entries in {} millis", count, System.currentTimeMillis() - start);
+            LOG.info("Built hash index for {} entries in {} + {} millis  cost: {} bytes", count, clear, System.currentTimeMillis() - start,
+                hashIndexSizeInBytes);
 
             for (int i = 0; i < 32; i++) {
                 if (runHisto[i] > 0) {
@@ -301,51 +284,37 @@ public class LABAppendableIndex implements RawAppendableIndex {
         }
     }
 
-    private class RandomAccessBackPointerReadable implements IPointerReadable {
-        private final RandomAccessFile f;
+    private void hash(long[] runHisto,
+        long length,
+        long hashIndexMaxCapacity,
+        PointerReadableByteBufferFile c,
+        long[] startOfEntryOffset,
+        long[] hashIndex,
+        int count) throws IOException {
 
-        private RandomAccessBackPointerReadable(RandomAccessFile f) {
-            this.f = f;
-        }
 
-        @Override
-        public long length() {
-            throw new UnsupportedOperationException();
-        }
+        NEXT: for (int i = 0; i < count; i++) {
+            long hi = hashIndex[i];
+            int l = 0;
+            while (l < hashIndexMaxCapacity) {
+                long pos = length + (hi * (8 + 1));
+                long v = c.readLong(pos);
+                if (v == -1) {
+                    c.writeLong(pos, startOfEntryOffset[i]);
 
-        @Override
-        public int read(long readPointer) throws IOException {
-            f.seek(readPointer);
-            return f.read();
-        }
-
-        @Override
-        public int readInt(long readPointer) throws IOException {
-            f.seek(readPointer);
-            return f.readInt();
-        }
-
-        @Override
-        public long readLong(long readPointer) throws IOException {
-            f.seek(readPointer);
-            return f.readLong();
-        }
-
-        @Override
-        public int read(long readPointer, byte[] b, int _offset, int _len) throws IOException {
-            f.seek(readPointer);
-            return f.read(b, _offset, _len);
-        }
-
-        @Override
-        public void close() throws IOException {
-        }
-
-        @Override
-        public BolBuffer sliceIntoBuffer(long readPointer, int length, BolBuffer entryBuffer) throws IOException {
-            entryBuffer.allocate(length);
-            read(readPointer, entryBuffer.bytes, 0, length);
-            return null;
+                    if (l < 32) {
+                        runHisto[l]++;
+                    } else {
+                        runHisto[32]++;
+                    }
+                    continue NEXT;
+                } else {
+                    c.write(pos + 8, (byte) 1);
+                    l++;
+                    hi = (++hi) % hashIndexMaxCapacity;
+                }
+            }
+            throw new IllegalStateException("WriteHashIndex failed to add entry because there was no free slot.");
         }
     }
 

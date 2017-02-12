@@ -112,7 +112,6 @@ public class ActiveScan {
         }
 
         if (exact && hashIndexMaxCapacity > 0) {
-
             long exactRowIndex = get(hashIndexMaxCapacity, bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
             if (exactRowIndex >= -1) {
                 return exactRowIndex > -1 ? exactRowIndex - 1 : -1;

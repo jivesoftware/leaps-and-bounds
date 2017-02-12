@@ -2,23 +2,29 @@ package com.jivesoftware.os.lab.io;
 
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
+import com.jivesoftware.os.mlogger.core.MetricLogger;
+import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
 
 /**
  *
  */
 public class PointerReadableByteBufferFile implements IPointerReadable {
 
+    public static final MetricLogger LOG = MetricLoggerFactory.getLogger();
+
     public static final long MAX_BUFFER_SEGMENT_SIZE = UIO.chunkLength(30);
     public static final long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
 
     private final long maxBufferSegmentSize;
     private final File file;
+    private final boolean writeable;
     private final long length;
 
     private final ByteBuffer[] bbs;
@@ -27,11 +33,12 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
     private final long fseekMask;
 
     public PointerReadableByteBufferFile(long maxBufferSegmentSize,
-        File file) throws IOException {
+        File file, boolean writeable) throws IOException {
 
         this.maxBufferSegmentSize = Math.min(UIO.chunkLength(UIO.chunkPower(maxBufferSegmentSize, 0)), MAX_BUFFER_SEGMENT_SIZE);
 
         this.file = file;
+        this.writeable = writeable;
 
         // test power of 2
         if ((this.maxBufferSegmentSize & (this.maxBufferSegmentSize - 1)) == 0) {
@@ -41,7 +48,7 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             throw new IllegalArgumentException("It's hard to ensure powers of 2");
         }
         this.length = file.length();
-        long position = length;
+        long position = this.length;
         int filerIndex = (int) (position >> fShift);
         long filerSeek = position & fseekMask;
 
@@ -65,14 +72,15 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
     private ByteBuffer allocate(int index, long length) throws IOException {
         long segmentOffset = maxBufferSegmentSize * index;
         long requiredLength = segmentOffset + length;
-        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile(file, writeable ? "rw" : "r")) {
             if (requiredLength > raf.length()) {
                 raf.seek(requiredLength - 1);
                 raf.write(0);
             }
             raf.seek(segmentOffset);
             try (FileChannel channel = raf.getChannel()) {
-                return channel.map(FileChannel.MapMode.READ_WRITE, segmentOffset, Math.min(maxBufferSegmentSize, channel.size() - segmentOffset));
+                return channel.map(writeable ? FileChannel.MapMode.READ_WRITE : MapMode.READ_ONLY,
+                    segmentOffset, Math.min(maxBufferSegmentSize, channel.size() - segmentOffset));
             }
         }
     }
@@ -244,4 +252,56 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             }
         }
     }
+
+
+    public void write(long position, byte b) throws IOException {
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+        bbs[bbIndex].put(bbSeek, b);
+    }
+
+    public void writeShort(long position, short v) throws IOException {
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+
+        if (hasRemaining(bbIndex, bbSeek, 2)) {
+            bbs[bbIndex].putShort(bbSeek, v);
+        } else {
+            write(position, (byte) (v >>> 8));
+            write(position + 1, (byte) (v >>> 0));
+        }
+    }
+
+    public void writeInt(long position, int v) throws IOException {
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+
+        if (hasRemaining(bbIndex, bbSeek, 4)) {
+            bbs[bbIndex].putInt(bbSeek, v);
+        } else {
+            write(position, (byte) (v >>> 24));
+            write(position + 1, (byte) (v >>> 16));
+            write(position + 2, (byte) (v >>> 8));
+            write(position + 3, (byte) (v >>> 0));
+        }
+    }
+
+    public void writeLong(long position, long v) throws IOException {
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+
+        if (hasRemaining(bbIndex, bbSeek, 8)) {
+            bbs[bbIndex].putLong(bbSeek, v);
+        } else {
+            write(position, (byte) (v >>> 56));
+            write(position + 1, (byte) (v >>> 48));
+            write(position + 2, (byte) (v >>> 40));
+            write(position + 3, (byte) (v >>> 32));
+            write(position + 4, (byte) (v >>> 24));
+            write(position + 5, (byte) (v >>> 16));
+            write(position + 6, (byte) (v >>> 8));
+            write(position + 7, (byte) (v >>> 0));
+        }
+    }
+
 }
