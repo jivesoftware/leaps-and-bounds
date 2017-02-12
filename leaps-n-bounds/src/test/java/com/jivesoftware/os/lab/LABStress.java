@@ -17,6 +17,7 @@ import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import com.jivesoftware.os.mlogger.core.ValueType;
 import java.io.File;
+import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -36,7 +37,7 @@ public class LABStress {
     public void stressWritesTest() throws Exception {
 
         File root = Files.createTempDir();
-        ValueIndex index = createIndex(root);
+        ValueIndex index = createIndex(root, 1d);
 
         int totalCardinality = 100_000_000;
 
@@ -70,7 +71,7 @@ public class LABStress {
         System.out.println("-------------------------------");
 
         root = Files.createTempDir();
-        index = createIndex(root);
+        index = createIndex(root, 1d);
 
         // ---
         System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
@@ -117,8 +118,8 @@ public class LABStress {
             0, // writesPerSecond
             0, //writeCount
             false, // writeMonotonicly
-            60, //readForNSeconds
-            1_000_000, // readCount
+            10, //readForNSeconds
+            100_000_000, // readCount
             false); // removes
 
         System.out.println("\n\n");
@@ -131,7 +132,7 @@ public class LABStress {
 
     }
 
-    private ValueIndex createIndex(File root) throws Exception {
+    private ValueIndex createIndex(File root, double hashIndexLoadFactor) throws Exception {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
@@ -164,12 +165,12 @@ public class LABStress {
             1024 * 1024, // maxHeapPressureInBytes
             -1, // splitWhenKeysTotalExceedsNBytes
             -1, // splitWhenValuesTotalExceedsNBytes
-            1024 * 1024 * 10, // splitWhenValuesAndKeysTotalExceedsNBytes
+            1024 * 1024 * 100, // splitWhenValuesAndKeysTotalExceedsNBytes
             NoOpFormatTransformerProvider.NAME,
             "8x8fixedWidthRawhide", //new LABRawhide(),
             MemoryRawEntryFormat.NAME,
-            1,
-            2d));
+            24,
+            hashIndexLoadFactor));
         return index;
     }
 
@@ -293,16 +294,20 @@ public class LABStress {
             LOG.set(ValueType.VALUE, "pointTxIndexCount", LAB.pointTxIndexCount.get());
             LOG.set(ValueType.VALUE, "pointTxCalled", LAB.pointTxCalled.get());
 
+            DecimalFormat formatter = new DecimalFormat("#,###.00");
+
             System.out.println(name + ":" + c
-                + ", " + writesPerSecond
-                + ", " + writeRate
-                + ", " + writeElapse
-                + ", " + reads
-                + ", " + readRate
-                + ", " + readElapse
-                + ", " + hits.get() + ", " + misses.get()
-                + ", " + RangeStripedCompactableIndexes.mergeCount.get() + ", " + RangeStripedCompactableIndexes.splitCount.get()
-                + ", " + (LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get()));
+                + ", " + formatter.format(writesPerSecond)
+                + ", " + formatter.format(writeRate)
+                + ", " + formatter.format(writeElapse)
+                + ", " + formatter.format(reads)
+                + ", " + formatter.format(readRate)
+                + ", " + formatter.format(readElapse)
+                + ", " + formatter.format(hits.get())
+                + ", " + formatter.format(misses.get())
+                + ", " + RangeStripedCompactableIndexes.mergeCount.get()
+                + ", " + RangeStripedCompactableIndexes.splitCount.get()
+                + ", " + formatter.format((LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get())));
 
         }
 

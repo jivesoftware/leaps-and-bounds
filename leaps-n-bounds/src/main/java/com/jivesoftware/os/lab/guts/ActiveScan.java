@@ -5,6 +5,7 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
@@ -32,9 +33,10 @@ public class ActiveScan {
     private final long cacheKey;
     private final LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
     private final Footer footer;
-    private final IPointerReadable readable;
+    private final PointerReadableByteBufferFile readable;
     private final byte[] cacheKeyBuffer;
     private final long hashIndexMaxCapacity;
+    private final byte hashIndexLongPrecision;
     private long activeFp = Long.MAX_VALUE;
     private long activeOffset = -1;
     private boolean activeResult;
@@ -47,9 +49,10 @@ public class ActiveScan {
         long cacheKey,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         Footer footer,
-        IPointerReadable readable,
+        PointerReadableByteBufferFile readable,
         byte[] cacheKeyBuffer,
-        long hashIndexMaxCapacity) {
+        long hashIndexMaxCapacity,
+        byte hashIndexLongPrecision) {
         this.name = name;
 
         this.rawhide = rawhide;
@@ -62,6 +65,7 @@ public class ActiveScan {
         this.readable = readable;
         this.cacheKeyBuffer = cacheKeyBuffer;
         this.hashIndexMaxCapacity = hashIndexMaxCapacity;
+        this.hashIndexLongPrecision = hashIndexLongPrecision;
     }
 
     public boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
@@ -112,7 +116,7 @@ public class ActiveScan {
         }
 
         if (exact && hashIndexMaxCapacity > 0) {
-            long exactRowIndex = get(hashIndexMaxCapacity, bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
+            long exactRowIndex = get(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
             if (exactRowIndex >= -1) {
                 return exactRowIndex > -1 ? exactRowIndex - 1 : -1;
             }
@@ -207,8 +211,7 @@ public class ActiveScan {
         }
     }
 
-    public long get(long hashIndexMaxCapacity,
-        BolBuffer compareKey,
+    public long get(BolBuffer compareKey,
         BolBuffer entryBuffer,
         BolBuffer keyBuffer,
         FormatTransformer readKeyFormatTransformer,
@@ -216,21 +219,22 @@ public class ActiveScan {
         Rawhide rawhide) throws Exception {
 
 
-        long headOffset = readable.length() - (((8 + 1) * hashIndexMaxCapacity) + 8 + 4);
+        long headOffset = readable.length() - (((hashIndexLongPrecision + 1) * hashIndexMaxCapacity) + 1 + 8 + 4);
         long hashIndex = compareKey.longHashCode() % hashIndexMaxCapacity;
 
         int i = 0;
         while (i < hashIndexMaxCapacity) {
-            long readPointer = headOffset + (hashIndex * (8 + 1));
-            long offset = readable.readLong(readPointer);
-            if (offset == -1L) {
-                return offset;
+            long readPointer = headOffset + (hashIndex * (hashIndexLongPrecision + 1));
+            long offset = readable.readVPLong(readPointer, hashIndexLongPrecision);
+            if (offset == 0L) {
+                return -1L;
             } else {
+                offset--; // since we add one at creation time so zero can be null
                 rawhide.rawEntryToBuffer(readable, offset, entryBuffer);
                 if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, keyBuffer, compareKey) == 0) {
                     return offset;
                 }
-                int run = readable.read(readPointer + 8);
+                int run = readable.read(readPointer + hashIndexLongPrecision);
                 if (run == 0) {
                     return -1L;
                 }

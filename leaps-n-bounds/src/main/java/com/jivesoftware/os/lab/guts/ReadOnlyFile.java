@@ -1,7 +1,6 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -18,7 +17,7 @@ public class ReadOnlyFile {
     private final RandomAccessFile randomAccessFile;
     private final long size;
 
-    private volatile IPointerReadable pointerReadable;
+    private volatile PointerReadableByteBufferFile pointerReadable;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public ReadOnlyFile(File file) throws IOException {
@@ -39,7 +38,7 @@ public class ReadOnlyFile {
         return closed.get();
     }
 
-    public IPointerReadable pointerReadable(long bufferSegmentSize) throws IOException {
+    public PointerReadableByteBufferFile pointerReadable(long bufferSegmentSize) throws IOException {
         if (pointerReadable == null) {
             pointerReadable = new PointerReadableByteBufferFile(bufferSegmentSize > 0 ? bufferSegmentSize : BUFFER_SEGMENT_SIZE, file, false);
         }

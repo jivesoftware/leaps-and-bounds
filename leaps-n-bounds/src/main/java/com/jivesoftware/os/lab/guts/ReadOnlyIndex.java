@@ -35,6 +35,7 @@ public class ReadOnlyIndex {
     private final FormatTransformer readValueFormatTransformer;
     private final Rawhide rawhide;
     private long hashIndexMaxCapacity = 0;
+    private byte hashIndexLongPrecision = 0;
     private Leaps leaps; // loaded when reading
     private ReadLeapsAndBoundsIndex readLeapsAndBoundsIndex; // allocated when reading
 
@@ -68,10 +69,11 @@ public class ReadOnlyIndex {
         int footerLength = readable.readInt(seekTo);
         long hashIndexSizeInBytes = 0;
         if (footerLength == -1) { // has hash index tacked onto the end.
-            seekTo = indexLength - (4 + 8);
+            seekTo = indexLength - (1 + 8 + 4);
             seekToBoundsCheck(seekTo, indexLength);
-            hashIndexMaxCapacity = readable.readLong(seekTo);
-            hashIndexSizeInBytes = (hashIndexMaxCapacity * (8 + 1)) + 4 + 8;
+            hashIndexLongPrecision = (byte) readable.read(seekTo);
+            hashIndexMaxCapacity = readable.readLong(seekTo + 1);
+            hashIndexSizeInBytes = (hashIndexMaxCapacity * (hashIndexLongPrecision + 1)) + 1 + 8 + 4;
             seekTo = indexLength - (hashIndexSizeInBytes + 4);
             seekToBoundsCheck(seekTo, indexLength);
             footerLength = readable.readInt(seekTo);
@@ -125,10 +127,11 @@ public class ReadOnlyIndex {
                 int footerLength = readableIndex.readInt(seekTo);
                 long hashIndexSizeInBytes = 0;
                 if (footerLength == -1) { // has hash index tacked onto the end.
-                    seekTo = indexLength - (4 + 8);
+                    seekTo = indexLength - (1 + 8 + 4);
                     seekToBoundsCheck(seekTo, indexLength);
-                    long hashIndexMaxCapacity = readableIndex.readLong(seekTo);
-                    hashIndexSizeInBytes = (hashIndexMaxCapacity * (8 + 1)) + 4 + 8;
+                    byte hashIndexLongPrecision = (byte) readableIndex.read(seekTo);
+                    long hashIndexMaxCapacity = readableIndex.readLong(seekTo + 1);
+                    hashIndexSizeInBytes = (hashIndexMaxCapacity * (hashIndexLongPrecision + 1)) + 1 + 8 + 4;
                     seekTo = indexLength - (hashIndexSizeInBytes + 4);
                     seekToBoundsCheck(seekTo, indexLength);
                     footerLength = readableIndex.readInt(seekTo);
@@ -169,7 +172,8 @@ public class ReadOnlyIndex {
                             footer,
                             readOnlyFile.pointerReadable(-1),
                             new byte[16],
-                            hashIndexMaxCapacity);
+                            hashIndexMaxCapacity,
+                            hashIndexLongPrecision);
                         return activeScan;
                     }
                 );

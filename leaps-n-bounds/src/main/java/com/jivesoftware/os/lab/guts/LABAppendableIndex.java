@@ -10,6 +10,7 @@ import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
+import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
@@ -195,22 +196,47 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
             RandomAccessFile f = new RandomAccessFile(appendOnlyFile.getFile(), "rw");
             long length = f.length();
+
+            int chunkPower = UIO.chunkPower(length + 1, 0);
+            byte hashIndexLongPrecision;
+            if (chunkPower < 8) {
+                hashIndexLongPrecision = 1;
+            } else if (chunkPower < 16) {
+                hashIndexLongPrecision = 2;
+            } else if (chunkPower < 24) {
+                hashIndexLongPrecision = 3;
+            } else if (chunkPower < 32) {
+                hashIndexLongPrecision = 4;
+            } else if (chunkPower < 40) {
+                hashIndexLongPrecision = 5;
+            } else if (chunkPower < 48) {
+                hashIndexLongPrecision = 6;
+            } else if (chunkPower < 56) {
+                hashIndexLongPrecision = 7;
+            } else {
+                hashIndexLongPrecision = 8;
+            }
+
             long hashIndexMaxCapacity = count + (long) (count * hashIndexLoadFactor);
-            long hashIndexSizeInBytes = hashIndexMaxCapacity * (8 + 1);
-            f.setLength(length + hashIndexSizeInBytes + 8 + 4);
+            long hashIndexSizeInBytes = hashIndexMaxCapacity * (hashIndexLongPrecision + 1);
+            f.setLength(length + hashIndexSizeInBytes + 1 + 8 + 4);
 
             PointerReadableByteBufferFile c = new PointerReadableByteBufferFile(ReadOnlyFile.BUFFER_SEGMENT_SIZE, appendOnlyFile.getFile(), true);
 
             long start = System.currentTimeMillis();
             long clear = 0;
+            int worstRun = 0;
+
             try {
                 long offset = length;
                 for (int i = 0; i < hashIndexMaxCapacity; i++) {
-                    c.writeLong(offset, -1L);
-                    offset += 8;
+                    c.writeVPLong(offset, 0, hashIndexLongPrecision);
+                    offset += hashIndexLongPrecision;
                     c.write(offset, (byte) 0);
                     offset++;
                 }
+                c.write(offset, (byte) hashIndexLongPrecision);
+                offset++;
                 c.writeLong(offset, hashIndexMaxCapacity);
                 offset += 8;
                 c.writeInt(offset, -1);
@@ -248,7 +274,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
                         batchCount++;
 
                         if (batchCount == batchSize) {
-                            hash(runHisto, length, hashIndexMaxCapacity, c, startOfEntryOffsets, hashIndexes, batchCount);
+                            int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
+                            worstRun = Math.max(maxRun,worstRun);
                             batchCount = 0;
                         }
                         continue NEXT_ENTRY;
@@ -261,7 +288,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
                     }
                 }
                 if (batchCount > 0) {
-                    hash(runHisto, length, hashIndexMaxCapacity, c, startOfEntryOffsets, hashIndexes, batchCount);
+                    int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
+                    worstRun = Math.max(maxRun,worstRun);
                 }
                 f.getFD().sync();
 
@@ -270,8 +298,13 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 f.close();
             }
 
-            LOG.info("Built hash index for {} entries in {} + {} millis  cost: {} bytes", count, clear, System.currentTimeMillis() - start,
-                hashIndexSizeInBytes);
+            LOG.info("Built hash index for {} entries in {} + {} millis precision: {} cost: {} bytes worstRun:{}",
+                count,
+                clear,
+                System.currentTimeMillis() - start,
+                hashIndexLongPrecision,
+                hashIndexSizeInBytes,
+                worstRun);
 
             for (int i = 0; i < 32; i++) {
                 if (runHisto[i] > 0) {
@@ -284,38 +317,41 @@ public class LABAppendableIndex implements RawAppendableIndex {
         }
     }
 
-    private void hash(long[] runHisto,
+    private int hash(long[] runHisto,
         long length,
         long hashIndexMaxCapacity,
+        byte hashIndexLongPrecision,
         PointerReadableByteBufferFile c,
         long[] startOfEntryOffset,
         long[] hashIndex,
         int count) throws IOException {
 
-
-        NEXT: for (int i = 0; i < count; i++) {
+        int worstRun = 0;
+        NEXT:
+        for (int i = 0; i < count; i++) {
             long hi = hashIndex[i];
-            int l = 0;
-            while (l < hashIndexMaxCapacity) {
-                long pos = length + (hi * (8 + 1));
-                long v = c.readLong(pos);
-                if (v == -1) {
-                    c.writeLong(pos, startOfEntryOffset[i]);
-
-                    if (l < 32) {
-                        runHisto[l]++;
+            int r = 0;
+            while (r < hashIndexMaxCapacity) {
+                long pos = length + (hi * (hashIndexLongPrecision + 1));
+                long v = c.readVPLong(pos, hashIndexLongPrecision);
+                if (v == 0) {
+                    c.writeVPLong(pos, startOfEntryOffset[i] + 1, hashIndexLongPrecision); // +1 so 0 can be null
+                    worstRun = Math.max(r,worstRun);
+                    if (r < 32) {
+                        runHisto[r]++;
                     } else {
                         runHisto[32]++;
                     }
                     continue NEXT;
                 } else {
-                    c.write(pos + 8, (byte) 1);
-                    l++;
+                    c.write(pos + hashIndexLongPrecision, (byte) 1);
+                    r++;
                     hi = (++hi) % hashIndexMaxCapacity;
                 }
             }
             throw new IllegalStateException("WriteHashIndex failed to add entry because there was no free slot.");
         }
+        return worstRun;
     }
 
     public void close() throws IOException {

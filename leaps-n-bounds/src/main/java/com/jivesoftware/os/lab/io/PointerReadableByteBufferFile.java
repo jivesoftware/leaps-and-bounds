@@ -304,4 +304,101 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         }
     }
 
+
+    public long readVPLong(long position, byte longPrecision) throws IOException {
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+
+        if (hasRemaining(bbIndex, bbSeek, longPrecision)) {
+            ByteBuffer bb = bbs[bbIndex];
+            long v = 0;
+            for (int i = 0; i < longPrecision; i++) {
+                v |= (bb.get(bbSeek + i) & 0xFF);
+                if (i + 1 < longPrecision) {
+                    v <<= 8;
+                }
+            }
+            return v;
+        } else {
+            long v = 0;
+            for (int i = 0; i < longPrecision; i++) {
+                v |= (readAtleastOne(position + i) & 0xFF);
+                if (i + 1 < longPrecision) {
+                    v <<= 8;
+                }
+            }
+            return v;
+        }
+    }
+
+
+    public void writeVPLong(long position, long v, byte longPrecision) throws IOException {
+        int bbIndex = (int) (position >> fShift);
+        int bbSeek = (int) (position & fseekMask);
+
+        if (hasRemaining(bbIndex, bbSeek, longPrecision)) {
+            ByteBuffer bb = bbs[bbIndex];
+            for (int i = 0, shift = (8 * longPrecision) - 8; i < longPrecision; i++, shift -= 8) {
+                bb.put(bbSeek + i, (byte) (v >>> shift));
+            }
+        } else {
+            for (int i = 0, shift = (8 * longPrecision) - 8; i < longPrecision; i++, shift -= 8) {
+                write(position + i, (byte) (v >>> shift));
+            }
+        }
+    }
+
+
+    public static void main(String[] args) {
+
+        long r = 123456;
+        byte longPrecision = 8;
+        byte[] bytes = new byte[longPrecision];
+
+        for (int i = 0, shift = (8 * longPrecision) - 8; i < longPrecision; i++, shift -= 8) {
+            bytes[i] = (byte) (r >>> shift);
+
+            System.out.println(i + " " + bytes[i] + " " + shift);
+        }
+
+        System.out.println("---");
+        long v = 0;
+        for (int i = 0; i < longPrecision; i++) {
+            v |= (bytes[i] & 0xFF);
+            if (i + 1 < longPrecision) {
+                v <<= 8;
+            }
+            System.out.println(i + " " + bytes[i] + " " + v);
+        }
+        System.out.println(v);
+        System.out.println(UIO.bytesLong(bytes));
+    }
+
+    /*
+
+
+     public static long bytesLong(byte[] bytes, int _offset) {
+        if (bytes == null) {
+            return 0;
+        }
+        long v = 0;
+        v |= (bytes[_offset + 0] & 0xFF);
+        v <<= 8;
+        v |= (bytes[_offset + 1] & 0xFF);
+        v <<= 8;
+        v |= (bytes[_offset + 2] & 0xFF);
+        v <<= 8;
+        v |= (bytes[_offset + 3] & 0xFF);
+        v <<= 8;
+        v |= (bytes[_offset + 4] & 0xFF);
+        v <<= 8;
+        v |= (bytes[_offset + 5] & 0xFF);
+        v <<= 8;
+        v |= (bytes[_offset + 6] & 0xFF);
+        v <<= 8;
+        v |= (bytes[_offset + 7] & 0xFF);
+        return v;
+    }
+     */
+
 }
