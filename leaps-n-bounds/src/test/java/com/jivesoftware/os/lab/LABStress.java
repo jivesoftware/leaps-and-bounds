@@ -36,8 +36,9 @@ public class LABStress {
     @Test(enabled = true)
     public void stressWritesTest() throws Exception {
 
+        double hashIndexLoadFactor = 1d;
         File root = Files.createTempDir();
-        ValueIndex index = createIndex(root, 1d);
+        ValueIndex index = createIndex(root, hashIndexLoadFactor);
 
         int totalCardinality = 100_000_000;
 
@@ -71,7 +72,7 @@ public class LABStress {
         System.out.println("-------------------------------");
 
         root = Files.createTempDir();
-        index = createIndex(root, 1d);
+        index = createIndex(root, hashIndexLoadFactor);
 
         // ---
         System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
@@ -119,7 +120,7 @@ public class LABStress {
             0, //writeCount
             false, // writeMonotonicly
             10, //readForNSeconds
-            100_000_000, // readCount
+            50_000_000, // readCount
             false); // removes
 
         System.out.println("\n\n");

@@ -198,27 +198,10 @@ public class LABAppendableIndex implements RawAppendableIndex {
             long length = f.length();
 
             int chunkPower = UIO.chunkPower(length + 1, 0);
-            byte hashIndexLongPrecision;
-            if (chunkPower < 8) {
-                hashIndexLongPrecision = 1;
-            } else if (chunkPower < 16) {
-                hashIndexLongPrecision = 2;
-            } else if (chunkPower < 24) {
-                hashIndexLongPrecision = 3;
-            } else if (chunkPower < 32) {
-                hashIndexLongPrecision = 4;
-            } else if (chunkPower < 40) {
-                hashIndexLongPrecision = 5;
-            } else if (chunkPower < 48) {
-                hashIndexLongPrecision = 6;
-            } else if (chunkPower < 56) {
-                hashIndexLongPrecision = 7;
-            } else {
-                hashIndexLongPrecision = 8;
-            }
+            byte hashIndexLongPrecision = (byte) Math.min((chunkPower / 8) + 1, 8);
 
             long hashIndexMaxCapacity = count + (long) (count * hashIndexLoadFactor);
-            long hashIndexSizeInBytes = hashIndexMaxCapacity * (hashIndexLongPrecision + 1);
+            long hashIndexSizeInBytes = hashIndexMaxCapacity * hashIndexLongPrecision;
             f.setLength(length + hashIndexSizeInBytes + 1 + 8 + 4);
 
             PointerReadableByteBufferFile c = new PointerReadableByteBufferFile(ReadOnlyFile.BUFFER_SEGMENT_SIZE, appendOnlyFile.getFile(), true);
@@ -232,8 +215,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 for (int i = 0; i < hashIndexMaxCapacity; i++) {
                     c.writeVPLong(offset, 0, hashIndexLongPrecision);
                     offset += hashIndexLongPrecision;
-                    c.write(offset, (byte) 0);
-                    offset++;
                 }
                 c.write(offset, (byte) hashIndexLongPrecision);
                 offset++;
@@ -275,7 +256,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
                         if (batchCount == batchSize) {
                             int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
-                            worstRun = Math.max(maxRun,worstRun);
+                            worstRun = Math.max(maxRun, worstRun);
                             batchCount = 0;
                         }
                         continue NEXT_ENTRY;
@@ -289,7 +270,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 }
                 if (batchCount > 0) {
                     int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
-                    worstRun = Math.max(maxRun,worstRun);
+                    worstRun = Math.max(maxRun, worstRun);
                 }
                 f.getFD().sync();
 
@@ -332,11 +313,11 @@ public class LABAppendableIndex implements RawAppendableIndex {
             long hi = hashIndex[i];
             int r = 0;
             while (r < hashIndexMaxCapacity) {
-                long pos = length + (hi * (hashIndexLongPrecision + 1));
+                long pos = length + (hi * hashIndexLongPrecision);
                 long v = c.readVPLong(pos, hashIndexLongPrecision);
                 if (v == 0) {
                     c.writeVPLong(pos, startOfEntryOffset[i] + 1, hashIndexLongPrecision); // +1 so 0 can be null
-                    worstRun = Math.max(r,worstRun);
+                    worstRun = Math.max(r, worstRun);
                     if (r < 32) {
                         runHisto[r]++;
                     } else {
@@ -344,7 +325,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
                     }
                     continue NEXT;
                 } else {
-                    c.write(pos + hashIndexLongPrecision, (byte) 1);
+                    c.writeVPLong(pos, -Math.abs(v), hashIndexLongPrecision);
                     r++;
                     hi = (++hi) % hashIndexMaxCapacity;
                 }

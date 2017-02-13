@@ -11,6 +11,7 @@ import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
+import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
@@ -25,7 +26,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LABNGTest {
@@ -75,7 +75,7 @@ public class LABNGTest {
                 }
                 return true;
             }, fsync, rawEntryBuffer, keyBuffer);
-
+            System.out.println("Pre Commit");
             long c = count.get();
             AtomicLong f;
             do {
@@ -85,8 +85,10 @@ public class LABNGTest {
                     System.out.println("SPINNING ");
                 }
                 fails.addAndGet(f.get());
-            } while (f.get() > 0);
+            }
+            while (f.get() > 0);
             index.commit(true, true);
+            System.out.println("Post Commit");
             do {
                 f = new AtomicLong();
                 assertRangeScan(c, index, f);
@@ -94,7 +96,8 @@ public class LABNGTest {
                     System.out.println("SPINNING");
                 }
                 fails.addAndGet(f.get());
-            } while (f.get() > 0);
+            }
+            while (f.get() > 0);
             System.out.println(c + " -------------------------------------");
         }
 
@@ -111,21 +114,37 @@ public class LABNGTest {
                 long ff = f;
                 long tt = t;
 
+                //System.out.println("scan:" + ff + " -> " + tt);
                 HashSet<Long> rangeScan = new HashSet<>();
                 index.rangeScan(UIO.longBytes(f, new byte[8], 0), UIO.longBytes(t, new byte[8], 0),
                     (index1, key, timestamp, tombstoned, version, payload) -> {
-                        boolean added = rangeScan.add(key.getLong(0));
+                        long got = key.getLong(0);
+                        boolean added = rangeScan.add(got);
                         //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
                         if (!added) {
                             fails.incrementAndGet();
-                            System.out.println("RANGE FAILED: from:" + ff + " to:" + tt + " already contained " + key.getLong(0));
+                            ((LAB)index).auditRanges(new KeyToString() {
+                                @Override
+                                public String keyToString(byte[] key) {
+                                    return ""+UIO.bytesLong(key);
+                                }
+                            });
+                            System.out.println("RANGE FAILED: from:" + ff + " to:" + tt + " already contained " + got);
+                            System.out.println();
                         }
                         return true;
                     }, true);
 
                 if (rangeScan.size() != t - f) {
                     fails.incrementAndGet();
+                    ((LAB)index).auditRanges(new KeyToString() {
+                        @Override
+                        public String keyToString(byte[] key) {
+                            return ""+UIO.bytesLong(key);
+                        }
+                    });
                     System.out.print("RANGE FAILED: from:" + f + " to:" + t + " result:" + rangeScan);
+                    System.out.println();
                 }
             }
 
@@ -137,7 +156,8 @@ public class LABNGTest {
             //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
             if (!added) {
                 fails.incrementAndGet();
-                System.out.println("RANGE FAILED: already contained " + key.getLong(0));
+                long got = key.getLong(0);
+                System.out.println("RANGE FAILED: already contained " + got);
             }
             return true;
         }, true);
@@ -202,15 +222,15 @@ public class LABNGTest {
             return true;
         }, true);
 
-        long[] expected = new long[]{1, 2, 3, 7, 8, 9};
+        long[] expected = new long[] { 1, 2, 3, 7, 8, 9 };
         testExpected(index, expected);
         testExpectedMultiGet(index, expected);
-        testNotExpected(index, new long[]{0, 4, 5, 6, 10});
-        testNotExpectedMultiGet(index, new long[]{0, 4, 5, 6, 10});
+        testNotExpected(index, new long[] { 0, 4, 5, 6, 10 });
+        testNotExpectedMultiGet(index, new long[] { 0, 4, 5, 6, 10 });
         testScanExpected(index, expected);
-        testRangeScanExpected(index, UIO.longBytes(2, new byte[8], 0), null, new long[]{2, 3, 7, 8, 9});
-        testRangeScanExpected(index, UIO.longBytes(2, new byte[8], 0), UIO.longBytes(7, new byte[8], 0), new long[]{2, 3});
-        testRangeScanExpected(index, UIO.longBytes(4, new byte[8], 0), UIO.longBytes(7, new byte[8], 0), new long[]{});
+        testRangeScanExpected(index, UIO.longBytes(2, new byte[8], 0), null, new long[] { 2, 3, 7, 8, 9 });
+        testRangeScanExpected(index, UIO.longBytes(2, new byte[8], 0), UIO.longBytes(7, new byte[8], 0), new long[] { 2, 3 });
+        testRangeScanExpected(index, UIO.longBytes(4, new byte[8], 0), UIO.longBytes(7, new byte[8], 0), new long[] {});
 
         index.commit(fsync, true);
 
@@ -221,13 +241,13 @@ public class LABNGTest {
             return true;
         }, fsync, rawEntryBuffer, keyBuffer);
 
-        expected = new long[]{7, 8, 9};
+        expected = new long[] { 7, 8, 9 };
         testExpected(index, expected);
         testExpectedMultiGet(index, expected);
-        testNotExpected(index, new long[]{0, 4, 5, 6, 10});
-        testNotExpectedMultiGet(index, new long[]{0, 4, 5, 6, 10});
+        testNotExpected(index, new long[] { 0, 4, 5, 6, 10 });
+        testNotExpectedMultiGet(index, new long[] { 0, 4, 5, 6, 10 });
         testScanExpected(index, expected);
-        testRangeScanExpected(index, UIO.longBytes(1, new byte[8], 0), UIO.longBytes(9, new byte[8], 0), new long[]{7, 8});
+        testRangeScanExpected(index, UIO.longBytes(1, new byte[8], 0), UIO.longBytes(9, new byte[8], 0), new long[] { 7, 8 });
 
         env.shutdown();
 
@@ -286,7 +306,7 @@ public class LABNGTest {
 
         Assert.assertFalse(index.isEmpty());
 
-        long[] expectedValues = new long[]{-1, 7};
+        long[] expectedValues = new long[] { -1, 7 };
 
         index.get((keyStream) -> {
             for (int i = 1; i < 2; i++) {

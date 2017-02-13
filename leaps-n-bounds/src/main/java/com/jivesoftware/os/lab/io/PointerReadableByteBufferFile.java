@@ -11,6 +11,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.Arrays;
 
 /**
  *
@@ -305,45 +306,78 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
     }
 
 
-    public long readVPLong(long position, byte longPrecision) throws IOException {
-        int bbIndex = (int) (position >> fShift);
-        int bbSeek = (int) (position & fseekMask);
+    public long readVPLong(long fp, byte precision) throws IOException {
+        int bbIndex = (int) (fp >> fShift);
+        int bbSeek = (int) (fp & fseekMask);
 
-        if (hasRemaining(bbIndex, bbSeek, longPrecision)) {
+        if (hasRemaining(bbIndex, bbSeek, precision)) {
             ByteBuffer bb = bbs[bbIndex];
+            byte b = bb.get(bbSeek);
+            boolean wasNegated = (b & 0x80) != 0;
+            b &= ~0x80;
+
             long v = 0;
-            for (int i = 0; i < longPrecision; i++) {
+            v |= (b & 0xFF);
+            for (int i = 1; i < precision; i++) {
+                v <<= 8;
                 v |= (bb.get(bbSeek + i) & 0xFF);
-                if (i + 1 < longPrecision) {
-                    v <<= 8;
-                }
+            }
+
+            if (wasNegated) {
+                v = -v;
             }
             return v;
         } else {
+            byte b = (byte) read(fp);
+            boolean wasNegated = (b & 0x80) != 0;
+            b &= ~0x80;
+
             long v = 0;
-            for (int i = 0; i < longPrecision; i++) {
-                v |= (readAtleastOne(position + i) & 0xFF);
-                if (i + 1 < longPrecision) {
-                    v <<= 8;
-                }
+            v |= (b & 0xFF);
+            for (int i = 1; i < precision; i++) {
+                v <<= 8;
+                v |= (read(fp + i) & 0xFF);
+            }
+
+            if (wasNegated) {
+                v = -v;
             }
             return v;
         }
     }
 
 
-    public void writeVPLong(long position, long v, byte longPrecision) throws IOException {
-        int bbIndex = (int) (position >> fShift);
-        int bbSeek = (int) (position & fseekMask);
+    public void writeVPLong(long fp, long value, byte precision) throws IOException {
+        int bbIndex = (int) (fp >> fShift);
+        int bbSeek = (int) (fp & fseekMask);
 
-        if (hasRemaining(bbIndex, bbSeek, longPrecision)) {
+        boolean needsNegation = false;
+        long flipped = value;
+        if (flipped < 0) {
+            needsNegation = true;
+            flipped = -flipped;
+        }
+
+        if (hasRemaining(bbIndex, bbSeek, precision)) {
             ByteBuffer bb = bbs[bbIndex];
-            for (int i = 0, shift = (8 * longPrecision) - 8; i < longPrecision; i++, shift -= 8) {
-                bb.put(bbSeek + i, (byte) (v >>> shift));
+            for (int i = 0, j = 0; i < precision; i++, j += 8) {
+                byte b = (byte) (flipped >>> j);
+                int offset = precision - i - 1;
+                if (offset == 0 && needsNegation) {
+                    bb.put(bbSeek, (byte) (b | (0x80)));
+                } else {
+                    bb.put(bbSeek + offset, b);
+                }
             }
         } else {
-            for (int i = 0, shift = (8 * longPrecision) - 8; i < longPrecision; i++, shift -= 8) {
-                write(position + i, (byte) (v >>> shift));
+            for (int i = 0, j = 0; i < precision; i++, j += 8) {
+                byte b = (byte) (flipped >>> j);
+                int offset = precision - i - 1;
+                if (i == offset && needsNegation) {
+                    write(fp, (byte) (b | (0x80)));
+                } else {
+                    write(fp + precision - i - 1, b);
+                }
             }
         }
     }
@@ -351,54 +385,48 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
 
     public static void main(String[] args) {
 
-        long r = 123456;
-        byte longPrecision = 8;
-        byte[] bytes = new byte[longPrecision];
+        long[] values = { -Long.MAX_VALUE, -Long.MAX_VALUE / 2, -65_536, -65_535, -65_534, -128, -127, -1, 0, 1, 127, 128, 65_534, 65_535, 65_536,
+            Long.MAX_VALUE / 2, Long.MAX_VALUE };
 
-        for (int i = 0, shift = (8 * longPrecision) - 8; i < longPrecision; i++, shift -= 8) {
-            bytes[i] = (byte) (r >>> shift);
+        for (long value : values) {
+            int chunkPower = UIO.chunkPower(value + 1, 1);
+            int precision = Math.min(chunkPower / 8 + 1, 8);
 
-            System.out.println(i + " " + bytes[i] + " " + shift);
-        }
-
-        System.out.println("---");
-        long v = 0;
-        for (int i = 0; i < longPrecision; i++) {
-            v |= (bytes[i] & 0xFF);
-            if (i + 1 < longPrecision) {
-                v <<= 8;
+            boolean needsNegation = false;
+            long flipped = value;
+            if (flipped < 0) {
+                needsNegation = true;
+                flipped = -flipped;
             }
-            System.out.println(i + " " + bytes[i] + " " + v);
+
+            byte[] bytes = new byte[precision];
+            for (int i = 0, j = 0; i < precision; i++, j += 8) {
+                bytes[precision - i - 1] = (byte) (flipped >>> j);
+            }
+            if (needsNegation) {
+                bytes[0] |= (0x80);
+            }
+
+            System.out.println(Arrays.toString(bytes));
+
+            boolean wasNegated = (bytes[0] & 0x80) != 0;
+            bytes[0] &= ~0x80;
+
+            long output = 0;
+            for (int i = 0; i < precision; i++) {
+                output <<= 8;
+                output |= (bytes[i] & 0xFF);
+            }
+
+            if (wasNegated) {
+                output = -output;
+            }
+
+            System.out.println(value + " (" + precision + ") -> " + output + " = " + (value == output));
         }
-        System.out.println(v);
-        System.out.println(UIO.bytesLong(bytes));
+
+
     }
 
-    /*
-
-
-     public static long bytesLong(byte[] bytes, int _offset) {
-        if (bytes == null) {
-            return 0;
-        }
-        long v = 0;
-        v |= (bytes[_offset + 0] & 0xFF);
-        v <<= 8;
-        v |= (bytes[_offset + 1] & 0xFF);
-        v <<= 8;
-        v |= (bytes[_offset + 2] & 0xFF);
-        v <<= 8;
-        v |= (bytes[_offset + 3] & 0xFF);
-        v <<= 8;
-        v |= (bytes[_offset + 4] & 0xFF);
-        v <<= 8;
-        v |= (bytes[_offset + 5] & 0xFF);
-        v <<= 8;
-        v |= (bytes[_offset + 6] & 0xFF);
-        v <<= 8;
-        v |= (bytes[_offset + 7] & 0xFF);
-        return v;
-    }
-     */
 
 }

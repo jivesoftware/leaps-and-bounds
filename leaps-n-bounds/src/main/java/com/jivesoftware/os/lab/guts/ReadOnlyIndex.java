@@ -34,6 +34,7 @@ public class ReadOnlyIndex {
     private final FormatTransformer readKeyFormatTransformer;
     private final FormatTransformer readValueFormatTransformer;
     private final Rawhide rawhide;
+    private long hashIndexHeadOffset = 0;
     private long hashIndexMaxCapacity = 0;
     private byte hashIndexLongPrecision = 0;
     private Leaps leaps; // loaded when reading
@@ -73,7 +74,8 @@ public class ReadOnlyIndex {
             seekToBoundsCheck(seekTo, indexLength);
             hashIndexLongPrecision = (byte) readable.read(seekTo);
             hashIndexMaxCapacity = readable.readLong(seekTo + 1);
-            hashIndexSizeInBytes = (hashIndexMaxCapacity * (hashIndexLongPrecision + 1)) + 1 + 8 + 4;
+            hashIndexSizeInBytes = (hashIndexMaxCapacity * hashIndexLongPrecision) + 1 + 8 + 4;
+            hashIndexHeadOffset = indexLength - hashIndexSizeInBytes;
             seekTo = indexLength - (hashIndexSizeInBytes + 4);
             seekToBoundsCheck(seekTo, indexLength);
             footerLength = readable.readInt(seekTo);
@@ -131,7 +133,7 @@ public class ReadOnlyIndex {
                     seekToBoundsCheck(seekTo, indexLength);
                     byte hashIndexLongPrecision = (byte) readableIndex.read(seekTo);
                     long hashIndexMaxCapacity = readableIndex.readLong(seekTo + 1);
-                    hashIndexSizeInBytes = (hashIndexMaxCapacity * (hashIndexLongPrecision + 1)) + 1 + 8 + 4;
+                    hashIndexSizeInBytes = (hashIndexMaxCapacity * hashIndexLongPrecision) + 1 + 8 + 4;
                     seekTo = indexLength - (hashIndexSizeInBytes + 4);
                     seekToBoundsCheck(seekTo, indexLength);
                     footerLength = readableIndex.readInt(seekTo);
@@ -172,6 +174,7 @@ public class ReadOnlyIndex {
                             footer,
                             readOnlyFile.pointerReadable(-1),
                             new byte[16],
+                            hashIndexHeadOffset,
                             hashIndexMaxCapacity,
                             hashIndexLongPrecision);
                         return activeScan;

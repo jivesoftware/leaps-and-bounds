@@ -35,6 +35,7 @@ public class ActiveScan {
     private final Footer footer;
     private final PointerReadableByteBufferFile readable;
     private final byte[] cacheKeyBuffer;
+    private final long hashIndexheadOffset;
     private final long hashIndexMaxCapacity;
     private final byte hashIndexLongPrecision;
     private long activeFp = Long.MAX_VALUE;
@@ -51,6 +52,7 @@ public class ActiveScan {
         Footer footer,
         PointerReadableByteBufferFile readable,
         byte[] cacheKeyBuffer,
+        long hashIndexHeadOffset,
         long hashIndexMaxCapacity,
         byte hashIndexLongPrecision) {
         this.name = name;
@@ -64,6 +66,7 @@ public class ActiveScan {
         this.footer = footer;
         this.readable = readable;
         this.cacheKeyBuffer = cacheKeyBuffer;
+        this.hashIndexheadOffset = hashIndexHeadOffset;
         this.hashIndexMaxCapacity = hashIndexMaxCapacity;
         this.hashIndexLongPrecision = hashIndexLongPrecision;
     }
@@ -219,30 +222,29 @@ public class ActiveScan {
         Rawhide rawhide) throws Exception {
 
 
-        long headOffset = readable.length() - (((hashIndexLongPrecision + 1) * hashIndexMaxCapacity) + 1 + 8 + 4);
         long hashIndex = compareKey.longHashCode() % hashIndexMaxCapacity;
 
         int i = 0;
         while (i < hashIndexMaxCapacity) {
-            long readPointer = headOffset + (hashIndex * (hashIndexLongPrecision + 1));
+            long readPointer = hashIndexheadOffset + (hashIndex * hashIndexLongPrecision);
             long offset = readable.readVPLong(readPointer, hashIndexLongPrecision);
             if (offset == 0L) {
                 return -1L;
             } else {
-                offset--; // since we add one at creation time so zero can be null
-                rawhide.rawEntryToBuffer(readable, offset, entryBuffer);
+                // since we add one at creation time so zero can be null
+                rawhide.rawEntryToBuffer(readable, Math.abs(offset) - 1, entryBuffer);
                 if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, keyBuffer, compareKey) == 0) {
-                    return offset;
+                    return Math.abs(offset) - 1;
                 }
                 int run = readable.read(readPointer + hashIndexLongPrecision);
-                if (run == 0) {
+                if (offset > 0) {
                     return -1L;
                 }
             }
             i++;
             hashIndex = (++hashIndex) % hashIndexMaxCapacity;
         }
-        throw new IllegalStateException("ReadOnlyHashIndex failed to get entry because programming is hard.");
+        throw new IllegalStateException("ActiveScan failed to get entry because programming is hard.");
 
     }
 }

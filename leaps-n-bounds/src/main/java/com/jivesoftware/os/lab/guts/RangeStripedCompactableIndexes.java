@@ -58,6 +58,7 @@ public class RangeStripedCompactableIndexes {
     private final int entriesBetweenLeaps;
     private final Object copyIndexOnWrite = new Object();
     private volatile ConcurrentSkipListMap<byte[], FileBackMergableIndexs> indexes;
+    private volatile Entry<byte[], FileBackMergableIndexs>[] indexesArray;
     private final long splitWhenKeysTotalExceedsNBytes;
     private final long splitWhenValuesTotalExceedsNBytes;
     private final long splitWhenValuesAndKeysTotalExceedsNBytes;
@@ -145,6 +146,8 @@ public class RangeStripedCompactableIndexes {
                         entry.getValue().mergeableIndexes));
                 }
             }
+
+            indexesArray = indexes.entrySet().toArray(new Entry[0]);
         }
     }
 
@@ -537,6 +540,7 @@ public class RangeStripedCompactableIndexes {
                                             rightStripe.mergeableIndexes));
                                 }
                                 indexes = copyOfIndexes;
+                                indexesArray = copyOfIndexes.entrySet().toArray(new Entry[0]);
                             }
                             compactableIndexes.destroy();
                             FileUtils.deleteQuietly(mergingRoot);
@@ -641,6 +645,7 @@ public class RangeStripedCompactableIndexes {
                     copyOfIndexes.putAll(indexes);
                     copyOfIndexes.put(minKey.bytes, index);
                     indexes = copyOfIndexes;
+                    indexesArray = copyOfIndexes.entrySet().toArray(new Entry[0]);
                 }
                 return;
             }
@@ -658,6 +663,7 @@ public class RangeStripedCompactableIndexes {
                         moved = copyOfIndexes.remove(tailMap.firstKey());
                         copyOfIndexes.put(minKey.bytes, moved);
                         indexes = copyOfIndexes;
+                        indexesArray = copyOfIndexes.entrySet().toArray(new Entry[0]);
                     }
                     tailMap = indexes.tailMap(minKey.bytes);
                 } else {
@@ -729,6 +735,7 @@ public class RangeStripedCompactableIndexes {
 
         THE_INSANITY:
         while (true) {
+            /*
             ConcurrentSkipListMap<byte[], FileBackMergableIndexs> stackCopy = indexes;
             if (stackCopy.isEmpty()) {
                 return tx.tx(index, from, to, EMPTY, hydrateValues);
@@ -752,42 +759,102 @@ public class RangeStripedCompactableIndexes {
                 map = stackCopy.headMap(to);
             } else {
                 map = stackCopy;
+            }*/
+
+            Entry<byte[], FileBackMergableIndexs>[] entries = indexesArray;
+            if (entries == null || entries.length == 0) {
+                return tx.tx(index, from, to, EMPTY, hydrateValues);
             }
 
-            if (map.isEmpty()) {
-                return tx.tx(index, from, to, EMPTY, hydrateValues);
-            } else {
-                boolean streamed = false;
-                @SuppressWarnings("unchecked")
-                Entry<byte[], FileBackMergableIndexs>[] entries = map.entrySet().toArray(new Entry[0]);
-                for (int i = 0; i < entries.length; i++) {
-                    Entry<byte[], FileBackMergableIndexs> entry = entries[i];
-                    byte[] start = i == 0 ? from : entries[i].getKey();
-                    byte[] end = i < entries.length - 1 ? entries[i + 1].getKey() : to;
-                    FileBackMergableIndexs mergableIndex = entry.getValue();
-                    try {
-                        TimestampAndVersion timestampAndVersion = mergableIndex.compactableIndexes.maxTimeStampAndVersion();
-                        if (rawhide.mightContain(timestampAndVersion.maxTimestamp,
-                            timestampAndVersion.maxTimestampVersion,
-                            newerThanTimestamp,
-                            newerThanTimestampVersion)) {
-                            streamed = true;
-                            if (!mergableIndex.tx(index, start, end, tx, hydrateValues)) {
-                                return false;
-                            }
-                        }
-                    } catch (LABConcurrentSplitException cse) {
-                        from = (i == 0) ? from : entry.getKey(); // Sorry! Dont rewind from where from is haha
-                        continue THE_INSANITY;
-                    }
-                }
-                if (!streamed) {
-                    return tx.tx(index, from, to, EMPTY, hydrateValues);
+            int fi = 0;
+            if (from != null) {
+                int i = binarySearch(rawhide, entries, from);
+                if (i > -1) {
+                    fi = i;
+                } else {
+                    int insertion = (-i) - 1;
+                    fi = insertion == 0 ? 0 : insertion - 1;
                 }
             }
+
+
+            int ti = entries.length - 1;
+            if (to != null) {
+                int i = binarySearch(rawhide, entries, to);
+                if (i > -1) {
+                    ti = from != null && Arrays.equals(from, to) ? i : i - 1;
+                } else {
+                    int insertion = (-i) - 1;
+                    if (insertion == 0) {
+                        return tx.tx(index, from, to, EMPTY, hydrateValues);
+                    }
+                    ti = insertion - 1;
+                }
+            }
+
+            /*if (map.isEmpty()) {
+                return tx.tx(index, from, to, EMPTY, hydrateValues);
+            } else {*/
+            boolean streamed = false;
+            //@SuppressWarnings("unchecked")
+            //Entry<byte[], FileBackMergableIndexs>[] entries = map.entrySet().toArray(new Entry[0]);
+            //int l = entries.length;
+            for (int i = fi; i <= ti; i++) {
+                Entry<byte[], FileBackMergableIndexs> entry = entries[i];
+                byte[] start = i == fi ? from : entries[i].getKey();
+                byte[] end = i < ti ? entries[i + 1].getKey() : to;
+                FileBackMergableIndexs mergableIndex = entry.getValue();
+                //System.out.println("fi:" + fi + " ti:" + ti + " i:" + i);
+                try {
+                    TimestampAndVersion timestampAndVersion = mergableIndex.compactableIndexes.maxTimeStampAndVersion();
+                    if (rawhide.mightContain(timestampAndVersion.maxTimestamp,
+                        timestampAndVersion.maxTimestampVersion,
+                        newerThanTimestamp,
+                        newerThanTimestampVersion)) {
+                        streamed = true;
+                        if (!mergableIndex.tx(index, start, end, tx, hydrateValues)) {
+                            return false;
+                        }
+                    }
+                } catch (LABConcurrentSplitException cse) {
+                    from = (i == fi) ? from : entry.getKey(); // Sorry! Dont rewind from where from is haha
+                    continue THE_INSANITY;
+                }
+            }
+            if (!streamed) {
+                return tx.tx(index, from, to, EMPTY, hydrateValues);
+            }
+            //}
             return true;
         }
 
+    }
+
+
+    private static int binarySearch(
+        Rawhide rawhide,
+        Entry<byte[], ?>[] a,
+        byte[] key) {
+
+        Comparator<byte[]> comparator = rawhide.getKeyComparator();
+
+        int low = 0;
+        int high = a.length - 1;
+
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            Entry<byte[], ?> midVal = a[mid];
+
+            int c = comparator.compare(midVal.getKey(), key);
+            if (c < 0) {
+                low = mid + 1;
+            } else if (c > 0) {
+                high = mid - 1;
+            } else {
+                return mid; // key found
+            }
+        }
+        return -(low + 1);  // key not found.
     }
 
     public int debt() throws Exception {
