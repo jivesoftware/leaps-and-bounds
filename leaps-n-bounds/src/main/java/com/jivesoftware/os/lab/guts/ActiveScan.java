@@ -37,7 +37,7 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
     Footer footer;
     PointerReadableByteBufferFile readable;
     byte[] cacheKeyBuffer;
-    long hashIndexheadOffset;
+    long hashIndexHeadOffset;
     long hashIndexMaxCapacity;
     byte hashIndexLongPrecision;
     long activeFp = Long.MAX_VALUE;
@@ -108,11 +108,9 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
         activeResult = false;
     }
 
-    public long getInclusiveStartOfRow(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, boolean exact) throws Exception {
+    public long getInclusiveStartOfRow(BolBuffer bbKey, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, boolean exact) throws Exception {
         Leaps l = leaps;
         long rowIndex = -1;
-
-        BolBuffer bbKey = new BolBuffer(key);
 
         if (rawhide.compare(l.lastKey, bbKey) < 0) {
             return rowIndex;
@@ -226,7 +224,7 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
 
         int i = 0;
         while (i < hashIndexMaxCapacity) {
-            long readPointer = hashIndexheadOffset + (hashIndex * hashIndexLongPrecision);
+            long readPointer = hashIndexHeadOffset + (hashIndex * hashIndexLongPrecision);
             long offset = readable.readVPLong(readPointer, hashIndexLongPrecision);
             if (offset == 0L) {
                 return -1L;
@@ -317,7 +315,7 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
 
     @Override
     public boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception {
-        long activeFp = this.getInclusiveStartOfRow(key, entryBuffer, entryKeyBuffer, true);
+        long activeFp = this.getInclusiveStartOfRow(new BolBuffer(key), entryBuffer, entryKeyBuffer, true);
         if (activeFp < 0) {
             return false;
         }

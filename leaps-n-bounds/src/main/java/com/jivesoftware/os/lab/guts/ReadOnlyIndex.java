@@ -5,7 +5,11 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
+import com.jivesoftware.os.lab.guts.api.GetRaw;
+import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
+import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
@@ -19,7 +23,7 @@ import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
 /**
  * @author jonathan.colt
  */
-public class ReadOnlyIndex {
+public class ReadOnlyIndex implements ReadIndex {
 
     private static final AtomicLong CACHE_KEYS = new AtomicLong();
     private final IndexRangeId id;
@@ -38,7 +42,6 @@ public class ReadOnlyIndex {
     private long hashIndexMaxCapacity = 0;
     private byte hashIndexLongPrecision = 0;
     private Leaps leaps; // loaded when reading
-    private ReadLeapsAndBoundsIndex readLeapsAndBoundsIndex; // allocated when reading
 
     private final long cacheKey = CACHE_KEYS.incrementAndGet();
 
@@ -158,13 +161,13 @@ public class ReadOnlyIndex {
                 leaps = Leaps.read(readKeyFormatTransformer, readableIndex, seekTo);
             }
 
-            if (readLeapsAndBoundsIndex == null) {
+          /*  if (readLeapsAndBoundsIndex == null) {
                 readLeapsAndBoundsIndex = new ReadLeapsAndBoundsIndex(hideABone,
                     rawhide,
                     footer,
                     (activeScan) -> {
 
-                        activeScan.name =readOnlyFile.getFileName();
+                        activeScan.name = readOnlyFile.getFileName();
                         activeScan.rawhide = rawhide;
                         activeScan.readKeyFormatTransormer = readKeyFormatTransformer;
                         activeScan.readValueFormatTransormer = readValueFormatTransformer;
@@ -174,7 +177,7 @@ public class ReadOnlyIndex {
                         activeScan.footer = footer;
                         activeScan.readable = readOnlyFile.pointerReadable(-1);
                         activeScan.cacheKeyBuffer = new byte[16];
-                        activeScan.hashIndexheadOffset = hashIndexHeadOffset;
+                        activeScan.hashIndexHeadOffset = hashIndexHeadOffset;
                         activeScan.hashIndexMaxCapacity = hashIndexMaxCapacity;
                         activeScan.hashIndexLongPrecision = hashIndexLongPrecision;
 
@@ -185,9 +188,9 @@ public class ReadOnlyIndex {
                         return activeScan;
                     }
                 );
-            }
+            }*/
 
-            return readLeapsAndBoundsIndex;
+            return this;
         } catch (IOException | RuntimeException x) {
             hideABone.release();
             throw x;
@@ -237,6 +240,72 @@ public class ReadOnlyIndex {
         }
     }
 
+    private ActiveScan setup(ActiveScan activeScan) throws IOException {
+        activeScan.name = readOnlyFile.getFileName();
+        activeScan.rawhide = rawhide;
+        activeScan.readKeyFormatTransormer = readKeyFormatTransformer;
+        activeScan.readValueFormatTransormer = readValueFormatTransformer;
+        activeScan.leaps = leaps;
+        activeScan.cacheKey = cacheKey;
+        activeScan.leapsCache = leapsCache;
+        activeScan.footer = footer;
+        activeScan.readable = readOnlyFile.pointerReadable(-1);
+        activeScan.cacheKeyBuffer = new byte[16];
+        activeScan.hashIndexHeadOffset = hashIndexHeadOffset;
+        activeScan.hashIndexMaxCapacity = hashIndexMaxCapacity;
+        activeScan.hashIndexLongPrecision = hashIndexLongPrecision;
+
+        activeScan.activeFp = Long.MAX_VALUE;
+        activeScan.activeOffset = -1;
+        activeScan.activeResult = false;
+        return activeScan;
+    }
+
+    @Override
+    public void release() {
+        hideABone.release();
+    }
+
+    @Override
+    public GetRaw get(ActiveScan activeScan) throws Exception {
+        return setup(activeScan);
+    }
+
+    private static final Scanner eos = new Scanner() {
+        @Override
+        public Next next(RawEntryStream stream) throws Exception {
+            return Next.eos;
+        }
+
+        @Override
+        public void close() {
+        }
+    };
+
+
+    @Override
+    public Scanner rangeScan(ActiveScan activeScen, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+
+        BolBuffer bbFrom = from == null ? null : new BolBuffer(from);
+        BolBuffer bbTo = to == null ? null : new BolBuffer(to);
+
+        ActiveScan scan = setup(activeScen);
+        long fp = scan.getInclusiveStartOfRow(new BolBuffer(from), entryBuffer, entryKeyBuffer, false);
+        if (fp < 0) {
+            return eos;
+        }
+        scan.setupAsRangeScanner(fp, to, entryBuffer, entryKeyBuffer, bbFrom, bbTo);
+        return scan;
+    }
+
+    @Override
+    public Scanner rowScan(ActiveScan activeScan, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+        ActiveScan scan = setup(activeScan);
+        scan.setupRowScan(entryBuffer,entryKeyBuffer);
+        return scan;
+    }
+
+    @Override
     public long count() throws IOException {
         return footer.count;
     }

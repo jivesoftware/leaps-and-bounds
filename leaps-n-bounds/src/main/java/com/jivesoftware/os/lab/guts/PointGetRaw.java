@@ -22,7 +22,7 @@ public class PointGetRaw implements GetRaw {
     @Override
     public boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception {
         for (ReadIndex index : indexs) {
-            GetRaw pointGet = index.get();
+            GetRaw pointGet = index.get(new ActiveScan());
             if (pointGet.get(key, entryBuffer, entryKeyBuffer, stream)) {
                 result = pointGet.result();
                 return result;

@@ -120,7 +120,7 @@ public class LABStress {
             0, //writeCount
             false, // writeMonotonicly
             10, //readForNSeconds
-            50_000_000, // readCount
+            70_000_000, // readCount
             false); // removes
 
         System.out.println("\n\n");
@@ -162,7 +162,7 @@ public class LABStress {
 
         System.out.println("Created env");
         ValueIndex index = env.open(new ValueIndexConfig("foo",
-            4096, // entriesBetweenLeaps
+            1024 * 4, // entriesBetweenLeaps
             1024 * 1024, // maxHeapPressureInBytes
             -1, // splitWhenKeysTotalExceedsNBytes
             -1, // splitWhenValuesTotalExceedsNBytes

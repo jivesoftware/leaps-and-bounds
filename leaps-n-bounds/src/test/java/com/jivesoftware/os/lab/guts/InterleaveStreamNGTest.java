@@ -104,17 +104,17 @@ public class InterleaveStreamNGTest {
             }
 
             @Override
-            public GetRaw get() throws Exception {
+            public GetRaw get(ActiveScan activeScan) throws Exception {
                 throw new UnsupportedOperationException("Not supported.");
             }
 
             @Override
-            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+            public Scanner rangeScan(ActiveScan activeScan, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 throw new UnsupportedOperationException("Not supported.");
             }
 
             @Override
-            public Scanner rowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+            public Scanner rowScan(ActiveScan activeScan, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 return nextEntrySequence(keys, values);
             }
 
@@ -170,7 +170,7 @@ public class InterleaveStreamNGTest {
                 System.out.println("Index " + i);
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
-                Scanner nextRawEntry = readerIndexs[wi].rowScan(new BolBuffer(), new BolBuffer());
+                Scanner nextRawEntry = readerIndexs[wi].rowScan(new ActiveScan(), new BolBuffer(), new BolBuffer());
                 while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(TestUtils.toString(rawEntry));
                     return true;

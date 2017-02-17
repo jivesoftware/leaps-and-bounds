@@ -1,5 +1,6 @@
 package com.jivesoftware.os.lab.guts.api;
 
+import com.jivesoftware.os.lab.guts.ActiveScan;
 import com.jivesoftware.os.lab.io.BolBuffer;
 
 /**
@@ -10,11 +11,11 @@ public interface ReadIndex {
 
     void release();
 
-    GetRaw get() throws Exception;
+    GetRaw get(ActiveScan activeScan) throws Exception;
 
-    Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception;
+    Scanner rangeScan(ActiveScan activeScen, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception;
 
-    Scanner rowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception;
+    Scanner rowScan(ActiveScan activeScan, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception;
 
     long count() throws Exception;
 

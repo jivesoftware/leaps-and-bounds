@@ -95,7 +95,7 @@ public class LABMemoryIndex implements RawAppendableIndex {
         this.reader = new ReadIndex() {
 
             @Override
-            public GetRaw get() throws Exception {
+            public GetRaw get(ActiveScan activeScan) throws Exception {
 
                 return new GetRaw() {
 
@@ -120,12 +120,12 @@ public class LABMemoryIndex implements RawAppendableIndex {
             }
 
             @Override
-            public Scanner rangeScan(byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+            public Scanner rangeScan(ActiveScan activeScen, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 return index.scanner(from, to, entryBuffer, entryKeyBuffer);
             }
 
             @Override
-            public Scanner rowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+            public Scanner rowScan(ActiveScan activeScan, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 return index.scanner(null, null, entryBuffer, entryKeyBuffer);
             }
 

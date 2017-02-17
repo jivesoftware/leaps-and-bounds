@@ -357,7 +357,8 @@ public class RangeStripedCompactableIndexes {
                 appendableIndex.append((stream) -> {
                     ReadIndex reader = memoryIndex.acquireReader();
                     try {
-                        Scanner scanner = reader.rangeScan(minKey, maxKey, entryBuffer, entryKeyBuffer);
+                        ActiveScan activeScan = new ActiveScan();
+                        Scanner scanner = reader.rangeScan(activeScan, minKey, maxKey, entryBuffer, entryKeyBuffer);
                         try {
                             RawEntryStream rawEntryStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                                 return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
@@ -733,33 +734,10 @@ public class RangeStripedCompactableIndexes {
         ReaderTx tx,
         boolean hydrateValues) throws Exception {
 
+        Comparator<byte[]> comparator = rawhide.getKeyComparator();
+
         THE_INSANITY:
         while (true) {
-            /*
-            ConcurrentSkipListMap<byte[], FileBackMergableIndexs> stackCopy = indexes;
-            if (stackCopy.isEmpty()) {
-                return tx.tx(index, from, to, EMPTY, hydrateValues);
-            }
-            SortedMap<byte[], FileBackMergableIndexs> map;
-            if (from != null && to != null) {
-                byte[] floorKey = stackCopy.floorKey(from);
-                if (floorKey != null) {
-                    map = stackCopy.subMap(floorKey, true, to, Arrays.equals(from, to));
-                } else {
-                    map = stackCopy.headMap(to, Arrays.equals(from, to));
-                }
-            } else if (from != null) {
-                byte[] floorKey = stackCopy.floorKey(from);
-                if (floorKey != null) {
-                    map = stackCopy.tailMap(floorKey);
-                } else {
-                    map = stackCopy;
-                }
-            } else if (to != null) {
-                map = stackCopy.headMap(to);
-            } else {
-                map = stackCopy;
-            }*/
 
             Entry<byte[], FileBackMergableIndexs>[] entries = indexesArray;
             if (entries == null || entries.length == 0) {
@@ -768,7 +746,7 @@ public class RangeStripedCompactableIndexes {
 
             int fi = 0;
             if (from != null) {
-                int i = binarySearch(rawhide, entries, from);
+                int i = binarySearch(comparator, entries, from, 0);
                 if (i > -1) {
                     fi = i;
                 } else {
@@ -780,7 +758,7 @@ public class RangeStripedCompactableIndexes {
 
             int ti = entries.length - 1;
             if (to != null) {
-                int i = binarySearch(rawhide, entries, to);
+                int i = binarySearch(comparator, entries, to, fi);
                 if (i > -1) {
                     ti = from != null && Arrays.equals(from, to) ? i : i - 1;
                 } else {
@@ -792,19 +770,12 @@ public class RangeStripedCompactableIndexes {
                 }
             }
 
-            /*if (map.isEmpty()) {
-                return tx.tx(index, from, to, EMPTY, hydrateValues);
-            } else {*/
             boolean streamed = false;
-            //@SuppressWarnings("unchecked")
-            //Entry<byte[], FileBackMergableIndexs>[] entries = map.entrySet().toArray(new Entry[0]);
-            //int l = entries.length;
             for (int i = fi; i <= ti; i++) {
                 Entry<byte[], FileBackMergableIndexs> entry = entries[i];
                 byte[] start = i == fi ? from : entries[i].getKey();
                 byte[] end = i < ti ? entries[i + 1].getKey() : to;
                 FileBackMergableIndexs mergableIndex = entry.getValue();
-                //System.out.println("fi:" + fi + " ti:" + ti + " i:" + i);
                 try {
                     TimestampAndVersion timestampAndVersion = mergableIndex.compactableIndexes.maxTimeStampAndVersion();
                     if (rawhide.mightContain(timestampAndVersion.maxTimestamp,
@@ -824,7 +795,6 @@ public class RangeStripedCompactableIndexes {
             if (!streamed) {
                 return tx.tx(index, from, to, EMPTY, hydrateValues);
             }
-            //}
             return true;
         }
 
@@ -832,13 +802,11 @@ public class RangeStripedCompactableIndexes {
 
 
     private static int binarySearch(
-        Rawhide rawhide,
+        Comparator<byte[]> comparator,
         Entry<byte[], ?>[] a,
-        byte[] key) {
+        byte[] key,
+        int low) {
 
-        Comparator<byte[]> comparator = rawhide.getKeyComparator();
-
-        int low = 0;
         int high = a.length - 1;
 
         while (low <= high) {
