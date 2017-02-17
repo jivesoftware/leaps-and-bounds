@@ -36,8 +36,9 @@ public class LABStress {
     @Test(enabled = true)
     public void stressWritesTest() throws Exception {
 
-        double hashIndexLoadFactor = 1d;
+        double hashIndexLoadFactor = 0d;
         File root = Files.createTempDir();
+        System.out.println(root.getAbsolutePath());
         ValueIndex index = createIndex(root, hashIndexLoadFactor);
 
         int totalCardinality = 100_000_000;
@@ -77,7 +78,7 @@ public class LABStress {
         // ---
         System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
 
-        totalCardinality = 10_000_000;
+        totalCardinality = 3_000_000;
 
         write = stress("stress:RW",
             index,
