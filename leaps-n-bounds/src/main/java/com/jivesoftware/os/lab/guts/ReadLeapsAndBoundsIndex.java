@@ -6,7 +6,7 @@ import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
-import java.util.concurrent.Callable;
+import java.io.IOException;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -17,17 +17,22 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
     private final Semaphore hideABone;
     private final Rawhide rawhide;
     private final Footer footer;
-    private final Callable<ActiveScan> activeScan;
+    private final ReadVisitor readVisitor;
 
     public ReadLeapsAndBoundsIndex(Semaphore hideABone,
         Rawhide rawhide,
         Footer footer,
-        Callable<ActiveScan> activeScan) {
+        ReadVisitor readVisitor) {
         this.hideABone = hideABone;
         this.rawhide = rawhide;
         this.footer = footer;
-        this.activeScan = activeScan;
+        this.readVisitor = readVisitor;
     }
+
+    public interface ReadVisitor {
+        ActiveScan visit(ActiveScan activeScan) throws IOException;
+    }
+
 
     @Override
     public String toString() {
@@ -41,7 +46,7 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
 
     @Override
     public GetRaw get() throws Exception {
-        return new Gets(activeScan.call());
+        return readVisitor.visit(new ActiveScan());
     }
 
     private static final Scanner eos = new Scanner() {
@@ -61,59 +66,21 @@ public class ReadLeapsAndBoundsIndex implements ReadIndex {
         BolBuffer bbFrom = from == null ? null : new BolBuffer(from);
         BolBuffer bbTo = to == null ? null : new BolBuffer(to);
 
-        ActiveScan scan = activeScan.call();
+        ActiveScan scan = readVisitor.visit(new ActiveScan());
         long fp = scan.getInclusiveStartOfRow(from, entryBuffer, entryKeyBuffer, false);
         if (fp < 0) {
             return eos;
         }
-        return new Scanner() {
-            @Override
-            public Next next(RawEntryStream stream) throws Exception {
-                BolBuffer entryBuffer = new BolBuffer();
-                boolean[] once = new boolean[] { false };
-                boolean more = true;
-                while (!once[0] && more) {
-                    more = scan.next(fp,
-                        entryBuffer,
-                        (readKeyFormatTransormer, readValueFormatTransormer, rawEntry) -> {
-                            int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, entryKeyBuffer, bbFrom);
-                            if (c >= 0) {
-                                c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, entryKeyBuffer, bbTo);
-                                if (c < 0) {
-                                    once[0] = true;
-                                }
-                                return c < 0 && stream.stream(readKeyFormatTransormer, readValueFormatTransormer, rawEntry);
-                            } else {
-                                return true;
-                            }
-                        });
-                }
-                more = scan.result();
-                return more ? Next.more : Next.stopped;
-            }
-
-            @Override
-            public void close() {
-            }
-        };
+        scan.setupAsRangeScanner(fp, to, entryBuffer, entryKeyBuffer, bbFrom, bbTo);
+        return scan;
 
     }
 
     @Override
-    public Scanner rowScan(BolBuffer entryBuffer,BolBuffer entryKeyBuffer) throws Exception {
-        ActiveScan scan = activeScan.call();
-        return new Scanner() {
-            @Override
-            public Next next(RawEntryStream stream) throws Exception {
-                scan.next(0, entryBuffer, stream);
-                boolean more = scan.result();
-                return more ? Next.more : Next.stopped;
-            }
-
-            @Override
-            public void close() {
-            }
-        };
+    public Scanner rowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+        ActiveScan scan = readVisitor.visit(new ActiveScan());
+        scan.setupRowScan(entryBuffer,entryKeyBuffer);
+        return scan;
 
     }
 

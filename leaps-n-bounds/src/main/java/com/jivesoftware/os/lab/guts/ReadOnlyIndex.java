@@ -162,21 +162,26 @@ public class ReadOnlyIndex {
                 readLeapsAndBoundsIndex = new ReadLeapsAndBoundsIndex(hideABone,
                     rawhide,
                     footer,
-                    () -> {
+                    (activeScan) -> {
 
-                        ActiveScan activeScan = new ActiveScan(readOnlyFile.getFileName(),
-                            rawhide,
-                            readKeyFormatTransformer,
-                            readValueFormatTransformer,
-                            leaps,
-                            cacheKey,
-                            leapsCache,
-                            footer,
-                            readOnlyFile.pointerReadable(-1),
-                            new byte[16],
-                            hashIndexHeadOffset,
-                            hashIndexMaxCapacity,
-                            hashIndexLongPrecision);
+                        activeScan.name =readOnlyFile.getFileName();
+                        activeScan.rawhide = rawhide;
+                        activeScan.readKeyFormatTransormer = readKeyFormatTransformer;
+                        activeScan.readValueFormatTransormer = readValueFormatTransformer;
+                        activeScan.leaps = leaps;
+                        activeScan.cacheKey = cacheKey;
+                        activeScan.leapsCache = leapsCache;
+                        activeScan.footer = footer;
+                        activeScan.readable = readOnlyFile.pointerReadable(-1);
+                        activeScan.cacheKeyBuffer = new byte[16];
+                        activeScan.hashIndexheadOffset = hashIndexHeadOffset;
+                        activeScan.hashIndexMaxCapacity = hashIndexMaxCapacity;
+                        activeScan.hashIndexLongPrecision = hashIndexLongPrecision;
+
+                        activeScan.activeFp = Long.MAX_VALUE;
+                        activeScan.activeOffset = -1;
+                        activeScan.activeResult = false;
+
                         return activeScan;
                     }
                 );
