@@ -15,6 +15,7 @@ import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.Arrays;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -38,6 +39,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final FormatTransformer writeKeyFormatTransormer;
     private final FormatTransformer writeValueFormatTransormer;
     private final RawEntryFormat rawhideFormat;
+    private final LABHashIndexType hashIndexType;
     private final double hashIndexLoadFactor;
 
     private LeapFrog latestLeapFrog;
@@ -64,6 +66,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         Rawhide rawhide,
         RawEntryFormat rawhideFormat,
         FormatTransformerProvider formatTransformerProvider,
+        LABHashIndexType hashIndexType,
         double hashIndexLoadFactor) throws Exception {
 
         this.appendedStat = appendedStat;
@@ -74,6 +77,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         this.rawhide = rawhide;
         this.formatTransformerProvider = formatTransformerProvider;
         this.rawhideFormat = rawhideFormat;
+        this.hashIndexType = hashIndexType;
         this.hashIndexLoadFactor = hashIndexLoadFactor;
 
         this.writeKeyFormatTransormer = formatTransformerProvider.write(rawhideFormat.getKeyFormat());
@@ -183,44 +187,72 @@ public class LABAppendableIndex implements RawAppendableIndex {
             close();
         }
 
-        buildHashIndex(count); // HACKY :(
+        buildHashIndex(hashIndexType, count); // HACKY :(
     }
 
 
     // TODO this could / should be rewritten to reduce seek thrashing by using batching.
-    private void buildHashIndex(long count) throws Exception {
+    private void buildHashIndex(LABHashIndexType hashIndexType, long count) throws Exception {
         if (hashIndexLoadFactor > 0) {
-            long[] runHisto = new long[33];
-            FormatTransformer readKeyFormatTransformer = formatTransformerProvider.read(rawhideFormat.getKeyFormat());
-            FormatTransformer readValueFormatTransformer = formatTransformerProvider.read(rawhideFormat.getValueFormat());
+            if (hashIndexType == LABHashIndexType.cuckoo) {
+                cuckoo(count);
+            } else if (hashIndexType == LABHashIndexType.linearProbe) {
+                linearProbeIndex(count);
+            }
+        }
+    }
 
-            RandomAccessFile f = new RandomAccessFile(appendOnlyFile.getFile(), "rw");
-            long length = f.length();
 
-            int chunkPower = UIO.chunkPower(length + 1, 0);
-            byte hashIndexLongPrecision = (byte) Math.min((chunkPower / 8) + 1, 8);
+    private void cuckoo(long count) throws Exception {
 
-            long hashIndexMaxCapacity = count + (long) (count * hashIndexLoadFactor);
-            long hashIndexSizeInBytes = hashIndexMaxCapacity * hashIndexLongPrecision;
-            f.setLength(length + hashIndexSizeInBytes + 1 + 8 + 4);
+        FormatTransformer readKeyFormatTransformer = formatTransformerProvider.read(rawhideFormat.getKeyFormat());
+        FormatTransformer readValueFormatTransformer = formatTransformerProvider.read(rawhideFormat.getValueFormat());
 
-            PointerReadableByteBufferFile c = new PointerReadableByteBufferFile(ReadOnlyFile.BUFFER_SEGMENT_SIZE, appendOnlyFile.getFile(), true);
+        RandomAccessFile f = new RandomAccessFile(appendOnlyFile.getFile(), "rw");
+        long length = f.length();
 
-            long start = System.currentTimeMillis();
-            long clear = 0;
-            int worstRun = 0;
+        int chunkPower = UIO.chunkPower(length + 1, 0);
+        byte hashIndexLongPrecision = (byte) Math.min((chunkPower / 8) + 1, 8);
+        long maxReinsertionsBeforeExtinction = (long)(count * 0.01d);
 
-            try {
+        byte numHashFunctions = 2;
+        PointerReadableByteBufferFile c = null;
+        long hashIndexSizeInBytes = 0;
+
+
+        int extinctions = 0;
+        long reinsertion = 0;
+        long start = System.currentTimeMillis();
+        long clear = 0;
+        long[] histo = new long[0];
+        try {
+            CUCKOO_EXTINCTION_LEVEL_EVENT:
+            while (true) {
+                reinsertion = 0;
+                if (c != null) {
+                    c.close();
+                }
+
+                numHashFunctions = (byte)(3 + extinctions);
+                long hashIndexMaxCapacity = (count + (long) (count * Math.max(1f, hashIndexLoadFactor))) + 1;
+
+                hashIndexSizeInBytes = hashIndexMaxCapacity * hashIndexLongPrecision;
+                f.setLength(length + hashIndexSizeInBytes + 1 + 1 + 8 + 4);
+
+                c = new PointerReadableByteBufferFile(ReadOnlyFile.BUFFER_SEGMENT_SIZE, appendOnlyFile.getFile(), true);
+
                 long offset = length;
                 for (int i = 0; i < hashIndexMaxCapacity; i++) {
                     c.writeVPLong(offset, 0, hashIndexLongPrecision);
                     offset += hashIndexLongPrecision;
                 }
-                c.write(offset, (byte) hashIndexLongPrecision);
+                c.write(offset, numHashFunctions);
+                offset++;
+                c.write(offset, hashIndexLongPrecision);
                 offset++;
                 c.writeLong(offset, hashIndexMaxCapacity);
                 offset += 8;
-                c.writeInt(offset, -1);
+                c.writeInt(offset, -2); // cuckoo
 
                 long time = System.currentTimeMillis();
                 clear = time - start;
@@ -230,12 +262,9 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 BolBuffer key = new BolBuffer();
                 BolBuffer entryBuffer = new BolBuffer();
 
+                histo = new long[numHashFunctions];
+                long inserted = 0;
                 long activeOffset = 0;
-
-                int batchSize = 1024 * 10;
-                int batchCount = 0;
-                long[] hashIndexes = new long[batchSize];
-                long[] startOfEntryOffsets = new long[batchSize];
 
                 NEXT_ENTRY:
                 while (true) {
@@ -248,16 +277,24 @@ public class LABAppendableIndex implements RawAppendableIndex {
 
                         BolBuffer k = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, key);
 
-                        long hashIndex = k.longHashCode() % hashIndexMaxCapacity;
 
-                        hashIndexes[batchCount] = hashIndex;
-                        startOfEntryOffsets[batchCount] = startOfEntryOffset;
-                        batchCount++;
+                        inserted++;
+                        long displaced = cuckooInsert(numHashFunctions, length, hashIndexLongPrecision, hashIndexMaxCapacity, c, k,
+                            startOfEntryOffset, histo);
 
-                        if (batchCount == batchSize) {
-                            int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
-                            worstRun = Math.max(maxRun, worstRun);
-                            batchCount = 0;
+                        long displaceable = inserted;
+                        while (displaced != -1) { // cuckoo time
+                            reinsertion++;
+                            rawhide.rawEntryToBuffer(c, displaced, entryBuffer);
+                            k = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, key);
+                            displaced = cuckooInsert(numHashFunctions, length, hashIndexLongPrecision, hashIndexMaxCapacity, c, k, displaced, histo);
+                            displaceable--;
+                            if (displaceable < 0 || reinsertion > maxReinsertionsBeforeExtinction)  {
+                                extinctions++;
+                                LOG.warn("Cuckoo: {} with entries:{} capacity:{} numHashFunctions:{} extinctions:{}",
+                                    appendOnlyFile.getFile(), count, hashIndexMaxCapacity, numHashFunctions, extinctions);
+                                continue CUCKOO_EXTINCTION_LEVEL_EVENT;
+                            }
                         }
                         continue NEXT_ENTRY;
                     } else if (type == FOOTER) {
@@ -267,34 +304,169 @@ public class LABAppendableIndex implements RawAppendableIndex {
                     } else {
                         throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
                     }
-                }
-                if (batchCount > 0) {
-                    int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
-                    worstRun = Math.max(maxRun, worstRun);
+
                 }
                 f.getFD().sync();
-
-            } finally {
-                c.close();
-                f.close();
+                break;
             }
 
-            LOG.info("Built hash index for {} entries in {} + {} millis precision: {} cost: {} bytes worstRun:{}",
-                count,
-                clear,
-                System.currentTimeMillis() - start,
-                hashIndexLongPrecision,
-                hashIndexSizeInBytes,
-                worstRun);
+        } finally {
+            c.close();
+            f.close();
+        }
 
-            for (int i = 0; i < 32; i++) {
-                if (runHisto[i] > 0) {
-                    LOG.inc("write>runs>" + i, runHisto[i]);
+        LOG.info("Built hash index for {} with {} entries in {} + {} millis numHashFunctions:{} precision:{} cost:{} bytes reinsertion:{} extinctions:{} histo:{}",
+            appendOnlyFile.getFile(),
+            count,
+            clear,
+            System.currentTimeMillis() - start,
+            numHashFunctions,
+            hashIndexLongPrecision,
+            hashIndexSizeInBytes,
+            reinsertion,
+            extinctions,
+            Arrays.toString(histo));
+
+    }
+
+    private long cuckooInsert(byte numHashFunctions,
+        long length,
+        byte hashIndexLongPrecision,
+        long hashIndexMaxCapacity,
+        PointerReadableByteBufferFile c,
+        BolBuffer k,
+        long startOfEntryOffset,
+        long[] histo) throws IOException {
+
+        long displaced = -1;
+        long hashCode = k.longMurmurHashCode();
+        for (int i = 0; i < numHashFunctions; i++) {
+            long hi = Math.abs(hashCode % hashIndexMaxCapacity);
+            long pos = length + (hi * hashIndexLongPrecision);
+            long v = c.readVPLong(pos, hashIndexLongPrecision);
+            if (v == 0) {
+                c.writeVPLong(pos, startOfEntryOffset + 1, hashIndexLongPrecision); // +1 so 0 can be null
+                break;
+            } else if (i + 1 == numHashFunctions) {
+                displaced = Math.abs(v) - 1;
+                c.writeVPLong(pos, (startOfEntryOffset + 1), hashIndexLongPrecision); // +1 so 0 can be null
+            } else if (v > 0) {
+                histo[i]++;
+                c.writeVPLong(pos, -v, hashIndexLongPrecision);
+            }
+
+            hashCode = k.longMurmurHashCode(hashCode);
+        }
+        return displaced;
+    }
+
+
+    private void linearProbeIndex(long count) throws Exception {
+        long[] runHisto = new long[33];
+        FormatTransformer readKeyFormatTransformer = formatTransformerProvider.read(rawhideFormat.getKeyFormat());
+        FormatTransformer readValueFormatTransformer = formatTransformerProvider.read(rawhideFormat.getValueFormat());
+
+        RandomAccessFile f = new RandomAccessFile(appendOnlyFile.getFile(), "rw");
+        long length = f.length();
+
+        int chunkPower = UIO.chunkPower(length + 1, 0);
+        byte hashIndexLongPrecision = (byte) Math.min((chunkPower / 8) + 1, 8);
+
+        long hashIndexMaxCapacity = count + (long) (count * hashIndexLoadFactor);
+        long hashIndexSizeInBytes = hashIndexMaxCapacity * hashIndexLongPrecision;
+        f.setLength(length + hashIndexSizeInBytes + 1 + 8 + 4);
+
+        PointerReadableByteBufferFile c = new PointerReadableByteBufferFile(ReadOnlyFile.BUFFER_SEGMENT_SIZE, appendOnlyFile.getFile(), true);
+
+        long start = System.currentTimeMillis();
+        long clear = 0;
+        int worstRun = 0;
+
+        try {
+            long offset = length;
+            for (int i = 0; i < hashIndexMaxCapacity; i++) {
+                c.writeVPLong(offset, 0, hashIndexLongPrecision);
+                offset += hashIndexLongPrecision;
+            }
+            c.write(offset, hashIndexLongPrecision);
+            offset++;
+            c.writeLong(offset, hashIndexMaxCapacity);
+            offset += 8;
+            c.writeInt(offset, -1); // linearProbe
+
+            long time = System.currentTimeMillis();
+            clear = time - start;
+            start = time;
+
+
+            BolBuffer key = new BolBuffer();
+            BolBuffer entryBuffer = new BolBuffer();
+
+            long activeOffset = 0;
+
+            int batchSize = 1024 * 10;
+            int batchCount = 0;
+            long[] hashIndexes = new long[batchSize];
+            long[] startOfEntryOffsets = new long[batchSize];
+
+            NEXT_ENTRY:
+            while (true) {
+                int type = c.read(activeOffset);
+                activeOffset++;
+
+                if (type == ENTRY) {
+                    long startOfEntryOffset = activeOffset;
+                    activeOffset += rawhide.rawEntryToBuffer(c, activeOffset, entryBuffer);
+
+                    BolBuffer k = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, key);
+
+                    long hashIndex = Math.abs(k.longHashCode() % hashIndexMaxCapacity);
+
+                    hashIndexes[batchCount] = hashIndex;
+                    startOfEntryOffsets[batchCount] = startOfEntryOffset;
+                    batchCount++;
+
+                    if (batchCount == batchSize) {
+                        int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
+                        worstRun = Math.max(maxRun, worstRun);
+                        batchCount = 0;
+                    }
+                    continue NEXT_ENTRY;
+                } else if (type == FOOTER) {
+                    break;
+                } else if (type == LEAP) {
+                    activeOffset += c.readInt(activeOffset);
+                } else {
+                    throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
                 }
             }
-            if (runHisto[32] > 0) {
-                LOG.inc("write>runs>horrible", runHisto[32]);
+            if (batchCount > 0) {
+                int maxRun = hash(runHisto, length, hashIndexMaxCapacity, hashIndexLongPrecision, c, startOfEntryOffsets, hashIndexes, batchCount);
+                worstRun = Math.max(maxRun, worstRun);
             }
+            f.getFD().sync();
+
+        } finally {
+            c.close();
+            f.close();
+        }
+
+        LOG.info("Built hash index for {} with {} entries in {} + {} millis precision: {} cost: {} bytes worstRun:{}",
+            appendOnlyFile.getFile(),
+            count,
+            clear,
+            System.currentTimeMillis() - start,
+            hashIndexLongPrecision,
+            hashIndexSizeInBytes,
+            worstRun);
+
+        for (int i = 0; i < 32; i++) {
+            if (runHisto[i] > 0) {
+                LOG.inc("write>runs>" + i, runHisto[i]);
+            }
+        }
+        if (runHisto[32] > 0) {
+            LOG.inc("write>runs>horrible", runHisto[32]);
         }
     }
 

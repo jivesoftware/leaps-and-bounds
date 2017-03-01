@@ -12,16 +12,18 @@ import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
+import com.jivesoftware.os.lab.guts.ActiveScan;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
+import com.jivesoftware.os.lab.guts.LABHashIndexType;
 import com.jivesoftware.os.lab.guts.LABIndex;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.LABMemoryIndex;
 import com.jivesoftware.os.lab.guts.Leaps;
-import com.jivesoftware.os.lab.guts.PointGetRaw;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.guts.ReaderTx;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
+import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.guts.api.Scanner.Next;
@@ -105,6 +107,7 @@ public class LAB implements ValueIndex<byte[]> {
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         LABIndexProvider indexProvider,
         boolean fsyncFileRenames,
+        LABHashIndexType hashIndexType,
         double hashIndexLoadFactor) throws Exception {
 
         stats.open.increment();
@@ -135,6 +138,7 @@ public class LAB implements ValueIndex<byte[]> {
             this.rawEntryFormat,
             leapsCache,
             fsyncFileRenames,
+            hashIndexType,
             hashIndexLoadFactor);
         this.minDebt = minDebt;
         this.maxDebt = maxDebt;
@@ -158,12 +162,31 @@ public class LAB implements ValueIndex<byte[]> {
         BolBuffer streamKeyBuffer = new BolBuffer();
         BolBuffer streamValueBuffer = hydrateValues ? new BolBuffer() : null;
 
+        int[] i = new int[1];
+        RawEntryStream hydrate = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> rawhide.streamRawEntry(i[0],
+            readKeyFormatTransformer,
+            readValueFormatTransformer,
+            rawEntry,
+            streamKeyBuffer,
+            streamValueBuffer,
+            stream);
+
         boolean b = pointTx(keys,
             -1,
             -1,
             (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
-                GetRaw getRaw = new PointGetRaw(readIndexes);
-                return rawToReal(index, fromKey, getRaw, entryBuffer, entryKeyBuffer, streamKeyBuffer, streamValueBuffer, stream);
+                i[0] = index;
+
+                for (ReadIndex ri : readIndexes) {
+                    GetRaw pointGet = ri.get(new ActiveScan());
+                    if (pointGet.get(fromKey, entryBuffer, entryKeyBuffer, hydrate)) {
+                        return pointGet.result();
+                    }
+                }
+                return hydrate.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, null);
+
+                //GetRaw getRaw = new PointGetRaw(readIndexes);
+                //return rawToReal(index, fromKey, getRaw, entryBuffer, entryKeyBuffer, streamKeyBuffer, streamValueBuffer, stream);
             },
             hydrateValues
         );

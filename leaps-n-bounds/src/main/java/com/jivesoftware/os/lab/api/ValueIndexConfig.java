@@ -2,6 +2,7 @@ package com.jivesoftware.os.lab.api;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.jivesoftware.os.lab.guts.LABHashIndexType;
 
 /**
  * @author jonathan.colt
@@ -18,6 +19,7 @@ public class ValueIndexConfig {
     public final String rawhideName;
     public final String rawEntryFormatName;
     public final int entryLengthPower;
+    public final LABHashIndexType hashIndexType;
     public final double hashIndexLoadFactor;
 
     @JsonCreator
@@ -31,6 +33,7 @@ public class ValueIndexConfig {
         @JsonProperty("rawhideName") String rawhideName,
         @JsonProperty("rawEntryFormatName") String rawEntryFormatName,
         @JsonProperty("entryLengthPower") int entryLengthPower,
+        @JsonProperty("hashIndexType") LABHashIndexType hashIndexType,
         @JsonProperty("hashIndexLoadFactor") double hashIndexLoadFactor
     ) {
 
@@ -44,6 +47,7 @@ public class ValueIndexConfig {
         this.rawhideName = rawhideName;
         this.rawEntryFormatName = rawEntryFormatName;
         this.entryLengthPower = entryLengthPower;
+        this.hashIndexType = hashIndexType;
         this.hashIndexLoadFactor = hashIndexLoadFactor;
     }
 

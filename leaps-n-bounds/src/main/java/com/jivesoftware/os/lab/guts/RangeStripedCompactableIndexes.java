@@ -68,6 +68,7 @@ public class RangeStripedCompactableIndexes {
     private final Semaphore appendSemaphore = new Semaphore(Short.MAX_VALUE, true);
     private final AtomicReference<RawEntryFormat> rawhideFormat;
     private final boolean fsyncFileRenames;
+    private final LABHashIndexType hashIndexType;
     private final double hashIndexLoadFactor;
 
     public RangeStripedCompactableIndexes(LABStats stats,
@@ -83,6 +84,7 @@ public class RangeStripedCompactableIndexes {
         AtomicReference<RawEntryFormat> rawhideFormat,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
         boolean fsyncFileRenames,
+        LABHashIndexType hashIndexType,
         double hashIndexLoadFactor) throws Exception {
 
         this.stats = stats;
@@ -98,6 +100,7 @@ public class RangeStripedCompactableIndexes {
         this.rawhideFormat = rawhideFormat;
         this.leapsCache = leapsCache;
         this.fsyncFileRenames = fsyncFileRenames;
+        this.hashIndexType = hashIndexType;
         this.hashIndexLoadFactor = hashIndexLoadFactor;
         this.indexes = new ConcurrentSkipListMap<>(rawhide.getKeyComparator());
 
@@ -353,7 +356,7 @@ public class RangeStripedCompactableIndexes {
                     rawhide,
                     format,
                     formatTransformerProvider,
-                    hashIndexLoadFactor);
+                    hashIndexType, hashIndexLoadFactor);
                 appendableIndex.append((stream) -> {
                     ReadIndex reader = memoryIndex.acquireReader();
                     try {
@@ -478,6 +481,7 @@ public class RangeStripedCompactableIndexes {
                             rawhide,
                             format,
                             formatTransformerProvider,
+                            hashIndexType,
                             hashIndexLoadFactor);
                         return writeLeapsAndBoundsIndex;
                     }, (IndexRangeId id, long worstCaseCount) -> {
@@ -496,6 +500,7 @@ public class RangeStripedCompactableIndexes {
                             rawhide,
                             format,
                             formatTransformerProvider,
+                            hashIndexType,
                             hashIndexLoadFactor);
                         return writeLeapsAndBoundsIndex;
                     }, (ids) -> {
@@ -590,7 +595,7 @@ public class RangeStripedCompactableIndexes {
                     rawhide,
                     format,
                     formatTransformerProvider,
-                    hashIndexLoadFactor);
+                    hashIndexType, hashIndexLoadFactor);
                 return writeLeapsAndBoundsIndex;
             }, (ids) -> {
                 File mergedIndexFile = ids.get(0).toFile(mergingRoot);

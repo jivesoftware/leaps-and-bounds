@@ -8,6 +8,7 @@ import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.rawhide.FixedWidthRawhide;
+import com.jivesoftware.os.lab.guts.LABHashIndexType;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
@@ -26,7 +27,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.testng.annotations.Test;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LABStress {
@@ -36,10 +36,11 @@ public class LABStress {
     @Test(enabled = true)
     public void stressWritesTest() throws Exception {
 
-        double hashIndexLoadFactor = 0d;
+        LABHashIndexType indexType = LABHashIndexType.cuckoo;
+        double hashIndexLoadFactor = 2d;
         File root = Files.createTempDir();
         System.out.println(root.getAbsolutePath());
-        ValueIndex index = createIndex(root, hashIndexLoadFactor);
+        ValueIndex index = createIndex(root, indexType, hashIndexLoadFactor);
 
         int totalCardinality = 100_000_000;
 
@@ -50,7 +51,6 @@ public class LABStress {
             totalCardinality,
             800_000, // writesPerSecond
             1_000_000, //writeCount
-            true, // writeMonotonicly
             1, //readForNSeconds
             1_000_000, // readCount
             false); // removes
@@ -73,7 +73,7 @@ public class LABStress {
         System.out.println("-------------------------------");
 
         root = Files.createTempDir();
-        index = createIndex(root, hashIndexLoadFactor);
+        index = createIndex(root, indexType, hashIndexLoadFactor);
 
         // ---
         System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
@@ -85,7 +85,6 @@ public class LABStress {
             totalCardinality,
             800_000, // writesPerSecond
             10_000_000, //writeCount
-            true, // writeMonotonicly
             0, //readForNSeconds
             0, // readCount
             false); // removes
@@ -119,9 +118,8 @@ public class LABStress {
             totalCardinality,
             0, // writesPerSecond
             0, //writeCount
-            false, // writeMonotonicly
             10, //readForNSeconds
-            70_000_000, // readCount
+            120_000_000, // readCount
             false); // removes
 
         System.out.println("\n\n");
@@ -134,7 +132,7 @@ public class LABStress {
 
     }
 
-    private ValueIndex createIndex(File root, double hashIndexLoadFactor) throws Exception {
+    private ValueIndex createIndex(File root, LABHashIndexType indexType, double hashIndexLoadFactor) throws Exception {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
         LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
@@ -172,6 +170,7 @@ public class LABStress {
             "8x8fixedWidthRawhide", //new LABRawhide(),
             MemoryRawEntryFormat.NAME,
             24,
+            indexType,
             hashIndexLoadFactor));
         return index;
     }
@@ -181,7 +180,6 @@ public class LABStress {
         int totalCardinality,
         int writesPerSecond,
         int writeCount,
-        boolean writeMonotonicly,
         int readForNSeconds,
         int readCount,
         boolean removes) throws Exception {
@@ -217,9 +215,6 @@ public class LABStress {
                     for (int i = 0; i < writesPerSecond; i++) {
                         count.incrementAndGet();
                         long key = rand.nextInt(totalCardinality);
-                        if (writeMonotonicly) {
-                            key = monotonic.incrementAndGet();
-                        }
                         stream.stream(-1,
                             UIO.longBytes(key, keyBytes, 0),
                             System.currentTimeMillis(),
@@ -240,8 +235,6 @@ public class LABStress {
                 if (writeElapse < 1000) {
                     Thread.sleep(1000 - writeElapse);
                 }
-            } else {
-                monotonic.addAndGet(readCount);
             }
 
             start = System.currentTimeMillis();
@@ -309,7 +302,8 @@ public class LABStress {
                 + ", " + formatter.format(misses.get())
                 + ", " + RangeStripedCompactableIndexes.mergeCount.get()
                 + ", " + RangeStripedCompactableIndexes.splitCount.get()
-                + ", " + formatter.format((LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get())));
+                + ", " + formatter.format((LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get()))
+            );
 
         }
 

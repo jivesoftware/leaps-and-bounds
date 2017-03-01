@@ -80,6 +80,7 @@ public class IndexStressNGTest {
                                     rawhide,
                                     new RawEntryFormat(0, 0),
                                     NoOpFormatTransformerProvider.NO_OP,
+                                    TestUtils.indexType,
                                     0.75d);
                             },
                             (ids) -> {
@@ -193,6 +194,7 @@ public class IndexStressNGTest {
                 rawhide,
                 new RawEntryFormat(0, 0),
                 NoOpFormatTransformerProvider.NO_OP,
+                TestUtils.indexType,
                 0.75d);
             BolBuffer keyBuffer = new BolBuffer();
             long lastKey = TestUtils.append(rand, write, 0, maxKeyIncrement, batchSize, null, keyBuffer);

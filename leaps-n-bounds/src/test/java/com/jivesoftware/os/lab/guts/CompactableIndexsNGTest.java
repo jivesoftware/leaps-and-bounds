@@ -66,6 +66,7 @@ public class CompactableIndexsNGTest {
                 rawhide,
                 MemoryRawEntryFormat.SINGLETON,
                 NoOpFormatTransformerProvider.NO_OP,
+                TestUtils.indexType,
                 0.75d);
 
             write.append((stream) -> {
@@ -146,7 +147,7 @@ public class CompactableIndexsNGTest {
                     rawhide,
                     new RawEntryFormat(0, 0),
                     NoOpFormatTransformerProvider.NO_OP,
-                    0.75d);
+                    TestUtils.indexType, 0.75d);
                 TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
                 write.closeAppendable(fsync);
 
@@ -176,6 +177,7 @@ public class CompactableIndexsNGTest {
                         rawhide,
                         new RawEntryFormat(0, 0),
                         NoOpFormatTransformerProvider.NO_OP,
+                        TestUtils.indexType,
                         0.75d);
                 },
                 (ids) -> {
@@ -224,6 +226,7 @@ public class CompactableIndexsNGTest {
                 rawhide,
                 new RawEntryFormat(0, 0),
                 NoOpFormatTransformerProvider.NO_OP,
+                TestUtils.indexType,
                 0.75d);
             TestUtils.append(rand, write, 0, step, count, desired, keyBuffer);
             write.closeAppendable(fsync);
@@ -274,6 +277,7 @@ public class CompactableIndexsNGTest {
                         rawhide,
                         new RawEntryFormat(0, 0),
                         NoOpFormatTransformerProvider.NO_OP,
+                        TestUtils.indexType,
                         0.75d);
                 }, (ids) -> {
                     LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);

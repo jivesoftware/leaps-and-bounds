@@ -37,41 +37,15 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
     Footer footer;
     PointerReadableByteBufferFile readable;
     byte[] cacheKeyBuffer;
+
+    LABHashIndexType hashIndexType;
+    byte hashIndexHashFunctionCount;
     long hashIndexHeadOffset;
     long hashIndexMaxCapacity;
     byte hashIndexLongPrecision;
     long activeFp = Long.MAX_VALUE;
     long activeOffset = -1;
     boolean activeResult;
-
-    /*public ActiveScan(String name,
-        Rawhide rawhide,
-        FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
-        Leaps leaps,
-        long cacheKey,
-        LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
-        Footer footer,
-        PointerReadableByteBufferFile readable,
-        byte[] cacheKeyBuffer,
-        long hashIndexHeadOffset,
-        long hashIndexMaxCapacity,
-        byte hashIndexLongPrecision) {
-        this.name = name;
-
-        this.rawhide = rawhide;
-        this.readKeyFormatTransormer = readKeyFormatTransormer;
-        this.readValueFormatTransormer = readValueFormatTransormer;
-        this.leaps = leaps;
-        this.cacheKey = cacheKey;
-        this.leapsCache = leapsCache;
-        this.footer = footer;
-        this.readable = readable;
-        this.cacheKeyBuffer = cacheKeyBuffer;
-        this.hashIndexheadOffset = hashIndexHeadOffset;
-        this.hashIndexMaxCapacity = hashIndexMaxCapacity;
-        this.hashIndexLongPrecision = hashIndexLongPrecision;
-    }*/
 
 
     public boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
@@ -117,9 +91,16 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
         }
 
         if (exact && hashIndexMaxCapacity > 0) {
-            long exactRowIndex = get(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
-            if (exactRowIndex >= -1) {
-                return exactRowIndex > -1 ? exactRowIndex - 1 : -1;
+            if (hashIndexType == LABHashIndexType.linearProbe) {
+                long exactRowIndex = getLinearProbe(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
+                if (exactRowIndex >= -1) {
+                    return exactRowIndex > -1 ? exactRowIndex - 1 : -1;
+                }
+            } else if (hashIndexType == LABHashIndexType.cuckoo) {
+                long exactRowIndex = getCuckoo(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
+                if (exactRowIndex >= -1) {
+                    return exactRowIndex > -1 ? exactRowIndex - 1 : -1;
+                }
             }
         }
 
@@ -212,7 +193,7 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
         }
     }
 
-    public long get(BolBuffer compareKey,
+    private long getLinearProbe(BolBuffer compareKey,
         BolBuffer entryBuffer,
         BolBuffer keyBuffer,
         FormatTransformer readKeyFormatTransformer,
@@ -220,7 +201,7 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
         Rawhide rawhide) throws Exception {
 
 
-        long hashIndex = compareKey.longHashCode() % hashIndexMaxCapacity;
+        long hashIndex = Math.abs(compareKey.longHashCode() % hashIndexMaxCapacity);
 
         int i = 0;
         while (i < hashIndexMaxCapacity) {
@@ -231,10 +212,13 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
             } else {
                 // since we add one at creation time so zero can be null
                 rawhide.rawEntryToBuffer(readable, Math.abs(offset) - 1, entryBuffer);
-                if (rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, keyBuffer, compareKey) == 0) {
+                int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, keyBuffer, compareKey);
+                if (c > 0) {
+                    return -1;
+                }
+                if (c == 0) {
                     return Math.abs(offset) - 1;
                 }
-                int run = readable.read(readPointer + hashIndexLongPrecision);
                 if (offset > 0) {
                     return -1L;
                 }
@@ -243,6 +227,36 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
             hashIndex = (++hashIndex) % hashIndexMaxCapacity;
         }
         throw new IllegalStateException("ActiveScan failed to get entry because programming is hard.");
+
+    }
+
+    private long getCuckoo(BolBuffer compareKey,
+        BolBuffer entryBuffer,
+        BolBuffer keyBuffer,
+        FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
+        Rawhide rawhide) throws Exception {
+
+
+        long hashCode = compareKey.longMurmurHashCode();
+        for (int i = 0; i < hashIndexHashFunctionCount; i++) {
+            long hashIndex = Math.abs(hashCode % hashIndexMaxCapacity);
+            long readPointer = hashIndexHeadOffset + (hashIndex * hashIndexLongPrecision);
+            long offset = readable.readVPLong(readPointer, hashIndexLongPrecision);
+            if (offset == 0L) {
+                return -1L;
+            }
+            rawhide.rawEntryToBuffer(readable, Math.abs(offset) - 1, entryBuffer);
+            int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, keyBuffer, compareKey);
+            if (c == 0) {
+                return Math.abs(offset) - 1;
+            }
+            if (offset > 0) {
+                return -1;
+            }
+            hashCode = compareKey.longMurmurHashCode(hashCode);
+        }
+        return -1;
 
     }
 

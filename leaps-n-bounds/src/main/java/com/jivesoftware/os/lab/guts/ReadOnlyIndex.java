@@ -38,6 +38,8 @@ public class ReadOnlyIndex implements ReadIndex {
     private final FormatTransformer readKeyFormatTransformer;
     private final FormatTransformer readValueFormatTransformer;
     private final Rawhide rawhide;
+    private LABHashIndexType hashIndexType;
+    private byte hashIndexHashFunctionCount = 1;
     private long hashIndexHeadOffset = 0;
     private long hashIndexMaxCapacity = 0;
     private byte hashIndexLongPrecision = 0;
@@ -72,7 +74,7 @@ public class ReadOnlyIndex implements ReadIndex {
         seekToBoundsCheck(seekTo, indexLength);
         int footerLength = readable.readInt(seekTo);
         long hashIndexSizeInBytes = 0;
-        if (footerLength == -1) { // has hash index tacked onto the end.
+        if (footerLength == -1) { // linearProbe has hash index tacked onto the end.
             seekTo = indexLength - (1 + 8 + 4);
             seekToBoundsCheck(seekTo, indexLength);
             hashIndexLongPrecision = (byte) readable.read(seekTo);
@@ -83,6 +85,20 @@ public class ReadOnlyIndex implements ReadIndex {
             seekToBoundsCheck(seekTo, indexLength);
             footerLength = readable.readInt(seekTo);
             seekTo = indexLength - (hashIndexSizeInBytes + 1 + footerLength);
+            hashIndexType = LABHashIndexType.linearProbe;
+        } else if (footerLength == -2) { // cuckoo hash index tacked onto the end.
+            seekTo = indexLength - (1 + 1 + 8 + 4);
+            seekToBoundsCheck(seekTo, indexLength);
+            hashIndexHashFunctionCount = (byte) readable.read(seekTo);
+            hashIndexLongPrecision = (byte) readable.read(seekTo + 1);
+            hashIndexMaxCapacity = readable.readLong(seekTo + 1 + 1);
+            hashIndexSizeInBytes = (hashIndexMaxCapacity * hashIndexLongPrecision) + 1 + 1 + 8 + 4;
+            hashIndexHeadOffset = indexLength - hashIndexSizeInBytes;
+            seekTo = indexLength - (hashIndexSizeInBytes + 4);
+            seekToBoundsCheck(seekTo, indexLength);
+            footerLength = readable.readInt(seekTo);
+            seekTo = indexLength - (hashIndexSizeInBytes + 1 + footerLength);
+            hashIndexType = LABHashIndexType.cuckoo;
         } else {
             seekTo = indexLength - (1 + footerLength);
         }
@@ -131,12 +147,23 @@ public class ReadOnlyIndex implements ReadIndex {
                 seekToBoundsCheck(seekTo, indexLength);
                 int footerLength = readableIndex.readInt(seekTo);
                 long hashIndexSizeInBytes = 0;
-                if (footerLength == -1) { // has hash index tacked onto the end.
+                if (footerLength == -1) { // linearProbe hash index tacked onto the end.
                     seekTo = indexLength - (1 + 8 + 4);
                     seekToBoundsCheck(seekTo, indexLength);
                     byte hashIndexLongPrecision = (byte) readableIndex.read(seekTo);
                     long hashIndexMaxCapacity = readableIndex.readLong(seekTo + 1);
                     hashIndexSizeInBytes = (hashIndexMaxCapacity * hashIndexLongPrecision) + 1 + 8 + 4;
+                    seekTo = indexLength - (hashIndexSizeInBytes + 4);
+                    seekToBoundsCheck(seekTo, indexLength);
+                    footerLength = readableIndex.readInt(seekTo);
+                    seekTo = indexLength - (hashIndexSizeInBytes + footerLength + 1 + 4);
+                } else if (footerLength == -2) { // cuckoo hash index tacked onto the end.
+                    seekTo = indexLength - (1 + 1 + 8 + 4);
+                    seekToBoundsCheck(seekTo, indexLength);
+                    byte hashIndexHashFunctionCount = (byte) readableIndex.read(seekTo);
+                    byte hashIndexLongPrecision = (byte) readableIndex.read(seekTo + 1);
+                    long hashIndexMaxCapacity = readableIndex.readLong(seekTo + 1 + 1);
+                    hashIndexSizeInBytes = (hashIndexMaxCapacity * hashIndexLongPrecision) + 1 + 1 + 8 + 4;
                     seekTo = indexLength - (hashIndexSizeInBytes + 4);
                     seekToBoundsCheck(seekTo, indexLength);
                     footerLength = readableIndex.readInt(seekTo);
@@ -161,34 +188,6 @@ public class ReadOnlyIndex implements ReadIndex {
                 leaps = Leaps.read(readKeyFormatTransformer, readableIndex, seekTo);
             }
 
-          /*  if (readLeapsAndBoundsIndex == null) {
-                readLeapsAndBoundsIndex = new ReadLeapsAndBoundsIndex(hideABone,
-                    rawhide,
-                    footer,
-                    (activeScan) -> {
-
-                        activeScan.name = readOnlyFile.getFileName();
-                        activeScan.rawhide = rawhide;
-                        activeScan.readKeyFormatTransormer = readKeyFormatTransformer;
-                        activeScan.readValueFormatTransormer = readValueFormatTransformer;
-                        activeScan.leaps = leaps;
-                        activeScan.cacheKey = cacheKey;
-                        activeScan.leapsCache = leapsCache;
-                        activeScan.footer = footer;
-                        activeScan.readable = readOnlyFile.pointerReadable(-1);
-                        activeScan.cacheKeyBuffer = new byte[16];
-                        activeScan.hashIndexHeadOffset = hashIndexHeadOffset;
-                        activeScan.hashIndexMaxCapacity = hashIndexMaxCapacity;
-                        activeScan.hashIndexLongPrecision = hashIndexLongPrecision;
-
-                        activeScan.activeFp = Long.MAX_VALUE;
-                        activeScan.activeOffset = -1;
-                        activeScan.activeResult = false;
-
-                        return activeScan;
-                    }
-                );
-            }*/
 
             return this;
         } catch (IOException | RuntimeException x) {
@@ -251,6 +250,9 @@ public class ReadOnlyIndex implements ReadIndex {
         activeScan.footer = footer;
         activeScan.readable = readOnlyFile.pointerReadable(-1);
         activeScan.cacheKeyBuffer = new byte[16];
+
+        activeScan.hashIndexType = hashIndexType;
+        activeScan.hashIndexHashFunctionCount = hashIndexHashFunctionCount;
         activeScan.hashIndexHeadOffset = hashIndexHeadOffset;
         activeScan.hashIndexMaxCapacity = hashIndexMaxCapacity;
         activeScan.hashIndexLongPrecision = hashIndexLongPrecision;
@@ -301,7 +303,7 @@ public class ReadOnlyIndex implements ReadIndex {
     @Override
     public Scanner rowScan(ActiveScan activeScan, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
         ActiveScan scan = setup(activeScan);
-        scan.setupRowScan(entryBuffer,entryKeyBuffer);
+        scan.setupRowScan(entryBuffer, entryKeyBuffer);
         return scan;
     }
 

@@ -71,6 +71,7 @@ public class RangeStripedCompactableIndexesStressNGTest {
             new AtomicReference<>(new RawEntryFormat(0, 0)),
             leapsCache,
             false,
+            TestUtils.indexType,
             0.75d);
 
         int count = 0;

@@ -8,6 +8,7 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.IndexUtil;
+import com.jivesoftware.os.lab.guts.LABHashIndexType;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -61,7 +62,7 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.emptyList());
 
             ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
 
             ValueIndex index = env.open(valueIndexConfig);
             System.out.println("Lets index so stuff....");
@@ -122,7 +123,7 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.singletonList("bar"));
 
             valueIndexConfig = new ValueIndexConfig("bar", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
             assertEquals(env.list(), Collections.singletonList("bar"));
             index = env.open(valueIndexConfig);
 
@@ -237,7 +238,7 @@ public class LABEnvironmentNGTest {
             false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
 
         System.out.println("Created env");
 
@@ -312,7 +313,7 @@ public class LABEnvironmentNGTest {
             false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, 0.75d);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
 
         System.out.println("Created env");
 
@@ -461,7 +462,7 @@ public class LABEnvironmentNGTest {
                         if (value1 == null) {
                             failures.add(
                                 " FAILED to find " + askedFor + " " + index1 + " "
-                                + IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + IndexUtil.toString(value1)
+                                    + IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + IndexUtil.toString(value1)
                             );
                         }
                         return true;
@@ -484,7 +485,7 @@ public class LABEnvironmentNGTest {
                         if (value1 != null) {
                             failures.add(
                                 " FAILED to miss " + askedFor + " " + index1 + " "
-                                + IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + IndexUtil.toString(value1)
+                                    + IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version1 + " " + IndexUtil.toString(value1)
                             );
                         }
                         return true;

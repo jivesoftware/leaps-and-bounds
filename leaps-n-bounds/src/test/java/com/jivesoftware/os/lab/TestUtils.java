@@ -7,6 +7,7 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.CompactableIndexes;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
+import com.jivesoftware.os.lab.guts.LABHashIndexType;
 import com.jivesoftware.os.lab.guts.PointGetRaw;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
@@ -24,6 +25,8 @@ import org.testng.Assert;
  * @author jonathan.colt
  */
 public class TestUtils {
+
+    public static LABHashIndexType indexType = LABHashIndexType.linearProbe;
 
     private static final OrderIdProvider timeProvider = new OrderIdProviderImpl(new ConstantWriterIdProvider(1));
 

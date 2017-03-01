@@ -17,7 +17,8 @@ import sun.misc.Unsafe;
 public class IndexUtil {
 
     public static String toString(BolBuffer bb) {
-        return Arrays.toString(bb.copy());
+        byte[] copy = bb == null ? null : bb.copy();
+        return copy == null ? "NULL" : Arrays.toString(copy);
     }
 
     /**
@@ -115,7 +116,7 @@ public class IndexUtil {
         return leftLength - rightLength;
     }
 
-//    public static int compare(IReadable left, int leftLength, BolBuffer right) throws IOException {
+    //    public static int compare(IReadable left, int leftLength, BolBuffer right) throws IOException {
 ////        if (left.canSlice(leftLength)) {
 ////            return compare(left.slice(leftLength), right);
 ////        } else {

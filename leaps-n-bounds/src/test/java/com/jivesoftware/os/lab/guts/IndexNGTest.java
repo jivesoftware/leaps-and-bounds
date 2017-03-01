@@ -58,6 +58,7 @@ public class IndexNGTest {
             rawhide,
             new RawEntryFormat(0, 0),
             NoOpFormatTransformerProvider.NO_OP,
+            TestUtils.indexType,
             0.75d
         );
 
@@ -152,6 +153,7 @@ public class IndexNGTest {
             rawhide,
             new RawEntryFormat(0, 0),
             NoOpFormatTransformerProvider.NO_OP,
+            TestUtils.indexType,
             0.75d);
         disIndex.append((stream) -> {
             ReadIndex reader = memoryIndex.acquireReader();

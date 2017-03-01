@@ -250,20 +250,19 @@ public class BolBuffer {
     }
 
     public long longHashCode() {
-        if (length == 0) {
-            return 0;
-        }
+        return longHashCode(length);
+    }
+
+    final static long randMult = 0x5DEECE66DL;
+    final static long randAdd = 0xBL;
+    final static long randMask = (1L << 48) - 1;
+
+    public long longHashCode(long seed) {
 
         if (bb != null) {
             long hash = 0;
-            long randMult = 0x5DEECE66DL;
-            long randAdd = 0xBL;
-            long randMask = (1L << 48) - 1;
-            long seed = length;
-
             for (int i = 0; i < length; i++) {
                 long x = (seed * randMult + randAdd) & randMask;
-
                 seed = x;
                 hash += (bb.get(offset + i) + 128) * x;
             }
@@ -273,18 +272,106 @@ public class BolBuffer {
 
         if (bytes != null) {
             long hash = 0;
-            long randMult = 0x5DEECE66DL;
-            long randAdd = 0xBL;
-            long randMask = (1L << 48) - 1;
-            long seed = length;
-
             for (int i = 0; i < length; i++) {
                 long x = (seed * randMult + randAdd) & randMask;
-
                 seed = x;
                 hash += (bytes[offset + i] + 128) * x;
             }
+            return hash;
+        }
+        return 0;
 
+    }
+
+    final static long magic = 0xc6a4a7935bd1e995L;
+    final static int prime = 47;
+
+    public long longMurmurHashCode() {
+        return longMurmurHashCode(length);
+    }
+
+    public long longMurmurHashCode(long seed) {
+        if (bb != null) {
+            long hash = (seed & 0xffffffffL) ^ (length * magic);
+
+            int length8 = length >> 3;
+
+            for (int i = 0; i < length8; i++) {
+                final int i8 = offset + (i << 3);
+                long word = bb.getLong(i8);
+
+                word *= magic;
+                word ^= word >>> prime;
+                word *= magic;
+
+                hash ^= word;
+                hash *= magic;
+            }
+
+            int base = offset + length & ~7;
+            switch (length % 8) {
+                case 7:
+                    hash ^= (long) (bb.get(base + 6) & 0xff) << 48;
+                case 6:
+                    hash ^= (long) (bb.get(base + 5) & 0xff) << 40;
+                case 5:
+                    hash ^= (long) (bb.get(base + 4) & 0xff) << 32;
+                case 4:
+                    hash ^= (long) (bb.get(base + 3) & 0xff) << 24;
+                case 3:
+                    hash ^= (long) (bb.get(base + 2) & 0xff) << 16;
+                case 2:
+                    hash ^= (long) (bb.get(base + 1) & 0xff) << 8;
+                case 1:
+                    hash ^= (long) (bb.get(base) & 0xff);
+                    hash *= magic;
+            }
+
+            hash ^= hash >>> prime;
+            hash *= magic;
+            hash ^= hash >>> prime;
+            return hash;
+        }
+
+        if (bytes != null) {
+            long hash = (seed & 0xffffffffL) ^ (length * magic);
+
+            int length8 = length >> 3;
+
+            for (int i = 0; i < length8; i++) {
+                final int i8 = offset + (i << 3);
+                long word = UIO.bytesLong(bytes, i8);
+
+                word *= magic;
+                word ^= word >>> prime;
+                word *= magic;
+
+                hash ^= word;
+                hash *= magic;
+            }
+
+            int base = offset + length & ~7;
+            switch (length % 8) {
+                case 7:
+                    hash ^= (long) (bytes[base + 6] & 0xff) << 48;
+                case 6:
+                    hash ^= (long) (bytes[base + 5] & 0xff) << 40;
+                case 5:
+                    hash ^= (long) (bytes[base + 4] & 0xff) << 32;
+                case 4:
+                    hash ^= (long) (bytes[base + 3] & 0xff) << 24;
+                case 3:
+                    hash ^= (long) (bytes[base + 2] & 0xff) << 16;
+                case 2:
+                    hash ^= (long) (bytes[base + 1] & 0xff) << 8;
+                case 1:
+                    hash ^= (long) (bytes[base] & 0xff);
+                    hash *= magic;
+            }
+
+            hash ^= hash >>> prime;
+            hash *= magic;
+            hash ^= hash >>> prime;
             return hash;
         }
         return 0;

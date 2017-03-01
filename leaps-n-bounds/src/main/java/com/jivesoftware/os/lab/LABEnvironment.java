@@ -346,6 +346,7 @@ public class LABEnvironment {
             leapsCache,
             indexProvider,
             fsyncFileRenames,
+            config.hashIndexType,
             config.hashIndexLoadFactor);
 
     }
