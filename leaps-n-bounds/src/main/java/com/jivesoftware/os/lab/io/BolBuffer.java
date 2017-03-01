@@ -308,7 +308,8 @@ public class BolBuffer {
                 hash *= magic;
             }
 
-            int base = offset + length & ~7;
+
+            int base = offset + (length & ~7);
             switch (length % 8) {
                 case 7:
                     hash ^= (long) (bb.get(base + 6) & 0xff) << 48;
@@ -350,7 +351,7 @@ public class BolBuffer {
                 hash *= magic;
             }
 
-            int base = offset + length & ~7;
+            int base = offset + (length & ~7);
             switch (length % 8) {
                 case 7:
                     hash ^= (long) (bytes[base + 6] & 0xff) << 48;
