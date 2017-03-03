@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.IndexUtil;
-import com.jivesoftware.os.lab.guts.LABHashIndexType;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -62,7 +61,7 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.emptyList());
 
             ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d, false);
 
             ValueIndex index = env.open(valueIndexConfig);
             System.out.println("Lets index so stuff....");
@@ -123,7 +122,7 @@ public class LABEnvironmentNGTest {
             assertEquals(env.list(), Collections.singletonList("bar"));
 
             valueIndexConfig = new ValueIndexConfig("bar", 4096, 1024 * 1024 * 10, -1, -1, -1,
-                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d, false);
             assertEquals(env.list(), Collections.singletonList("bar"));
             index = env.open(valueIndexConfig);
 
@@ -238,7 +237,7 @@ public class LABEnvironmentNGTest {
             false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d, false);
 
         System.out.println("Created env");
 
@@ -313,7 +312,7 @@ public class LABEnvironmentNGTest {
             false);
 
         ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo", 4096, 1024 * 1024 * 10, -1, -1, -1,
-            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d);
+            NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d, false);
 
         System.out.println("Created env");
 

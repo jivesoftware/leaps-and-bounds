@@ -21,6 +21,7 @@ public class ValueIndexConfig {
     public final int entryLengthPower;
     public final LABHashIndexType hashIndexType;
     public final double hashIndexLoadFactor;
+    public final boolean hashIndexEnabled;
 
     @JsonCreator
     public ValueIndexConfig(@JsonProperty("primaryName") String primaryName,
@@ -34,8 +35,8 @@ public class ValueIndexConfig {
         @JsonProperty("rawEntryFormatName") String rawEntryFormatName,
         @JsonProperty("entryLengthPower") int entryLengthPower,
         @JsonProperty("hashIndexType") LABHashIndexType hashIndexType,
-        @JsonProperty("hashIndexLoadFactor") double hashIndexLoadFactor
-    ) {
+        @JsonProperty("hashIndexLoadFactor") double hashIndexLoadFactor,
+        @JsonProperty("hashIndexEnabled") boolean hashIndexEnabled) {
 
         this.primaryName = primaryName;
         this.entriesBetweenLeaps = entriesBetweenLeaps;
@@ -49,6 +50,7 @@ public class ValueIndexConfig {
         this.entryLengthPower = entryLengthPower;
         this.hashIndexType = hashIndexType;
         this.hashIndexLoadFactor = hashIndexLoadFactor;
+        this.hashIndexEnabled = hashIndexEnabled;
     }
 
 }

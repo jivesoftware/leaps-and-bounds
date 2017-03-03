@@ -140,7 +140,7 @@ public class TestUtils {
         indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
-                GetRaw getRaw = new PointGetRaw(acquired);
+                GetRaw getRaw = new PointGetRaw(acquired, true);
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     byte[] expectedFP = desired.get(UIO.longBytes(key(rawEntry), new byte[8], 0));
                     if (expectedFP == null) {

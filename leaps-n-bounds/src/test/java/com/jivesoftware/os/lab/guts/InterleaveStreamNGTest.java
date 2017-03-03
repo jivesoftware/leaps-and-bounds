@@ -170,7 +170,7 @@ public class InterleaveStreamNGTest {
                 System.out.println("Index " + i);
 
                 readerIndexs[wi] = memoryIndexes[i].acquireReader();
-                Scanner nextRawEntry = readerIndexs[wi].rowScan(new ActiveScan(), new BolBuffer(), new BolBuffer());
+                Scanner nextRawEntry = readerIndexs[wi].rowScan(new ActiveScan(false), new BolBuffer(), new BolBuffer());
                 while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(TestUtils.toString(rawEntry));
                     return true;

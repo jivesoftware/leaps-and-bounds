@@ -13,16 +13,18 @@ import com.jivesoftware.os.lab.io.BolBuffer;
 public class PointGetRaw implements GetRaw {
 
     private final ReadIndex[] indexs;
+    private final boolean leveragePointHashIndex;
     private boolean result;
 
-    public PointGetRaw(ReadIndex[] indexes) {
+    public PointGetRaw(ReadIndex[] indexes, boolean leveragePointHashIndex) {
         this.indexs = indexes;
+        this.leveragePointHashIndex = leveragePointHashIndex;
     }
 
     @Override
     public boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception {
         for (ReadIndex index : indexs) {
-            GetRaw pointGet = index.get(new ActiveScan());
+            GetRaw pointGet = index.get(new ActiveScan(leveragePointHashIndex));
             if (pointGet.get(key, entryBuffer, entryKeyBuffer, stream)) {
                 result = pointGet.result();
                 return result;

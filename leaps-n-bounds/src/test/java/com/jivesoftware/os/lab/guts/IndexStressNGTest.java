@@ -139,7 +139,7 @@ public class IndexStressNGTest {
                     continue;
                 }
                 while (indexs.tx(-1, null, null, (index, fromKey, toKey, acquire, hydrateValues) -> {
-                    GetRaw getRaw = new PointGetRaw(acquire);
+                    GetRaw getRaw = new PointGetRaw(acquire, true);
 
                     try {
 

@@ -347,7 +347,8 @@ public class LABEnvironment {
             indexProvider,
             fsyncFileRenames,
             config.hashIndexType,
-            config.hashIndexLoadFactor);
+            config.hashIndexLoadFactor,
+            config.hashIndexEnabled);
 
     }
 

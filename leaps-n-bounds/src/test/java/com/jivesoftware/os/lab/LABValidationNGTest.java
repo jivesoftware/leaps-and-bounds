@@ -7,7 +7,6 @@ import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.LABCSLMIndex;
-import com.jivesoftware.os.lab.guts.LABHashIndexType;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
@@ -103,7 +102,8 @@ public class LABValidationNGTest {
             indexProvider,
             false,
             TestUtils.indexType,
-            0.75d);
+            0.75d,
+            true);
 
         int writerCount = 12;
         ExecutorService writers = Executors.newFixedThreadPool(writerCount, new ThreadFactoryBuilder().setNameFormat("writers-%d").build());
@@ -244,7 +244,8 @@ public class LABValidationNGTest {
             indexProvider,
             false,
             TestUtils.indexType,
-            0.75d);
+            0.75d,
+            true);
 
         validationTest(lab);
 

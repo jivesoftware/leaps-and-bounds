@@ -27,6 +27,8 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
+    private final boolean hashIndexEnabled;
+
     String name;
     Rawhide rawhide;
     FormatTransformer readKeyFormatTransormer;
@@ -46,6 +48,10 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
     long activeFp = Long.MAX_VALUE;
     long activeOffset = -1;
     boolean activeResult;
+
+    public ActiveScan(boolean hashIndexEnabled) {
+        this.hashIndexEnabled = hashIndexEnabled;
+    }
 
 
     public boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
@@ -90,7 +96,7 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
             return rowIndex;
         }
 
-        if (exact && hashIndexMaxCapacity > 0) {
+        if (exact && hashIndexEnabled && hashIndexMaxCapacity > 0) {
             if (hashIndexType == LABHashIndexType.linearProbe) {
                 long exactRowIndex = getLinearProbe(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
                 if (exactRowIndex >= -1) {

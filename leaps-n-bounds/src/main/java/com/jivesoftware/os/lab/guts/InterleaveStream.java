@@ -29,9 +29,9 @@ public class InterleaveStream implements Scanner {
             Scanner scanner = null;
             try {
                 if (rowScan) {
-                    scanner = indexs[i].rowScan(new ActiveScan(), new BolBuffer(), new BolBuffer());
+                    scanner = indexs[i].rowScan(new ActiveScan(false), new BolBuffer(), new BolBuffer());
                 } else {
-                    scanner = indexs[i].rangeScan(new ActiveScan(), from, to, new BolBuffer(), new BolBuffer());
+                    scanner = indexs[i].rangeScan(new ActiveScan(false), from, to, new BolBuffer(), new BolBuffer());
                 }
                 Feed feed = new Feed(i, scanner, rawhide);
                 feed.feedNext();
