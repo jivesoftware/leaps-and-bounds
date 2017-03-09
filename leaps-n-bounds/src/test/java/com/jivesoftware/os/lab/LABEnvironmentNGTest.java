@@ -348,7 +348,12 @@ public class LABEnvironmentNGTest {
             true,
             false);
         System.out.println("Recreate env");
-        env.open();
+        AtomicLong journalCount = new AtomicLong(0);
+        env.open((valueIndexId, key, timestamp, tombstoned, version, payload) -> {
+            journalCount.incrementAndGet();
+            return true;
+        });
+        assertEquals(journalCount.get(), 34 * 3_000);
         System.out.println("Re-open index");
         index = env.open(valueIndexConfig);
         test(index, "foo", idProvider, 34, 3_000);
@@ -382,7 +387,12 @@ public class LABEnvironmentNGTest {
             true,
             false);
         System.out.println("Re-Recreate env");
-        env.open();
+        journalCount.set(0);
+        env.open((valueIndexId, key, timestamp, tombstoned, version, payload) -> {
+            journalCount.incrementAndGet();
+            return true;
+        });
+        assertEquals(journalCount.get(), 0);
         System.out.println("Re-Re-open index");
         index = env.open(valueIndexConfig);
         test(index, "foo", idProvider, 34, 3_000);

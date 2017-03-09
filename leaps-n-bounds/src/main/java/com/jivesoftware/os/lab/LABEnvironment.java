@@ -8,11 +8,13 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
+import com.jivesoftware.os.lab.api.JournalStream;
 import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.rawhide.KeyValueRawhide;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
@@ -204,8 +206,12 @@ public class LABEnvironment {
     }
 
     public void open() throws Exception {
+        open((JournalStream) null);
+    }
+
+    public void open(JournalStream journalStream) throws Exception {
         if (this.wal != null) {
-            this.wal.open(this);
+            this.wal.open(this, journalStream);
         }
     }
 

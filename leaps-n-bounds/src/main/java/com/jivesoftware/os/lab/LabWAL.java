@@ -10,6 +10,7 @@ import com.jivesoftware.os.jive.utils.collections.bah.BAHash;
 import com.jivesoftware.os.jive.utils.collections.bah.BAHasher;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
+import com.jivesoftware.os.lab.api.JournalStream;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
@@ -94,7 +95,7 @@ public class LabWAL {
         return walIdProvider.get();
     }
 
-    public void open(LABEnvironment environment) throws Exception {
+    public void open(LABEnvironment environment, JournalStream journalStream) throws Exception {
 
         File[] walFiles = walRoot.listFiles();
         if (walFiles == null) {
@@ -194,8 +195,14 @@ public class LabWAL {
                                 appendToValueIndex.onOpenAppend((stream) -> {
 
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
-                                        return stream.stream(index, key == null ? null : key.copy(), timestamp, tombstoned, version,
-                                            payload == null ? null : payload.copy());
+                                        byte[] keyBytes = key == null ? null : key.copy();
+                                        byte[] payloadBytes = payload == null ? null : payload.copy();
+                                        boolean result = stream.stream(index, keyBytes, timestamp, tombstoned, version,
+                                            payloadBytes);
+                                        if (journalStream != null) {
+                                            journalStream.stream(valueIndexId, keyBytes, timestamp, tombstoned, version, payloadBytes);
+                                        }
+                                        return result;
                                     };
 
                                     for (byte[] entry : valueIndexVersionedEntries.get(appendVersion)) {
