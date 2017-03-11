@@ -26,7 +26,7 @@ import org.testng.Assert;
  */
 public class TestUtils {
 
-    public static LABHashIndexType indexType = LABHashIndexType.linearProbe;
+    public static LABHashIndexType indexType = LABHashIndexType.cuckoo;
 
     private static final OrderIdProvider timeProvider = new OrderIdProviderImpl(new ConstantWriterIdProvider(1));
 

@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LabWAL {
@@ -192,6 +191,7 @@ public class LabWAL {
 
                                 BolBuffer kb = new BolBuffer();
                                 BolBuffer vb = new BolBuffer();
+                                long[] appended = new long[1];
                                 appendToValueIndex.onOpenAppend((stream) -> {
 
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
@@ -202,6 +202,7 @@ public class LabWAL {
                                         if (journalStream != null) {
                                             journalStream.stream(valueIndexId, keyBytes, timestamp, tombstoned, version, payloadBytes);
                                         }
+                                        appended[0]++;
                                         return result;
                                     };
 
@@ -214,6 +215,8 @@ public class LabWAL {
                                     return true;
                                 }, true, maxValueIndexHeapPressureOverride, rawEntryBuffer, keyBuffer);
 
+                                LOG.info("Appended {} to {}", appended[0], new String(valueIndexId, StandardCharsets.UTF_8));
+
                                 valueIndexVersionedEntries.removeAll(appendVersion);
                             }
                         }
@@ -222,7 +225,7 @@ public class LabWAL {
                     LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", offset, reader.length(), walFile, x.getClass());
                 } catch (Exception x) {
                     LOG.error("Encountered an issue that requires intervention at fp:{} length:{} for file:{}",
-                        new Object[]{offset, reader.length(), walFile}, x);
+                        new Object[] { offset, reader.length(), walFile }, x);
                     throw new LABFailedToInitializeWALException("Encountered an issue in " + walFile + " please help.", x);
                 }
             } finally {
@@ -244,6 +247,7 @@ public class LabWAL {
         for (ReadOnlyFile deletableIndexFile : deleteableIndexFiles) {
             try {
                 deletableIndexFile.delete();
+                LOG.info("Cleanup WAL {}", deletableIndexFile);
             } catch (Exception x) {
                 throw new LABFailedToInitializeWALException(
                     "Encountered an issue while deleting WAL:" + deletableIndexFile.getFileName() + ". Please help.", x);
@@ -382,6 +386,7 @@ public class LabWAL {
         ActiveWAL wal;
         File file = new File(walRoot, String.valueOf(walIdProvider.incrementAndGet()));
         file.getParentFile().mkdirs();
+        LOG.info("allocating new active wal {}", file);
         AppendOnlyFile appendOnlyFile = new AppendOnlyFile(file);
         wal = new ActiveWAL(stats, appendOnlyFile);
         return wal;
@@ -428,6 +433,7 @@ public class LabWAL {
                 appendableHeap.reset();
                 appendVersions.put(valueIndexId, appendVersion);
             }
+            LOG.info("LAB WAL flushed {} to {}", sizeInBytes.get(), wal.getFile());
             stats.bytesWrittenToWAL.add(numBytes);
         }
 
