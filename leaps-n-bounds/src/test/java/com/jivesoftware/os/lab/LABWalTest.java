@@ -65,7 +65,7 @@ public class LABWalTest {
 
         AtomicInteger monotonic = new AtomicInteger(-1);
         index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
-            //System.out.println("opening:" + (monotonic.get()+2) + " vs " + payload.getLong(0));
+            System.out.println("opening:" + (monotonic.get() + 1) + " vs " + payload.getLong(0));
             Assert.assertEquals(monotonic.get() + 1, payload.getLong(0));
             monotonic.set((int) payload.getLong(0));
             return true;
@@ -89,7 +89,7 @@ public class LABWalTest {
             }
         };
 
-        int batchCount = 10_000;
+        int batchCount = 100;
         int batchSize = 1_000;
         if (monotonic.get() != 0) {
             batchCount = 1;
