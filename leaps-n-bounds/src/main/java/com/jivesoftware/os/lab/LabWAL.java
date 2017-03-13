@@ -62,7 +62,6 @@ public class LabWAL {
     private final AtomicLong walIdProvider = new AtomicLong();
     private final Semaphore semaphore = new Semaphore(Short.MAX_VALUE, true);
     private final AtomicBoolean closed = new AtomicBoolean(false);
-    private final AppendableHeap appendableHeap = new AppendableHeap(8192);
 
     private final LABStats stats;
     private final File walRoot;
@@ -133,6 +132,7 @@ public class LabWAL {
 
                 long offset = 0;
                 try {
+                    long[] appended = new long[1];
                     while (true) {
                         int rowType = reader.read(offset);
                         offset++;
@@ -191,7 +191,6 @@ public class LabWAL {
 
                                 BolBuffer kb = new BolBuffer();
                                 BolBuffer vb = new BolBuffer();
-                                long[] appended = new long[1];
                                 appendToValueIndex.onOpenAppend((stream) -> {
 
                                     ValueStream valueStream = (index, key, timestamp, tombstoned, version, payload) -> {
@@ -214,13 +213,11 @@ public class LabWAL {
                                     }
                                     return true;
                                 }, true, maxValueIndexHeapPressureOverride, rawEntryBuffer, keyBuffer);
-
-                                LOG.info("Appended {} to {}", appended[0], new String(valueIndexId, StandardCharsets.UTF_8));
-
                                 valueIndexVersionedEntries.removeAll(appendVersion);
                             }
                         }
                     }
+                    LOG.info("Appended {}", appended[0]);
                 } catch (LABCorruptedException | EOFException x) {
                     LOG.warn("Corruption detected at fp:{} length:{} for file:{} cause:{}", offset, reader.length(), walFile, x.getClass());
                 } catch (Exception x) {
@@ -284,19 +281,11 @@ public class LabWAL {
         }
     }
 
-    public void append(byte[] valueIndexId, long appendVersion, BolBuffer entry) throws Exception {
-        semaphore.acquire();
-        try {
-            if (closed.get()) {
-                throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
-            }
-            activeWAL().append(appendableHeap, valueIndexId, appendVersion, entry);
-        } finally {
-            semaphore.release();
-        }
+    public interface LabWALAppendTx {
+        void append(ActiveWAL activeWAL) throws Exception;
     }
 
-    public void flush(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
+    public void appendTx(byte[] valueIndexId, long appendVersion, boolean fsync, LabWALAppendTx tx) throws Exception {
         boolean needToAllocateNewWAL = false;
         semaphore.acquire();
         try {
@@ -304,7 +293,8 @@ public class LabWAL {
                 throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
             }
             ActiveWAL wal = activeWAL();
-            wal.flushed(appendableHeap, valueIndexId, appendVersion, fsync);
+            tx.append(wal);
+            wal.flushed(valueIndexId, appendVersion, fsync);
             if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
                 needToAllocateNewWAL = true;
             }
@@ -320,8 +310,7 @@ public class LabWAL {
                 }
                 ActiveWAL wal = activeWAL();
                 if (wal.entryCount.get() > maxEntriesPerWAL || wal.sizeInBytes.get() > maxWALSizeInBytes) {
-                    wal = allocateNewWAL();
-                    ActiveWAL oldWAL = activeWAL.getAndSet(wal);
+                    ActiveWAL oldWAL = activeWAL.getAndSet(allocateNewWAL());
                     oldWAL.close();
                     oldWALs.add(oldWAL);
                 }
@@ -393,7 +382,7 @@ public class LabWAL {
         return wal;
     }
 
-    private static final class ActiveWAL {
+    public static final class ActiveWAL {
 
         private final LABStats stats;
         private final AppendOnlyFile wal;
@@ -402,31 +391,33 @@ public class LabWAL {
         private final AtomicLong entryCount = new AtomicLong();
         private final AtomicLong sizeInBytes = new AtomicLong();
         private final Object oneWriteAtTimeLock = new Object();
+        private final AppendableHeap appendableHeap = new AppendableHeap(8192);
 
-        public ActiveWAL(LABStats stats, AppendOnlyFile wal) throws Exception {
+
+        private ActiveWAL(LABStats stats, AppendOnlyFile wal) throws Exception {
             this.stats = stats;
             this.wal = wal;
             this.appendVersions = new BAHash<>(new BAHMapState<>(10, true, BAHMapState.NIL), BAHasher.SINGLETON, BAHEqualer.SINGLETON);
             this.appendOnly = wal.appender();
         }
 
-        public void append(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, BolBuffer entry) throws Exception {
+        public void append(byte[] valueIndexId, long appendVersion, BolBuffer entry) throws Exception {
             entryCount.incrementAndGet();
             int sizeOfAppend = 1 + 4 + 4 + valueIndexId.length + 8 + entry.length;
             sizeInBytes.addAndGet(sizeOfAppend);
             synchronized (oneWriteAtTimeLock) {
-                append(appendableHeap, ENTRY, valueIndexId, appendVersion);
+                append(ENTRY, valueIndexId, appendVersion);
                 appendableHeap.appendInt(entry.length);
                 appendableHeap.append(entry.bytes, entry.offset, entry.length);
             }
             stats.bytesWrittenToWAL.add(sizeOfAppend);
         }
 
-        public void flushed(AppendableHeap appendableHeap, byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
+        private void flushed(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
             int numBytes = 1 + 4 + 4 + valueIndexId.length + 8;
             sizeInBytes.addAndGet(numBytes);
             synchronized (oneWriteAtTimeLock) {
-                append(appendableHeap, BATCH_ISOLATION, valueIndexId, appendVersion);
+                append(BATCH_ISOLATION, valueIndexId, appendVersion);
 
                 appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
                 appendOnly.flush(fsync);
@@ -437,7 +428,7 @@ public class LabWAL {
             stats.bytesWrittenToWAL.add(numBytes);
         }
 
-        private void append(AppendableHeap appendableHeap, byte type, byte[] valueIndexId, long appendVersion) throws IOException {
+        private void append(byte type, byte[] valueIndexId, long appendVersion) throws IOException {
             appendableHeap.appendByte(type);
             appendableHeap.appendInt(MAGIC[type]);
             appendableHeap.appendInt(valueIndexId.length);
@@ -445,7 +436,7 @@ public class LabWAL {
             appendableHeap.appendLong(appendVersion);
         }
 
-        public boolean commit(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
+        private boolean commit(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
             synchronized (oneWriteAtTimeLock) {
                 Long lastAppendVersion = appendVersions.get(valueIndexId, 0, valueIndexId.length);
                 if (lastAppendVersion != null && lastAppendVersion < appendVersion) {
@@ -455,11 +446,11 @@ public class LabWAL {
             }
         }
 
-        public void close() throws IOException {
+        private void close() throws IOException {
             wal.close();
         }
 
-        public void delete() throws IOException {
+        private void delete() throws IOException {
             wal.close();
             wal.delete();
         }

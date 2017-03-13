@@ -15,6 +15,7 @@ import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
@@ -32,7 +33,7 @@ public class LABWalTest {
         LabHeapPressure labHeapPressure1 = new LabHeapPressure(new LABStats(),
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
             "default",
-            1024 * 1024 * 10,
+            1024,
             1024 * 1024 * 10,
             new AtomicLong(),
             LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
@@ -62,11 +63,17 @@ public class LABWalTest {
 
         ValueIndex index = env.open(valueIndexConfig);
 
-        AtomicInteger monotonic = new AtomicInteger();
+        AtomicInteger monotonic = new AtomicInteger(-1);
         index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
+            //System.out.println("opening:" + (monotonic.get()+2) + " vs " + payload.getLong(0));
+            Assert.assertEquals(monotonic.get() + 1, payload.getLong(0));
             monotonic.set((int) payload.getLong(0));
             return true;
         }, true);
+
+        if (monotonic.get() == -1) {
+            monotonic.set(0);
+        }
 
         System.out.println("Opened at monotonic:" + monotonic.get());
 
@@ -82,8 +89,8 @@ public class LABWalTest {
             }
         };
 
-        int batchCount = 100;
-        int batchSize = 100;
+        int batchCount = 10_000;
+        int batchSize = 1_000;
         if (monotonic.get() != 0) {
             batchCount = 1;
         }
@@ -125,7 +132,7 @@ public class LABWalTest {
                 for (int i = 0; i < batchCount; i++) {
                     count.incrementAndGet();
                     int nextI = idProvider.nextId();
-                    int nextV = idProvider.nextId();
+                    int nextV = nextI;
                     wroteV[0] = nextV;
                     stream.stream(-1,
                         UIO.longBytes(nextI, new byte[8], 0),

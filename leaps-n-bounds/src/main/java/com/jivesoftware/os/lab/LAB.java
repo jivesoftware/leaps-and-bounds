@@ -498,7 +498,7 @@ public class LAB implements ValueIndex<byte[]> {
             return false;
         }
 
-        boolean appended;
+        boolean[] appended = { false };
         commitSemaphore.acquire();
         try {
             if (closeRequested.get()) {
@@ -511,39 +511,49 @@ public class LAB implements ValueIndex<byte[]> {
             } else {
                 appendVersion = -1;
             }
-
             lastAppendTimestamp = System.currentTimeMillis();
+
             long[] count = { 0 };
-            appended = memoryIndex.append(
-                (stream) -> {
-                    return values.consume(
-                        (index, key, timestamp, tombstoned, version, value) -> {
-
-                            BolBuffer rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value, rawEntryBuffer);
-                            if (journal && wal != null) {
-                                wal.append(walId, appendVersion, rawEntry);
-                                stats.journaledAppend.increment();
-                            } else {
-                                stats.append.increment();
-                            }
-
-                            count[0]++;
-                            return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry);
-                        }
-                    );
-                }, keyBuffer
-            );
-            LOG.inc("append>count", count[0]);
-
             if (journal && wal != null) {
-                wal.flush(walId, appendVersion, fsyncOnFlush);
+                wal.appendTx(walId, appendVersion, fsyncOnFlush, activeWAL -> {
+                    appended[0] = memoryIndex.append(
+                        (stream) -> {
+                            return values.consume(
+                                (index, key, timestamp, tombstoned, version, value) -> {
+
+                                    BolBuffer rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value, rawEntryBuffer);
+                                    activeWAL.append(walId, appendVersion, rawEntry);
+                                    stats.journaledAppend.increment();
+
+                                    count[0]++;
+                                    return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry);
+                                }
+                            );
+                        }, keyBuffer
+                    );
+                });
+            } else {
+                appended[0] = memoryIndex.append(
+                    (stream) -> {
+                        return values.consume(
+                            (index, key, timestamp, tombstoned, version, value) -> {
+
+                                BolBuffer rawEntry = rawhide.toRawEntry(key, timestamp, tombstoned, version, value, rawEntryBuffer);
+                                stats.append.increment();
+                                count[0]++;
+                                return stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry);
+                            }
+                        );
+                    }, keyBuffer
+                );
             }
+            LOG.inc("append>count", count[0]);
 
         } finally {
             commitSemaphore.release();
         }
         labHeapPressure.commitIfNecessary(this, overrideMaxHeapPressureInBytes >= 0 ? overrideMaxHeapPressureInBytes : maxHeapPressureInBytes, fsyncOnFlush);
-        return appended;
+        return appended[0];
     }
 
     @Override
