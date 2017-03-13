@@ -360,6 +360,7 @@ public class LabWAL {
                 }
                 for (ActiveWAL remove : removeable) {
                     remove.delete();
+                    LOG.info("Post commit WAL cleanup. {}", remove);
                 }
                 oldWALs.removeAll(removeable);
             } finally {
@@ -433,7 +434,6 @@ public class LabWAL {
                 appendableHeap.reset();
                 appendVersions.put(valueIndexId, appendVersion);
             }
-            LOG.info("LAB WAL flushed {} to {}", sizeInBytes.get(), wal.getFile());
             stats.bytesWrittenToWAL.add(numBytes);
         }
 
@@ -464,5 +464,13 @@ public class LabWAL {
             wal.delete();
         }
 
+        @Override
+        public String toString() {
+            return "ActiveWAL{" +
+                "wal=" + wal.getFile() +
+                ", entryCount=" + entryCount +
+                ", sizeInBytes=" + sizeInBytes +
+                '}';
+        }
     }
 }
