@@ -59,19 +59,34 @@ public class LABWalTest {
 
         System.out.println("Created env");
 
-        env.open();
+        String[] lastJournal = { null };
+        env.open((valueIndexId, key, timestamp, tombstoned, version, payload) -> {
+            String m = " key:" + UIO.bytesLong(key) + " timestamp:" + timestamp + " version:" + UIO.bytesLong(payload);
+            if (lastJournal[0] == null) {
+                System.out.println("First: " + m);
+            }
+            lastJournal[0] = m;
+            return true;
+        });
+        System.out.println("Last: " + lastJournal[0]);
 
         ValueIndex index = env.open(valueIndexConfig);
 
         AtomicInteger monotonic = new AtomicInteger(-1);
+        String[] lastWTF = { "" };
         index.rowScan((index1, key, timestamp, tombstoned, version, payload) -> {
-            if (monotonic.get() + 1 !=  payload.getLong(0)) {
-                System.out.println("opening:" + (monotonic.get() + 1) + " vs " + payload.getLong(0));
+
+            if (monotonic.get() + 1 != payload.getLong(0) || monotonic.get() + 1 != timestamp) {
+                System.out.println(lastWTF[0]);
+                System.out.println("opening:" + (monotonic.get() + 1) + " vs " + payload.getLong(0) + " t:" + timestamp);
             }
-            Assert.assertEquals(monotonic.get() + 1, payload.getLong(0));
+            lastWTF[0] = "opening:" + (monotonic.get() + 1) + " vs " + payload.getLong(0) + " t:" + timestamp;
+            Assert.assertEquals(monotonic.get() + 1, payload.getLong(0), "unexpected payload");
+            Assert.assertEquals(monotonic.get() + 1, timestamp, "unexpected timestamp");
             monotonic.set((int) payload.getLong(0));
             return true;
         }, true);
+
 
         if (monotonic.get() == -1) {
             monotonic.set(0);
@@ -138,7 +153,7 @@ public class LABWalTest {
                     wroteV[0] = nextV;
                     stream.stream(-1,
                         UIO.longBytes(nextI, new byte[8], 0),
-                        System.currentTimeMillis(),
+                        nextI,
                         false,
                         0,
                         UIO.longBytes(nextV, new byte[8], 0));
@@ -150,7 +165,7 @@ public class LABWalTest {
             if (commit) {
                 start = System.currentTimeMillis();
                 index.commit(true, true);
-                System.out.println("Commit Elapse:" + (System.currentTimeMillis() - start));
+                System.out.println("----> Commit Elapse:" + (System.currentTimeMillis() - start));
             }
         }
     }

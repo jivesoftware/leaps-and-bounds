@@ -13,7 +13,6 @@ import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -122,13 +121,13 @@ public class RangeStripedCompactableIndexesStressNGTest {
                 }
                 int longKey = rand.nextInt(i);
                 byte[] longAsBytes = UIO.longBytes(longKey, new byte[8], 0);
-                indexs.rangeTx(-1, longAsBytes, longAsBytes, -1, -1, (index, fromKey, toKey, acquire, hydrateValues) -> {
-                    GetRaw getRaw = new PointGetRaw(acquire, true);
+                indexs.rangeTx(-1, longAsBytes, longAsBytes, -1, -1, (index, fromKey, toKey, acquired, hydrateValues) -> {
+                    PointInterleave pointInterleave = new PointInterleave(acquired, key, LABRawhide.SINGLETON, true);
 
                     try {
 
                         UIO.longBytes(longKey, key, 0);
-                        getRaw.get(key, new BolBuffer(), new BolBuffer(), hitsAndMisses);
+                        pointInterleave.next( hitsAndMisses);
 
                         if ((hits[0] + misses[0]) % logInterval == 0) {
                             return true;

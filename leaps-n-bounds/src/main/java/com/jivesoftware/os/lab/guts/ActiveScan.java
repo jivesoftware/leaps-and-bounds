@@ -3,7 +3,6 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -23,7 +22,7 @@ import static com.jivesoftware.os.lab.guts.LABAppendableIndex.LEAP;
 /**
  * @author jonathan.colt
  */
-public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
+public class ActiveScan implements Scanner {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
@@ -49,40 +48,33 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
     long activeOffset = -1;
     boolean activeResult;
 
+
+    private enum ScanType {
+        memoryPoint, point, range, row;
+    }
+
+    private ScanType scanType;
+    private long fp;
+    private byte[] to;
+    private BolBuffer entryBuffer;
+    private BolBuffer entryKeyBuffer;
+    private BolBuffer bbFrom;
+    private BolBuffer bbTo;
+
+
     public ActiveScan(boolean hashIndexEnabled) {
         this.hashIndexEnabled = hashIndexEnabled;
     }
 
 
-    public boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
-
-        if (activeFp == Long.MAX_VALUE || activeFp != fp) {
-            activeFp = fp;
-            activeOffset = fp;
-        }
-        activeResult = false;
-        int type;
-        while ((type = readable.read(activeOffset)) >= 0) {
-            activeOffset++;
-            if (type == ENTRY) {
-                activeOffset += rawhide.rawEntryToBuffer(readable, activeOffset, entryBuffer);
-                activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer);
-                return false;
-            } else if (type == LEAP) {
-                int length = readable.readInt(activeOffset); // entryLength
-                activeOffset += (length);
-            } else if (type == FOOTER) {
-                activeResult = false;
-                return false;
-            } else {
-                throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
-            }
-        }
-        throw new IllegalStateException("Missing footer");
-    }
-
-
     public void reset() {
+        scanType = null;
+        fp = -1;
+        to = null;
+        entryBuffer = null;
+        entryKeyBuffer = null;
+        bbFrom = null;
+        bbTo = null;
         activeFp = Long.MAX_VALUE;
         activeOffset = -1;
         activeResult = false;
@@ -263,19 +255,11 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
             hashCode = compareKey.longMurmurHashCode(hashCode);
         }
         return -1;
-
     }
 
-    private boolean rangeScan;
-    private long fp;
-    private byte[] to;
-    private BolBuffer entryBuffer;
-    private BolBuffer entryKeyBuffer;
-    private BolBuffer bbFrom;
-    private BolBuffer bbTo;
 
     public void setupAsRangeScanner(long fp, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, BolBuffer bbFrom, BolBuffer bbTo) {
-        this.rangeScan = true;
+        this.scanType = ScanType.range;
         this.fp = fp;
         this.to = to;
         this.entryBuffer = entryBuffer;
@@ -284,20 +268,33 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
         this.bbTo = bbTo;
     }
 
-    private boolean rowScan;
-
     public void setupRowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) {
-        this.rowScan = true;
+        this.scanType = ScanType.row;
         this.entryBuffer = entryBuffer;
         this.entryKeyBuffer = entryKeyBuffer;
+    }
+
+    public void setupPointScan(long fp, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+        this.scanType = ScanType.point;
+        this.entryBuffer = entryBuffer;
+        this.entryKeyBuffer = entryKeyBuffer;
+        this.fp = fp;
+    }
+
+    private boolean result() {
+        return activeResult;
     }
 
 
     @Override
     public Next next(RawEntryStream stream) throws Exception {
-
-        if (rangeScan) {
-
+        if (scanType == ScanType.point) {
+            if (activeOffset != -1) {
+                return Next.stopped;
+            }
+            this.next(fp, entryBuffer, stream);
+            return Next.more;
+        } else if (scanType == ScanType.range) {
             BolBuffer entryBuffer = new BolBuffer();
             boolean[] once = new boolean[] { false };
             boolean more = true;
@@ -319,55 +316,45 @@ public class ActiveScan implements Scanner, GetRaw, RawEntryStream {
             }
             more = this.result();
             return more ? Next.more : Next.stopped;
-        } else if (rowScan) {
+        } else if (scanType == ScanType.row) {
             this.next(0, entryBuffer, stream);
             boolean more = this.result();
             return more ? Next.more : Next.stopped;
-
         } else {
             throw new IllegalStateException("This has not been setup as a scanner.");
         }
-
     }
-
-    private RawEntryStream activeStream;
-    private boolean found = false;
-
-    @Override
-    public boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception {
-        long activeFp = this.getInclusiveStartOfRow(new BolBuffer(key), entryBuffer, entryKeyBuffer, true);
-        if (activeFp < 0) {
-            return false;
-        }
-        activeStream = stream;
-        found = false;
-        this.reset();
-        boolean more = true;
-        while (more && !found) {
-            more = this.next(activeFp, entryBuffer, this);
-        }
-        return found;
-    }
-
-    @Override
-    public boolean result() {
-        return activeResult;
-    }
-
-    @Override
-    public boolean stream(FormatTransformer readKeyFormatTransformer,
-        FormatTransformer readValueFormatTransformer,
-        BolBuffer rawEntry) throws Exception {
-
-        boolean result = activeStream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
-        found = true;
-        return result;
-    }
-
 
     @Override
     public void close() throws Exception {
+    }
 
+
+    public boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
+
+        if (activeFp == Long.MAX_VALUE || activeFp != fp) {
+            activeFp = fp;
+            activeOffset = fp;
+        }
+        activeResult = false;
+        int type;
+        while ((type = readable.read(activeOffset)) >= 0) {
+            activeOffset++;
+            if (type == ENTRY) {
+                activeOffset += rawhide.rawEntryToBuffer(readable, activeOffset, entryBuffer);
+                activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer);
+                return false;
+            } else if (type == LEAP) {
+                int length = readable.readInt(activeOffset); // entryLength
+                activeOffset += (length);
+            } else if (type == FOOTER) {
+                activeResult = false;
+                return false;
+            } else {
+                throw new IllegalStateException("Bad row type:" + type + " at fp:" + (activeOffset - 1));
+            }
+        }
+        throw new IllegalStateException("Missing footer");
     }
 
 }

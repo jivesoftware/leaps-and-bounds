@@ -13,7 +13,6 @@ import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
@@ -33,7 +32,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
- *
  * @author jonathan.colt
  */
 public class CompactableIndexsNGTest {
@@ -49,7 +47,7 @@ public class CompactableIndexsNGTest {
         AtomicLong id = new AtomicLong();
         BolBuffer keyBuffer = new BolBuffer();
 
-        int[] counts = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
+        int[] counts = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 };
         for (int wi = 0; wi < counts.length; wi++) {
             int ci = wi;
             File file = File.createTempFile("a-index-" + wi, ".tmp");
@@ -89,23 +87,34 @@ public class CompactableIndexsNGTest {
         for (int i = 1; i <= id.get(); i++) {
             long g = i;
             byte[] k = UIO.longBytes(i, new byte[8], 0);
-            boolean[] passed = {false};
-            //System.out.println("Get:" + i);
+            boolean[] passed = { false };
+            System.out.println("Get:" + i);
             indexs.tx(-1, null, null, (index, fromKey, toKey, readIndexs, hydrateValues) -> {
 
-                for (ReadIndex raw : readIndexs) {
-                    //System.out.println("\tIndex:" + raw);
-                    GetRaw getRaw = raw.get(new ActiveScan(false));
-                    getRaw.get(k, new BolBuffer(), new BolBuffer(),
-                        (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                            //System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry.copy(), 4));
-                            if (UIO.bytesLong(rawEntry.copy(), 4) == g) {
-                                passed[0] = true;
-                            }
-                            return true;
+                PointInterleave pointInterleave = new PointInterleave(readIndexs, k, rawhide, true);
+                pointInterleave.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                        System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry.copy(), 4));
+                        if (UIO.bytesLong(rawEntry.copy(), 4) == g) {
+                            passed[0] = true;
                         }
-                    );
-                }
+                        return true;
+                    }
+                );
+
+                /*for (ReadIndex raw : readIndexs) {
+                    System.out.println("\tIndex:" + raw);
+                    Scanner scanner = raw.pointScan(new ActiveScan(true), k, new BolBuffer(), new BolBuffer());
+                    if (scanner != null) {
+                        scanner.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                                System.out.println("\t\tGot:" + UIO.bytesLong(rawEntry.copy(), 4));
+                                if (UIO.bytesLong(rawEntry.copy(), 4) == g) {
+                                    passed[0] = true;
+                                }
+                                return true;
+                            }
+                        );
+                    }
+                }*/
                 return true;
             }, true);
             if (!passed[0]) {
@@ -350,8 +359,9 @@ public class CompactableIndexsNGTest {
         indexs.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
-                GetRaw getRaw = new PointGetRaw(acquired, true);
                 byte[] key = UIO.longBytes(k, new byte[8], 0);
+                PointInterleave pointInterleave = new PointInterleave(acquired, key, rawhide, true);
+
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println("->" + TestUtils.key(rawEntry) + " " + TestUtils.value(rawEntry));
                     if (rawEntry != null) {
@@ -369,7 +379,8 @@ public class CompactableIndexsNGTest {
                     }
                     return rawEntry != null;
                 };
-                getRaw.get(key, new BolBuffer(), new BolBuffer(), stream);
+                pointInterleave.next(stream);
+
             }
             System.out.println("gets PASSED");
             return true;

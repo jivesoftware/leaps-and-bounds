@@ -5,8 +5,6 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.exceptions.LABCorruptedException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
-import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -269,32 +267,15 @@ public class ReadOnlyIndex implements ReadIndex {
     }
 
     @Override
-    public GetRaw get(ActiveScan activeScan) throws Exception {
-        return setup(activeScan);
-    }
-
-    private static final Scanner eos = new Scanner() {
-        @Override
-        public Next next(RawEntryStream stream) throws Exception {
-            return Next.eos;
-        }
-
-        @Override
-        public void close() {
-        }
-    };
-
-
-    @Override
-    public Scanner rangeScan(ActiveScan activeScen, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+    public Scanner rangeScan(ActiveScan activeScan, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
 
         BolBuffer bbFrom = from == null ? null : new BolBuffer(from);
         BolBuffer bbTo = to == null ? null : new BolBuffer(to);
 
-        ActiveScan scan = setup(activeScen);
+        ActiveScan scan = setup(activeScan);
         long fp = scan.getInclusiveStartOfRow(new BolBuffer(from), entryBuffer, entryKeyBuffer, false);
         if (fp < 0) {
-            return eos;
+            return null;
         }
         scan.setupAsRangeScanner(fp, to, entryBuffer, entryKeyBuffer, bbFrom, bbTo);
         return scan;
@@ -305,6 +286,17 @@ public class ReadOnlyIndex implements ReadIndex {
         ActiveScan scan = setup(activeScan);
         scan.setupRowScan(entryBuffer, entryKeyBuffer);
         return scan;
+    }
+
+    @Override
+    public Scanner pointScan(ActiveScan activeScan, byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+        ActiveScan pointScan = setup(activeScan);
+        long fp = pointScan.getInclusiveStartOfRow(new BolBuffer(key), entryBuffer, entryKeyBuffer, true);
+        if (fp < 0) {
+            return null;
+        }
+        pointScan.setupPointScan(fp, entryBuffer, entryKeyBuffer);
+        return pointScan;
     }
 
     @Override

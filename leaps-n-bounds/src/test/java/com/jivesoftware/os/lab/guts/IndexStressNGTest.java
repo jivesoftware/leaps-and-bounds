@@ -9,7 +9,6 @@ import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -138,14 +137,14 @@ public class IndexStressNGTest {
                     Thread.sleep(10);
                     continue;
                 }
-                while (indexs.tx(-1, null, null, (index, fromKey, toKey, acquire, hydrateValues) -> {
-                    GetRaw getRaw = new PointGetRaw(acquire, true);
+                while (indexs.tx(-1, null, null, (index, fromKey, toKey, acquired, hydrateValues) -> {
+                    PointInterleave pointInterleave = new PointInterleave(acquired, key, rawhide, true);
 
                     try {
 
                         int longKey = rand.nextInt(maxKey.intValue());
                         UIO.longBytes(longKey, key, 0);
-                        getRaw.get(key, new BolBuffer(), new BolBuffer(), hitsAndMisses);
+                        pointInterleave.next(hitsAndMisses);
 
                         if ((hits[0] + misses[0]) % logInterval == 0) {
                             return false;

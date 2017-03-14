@@ -362,16 +362,18 @@ public class RangeStripedCompactableIndexes {
                     try {
                         ActiveScan activeScan = new ActiveScan(false);
                         Scanner scanner = reader.rangeScan(activeScan, minKey, maxKey, entryBuffer, entryKeyBuffer);
-                        try {
-                            RawEntryStream rawEntryStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                                return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
-                            };
-                            while (scanner.next(rawEntryStream) == Scanner.Next.more) {
+                        if (scanner != null) {
+                            try {
+                                RawEntryStream rawEntryStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                                    return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
+                                };
+                                while (scanner.next(rawEntryStream) == Scanner.Next.more) {
+                                }
+                            } finally {
+                                scanner.close();
                             }
-                            return true;
-                        } finally {
-                            scanner.close();
                         }
+                        return true;
                     } finally {
                         reader.release();
                     }

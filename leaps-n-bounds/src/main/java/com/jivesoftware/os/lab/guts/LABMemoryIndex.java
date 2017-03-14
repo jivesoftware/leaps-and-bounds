@@ -8,7 +8,6 @@ import com.jivesoftware.os.lab.guts.LABIndex.Compute;
 import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
 import com.jivesoftware.os.lab.guts.api.AppendEntryStream;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
@@ -95,32 +94,31 @@ public class LABMemoryIndex implements RawAppendableIndex {
         this.reader = new ReadIndex() {
 
             @Override
-            public GetRaw get(ActiveScan activeScan) throws Exception {
-
-                return new GetRaw() {
-
-                    private boolean result;
-
+            public Scanner pointScan(ActiveScan activeScan, byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+                BolBuffer rawEntry = index.get(new BolBuffer(key), entryBuffer);
+                if (rawEntry == null) {
+                    return null;
+                }
+                return new Scanner() {
+                    boolean once = false;
                     @Override
-                    public boolean get(byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, RawEntryStream stream) throws Exception {
-                        BolBuffer rawEntry = index.get(new BolBuffer(key), entryBuffer);
-                        if (rawEntry == null) {
-                            return false;
-                        } else {
-                            result = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry);
-                            return true;
+                    public Next next(RawEntryStream stream) throws Exception {
+                        if (once) {
+                            return Next.stopped;
                         }
+                        stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, rawEntry);
+                        once = true;
+                        return Next.more;
                     }
 
                     @Override
-                    public boolean result() {
-                        return result;
+                    public void close() throws Exception {
                     }
                 };
             }
 
             @Override
-            public Scanner rangeScan(ActiveScan activeScen, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+            public Scanner rangeScan(ActiveScan activeScan, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 return index.scanner(from, to, entryBuffer, entryKeyBuffer);
             }
 

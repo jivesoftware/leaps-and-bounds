@@ -18,7 +18,7 @@ import com.jivesoftware.os.lab.guts.LABIndex;
 import com.jivesoftware.os.lab.guts.LABIndexProvider;
 import com.jivesoftware.os.lab.guts.LABMemoryIndex;
 import com.jivesoftware.os.lab.guts.Leaps;
-import com.jivesoftware.os.lab.guts.PointGetRaw;
+import com.jivesoftware.os.lab.guts.PointInterleave;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.guts.ReaderTx;
 import com.jivesoftware.os.lab.guts.api.GetRaw;
@@ -160,36 +160,19 @@ public class LAB implements ValueIndex<byte[]> {
 
     @Override
     public boolean get(Keys keys, ValueStream stream, boolean hydrateValues) throws Exception {
-        BolBuffer entryBuffer = new BolBuffer();
-        BolBuffer entryKeyBuffer = new BolBuffer();
         BolBuffer streamKeyBuffer = new BolBuffer();
         BolBuffer streamValueBuffer = hydrateValues ? new BolBuffer() : null;
-
-       /* int[] i = new int[1];
-        RawEntryStream hydrate = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> rawhide.streamRawEntry(i[0],
-            readKeyFormatTransformer,
-            readValueFormatTransformer,
-            rawEntry,
-            streamKeyBuffer,
-            streamValueBuffer,
-            stream);*/
 
         boolean b = pointTx(keys,
             -1,
             -1,
             (index, fromKey, toKey, readIndexes, hydrateValues1) -> {
-                /*i[0] = index;
-
-                for (ReadIndex ri : readIndexes) {
-                    GetRaw pointGet = ri.get(new ActiveScan(hashIndexEnabled));
-                    if (pointGet.get(fromKey, entryBuffer, entryKeyBuffer, hydrate)) {
-                        return pointGet.result();
-                    }
+                PointInterleave pointInterleave = new PointInterleave(readIndexes, fromKey, rawhide, hashIndexEnabled);
+                try {
+                    return rawToReal(index, pointInterleave, streamKeyBuffer, streamValueBuffer, stream);
+                } finally {
+                    pointInterleave.close();
                 }
-                return hydrate.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, null);*/
-
-                GetRaw getRaw = new PointGetRaw(readIndexes, hashIndexEnabled);
-                return rawToReal(index, fromKey, getRaw, entryBuffer, entryKeyBuffer, streamKeyBuffer, streamValueBuffer, stream);
             },
             hydrateValues
         );
@@ -581,6 +564,7 @@ public class LAB implements ValueIndex<byte[]> {
 
     private boolean internalCommit(boolean fsync, BolBuffer keyBuffer, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception, InterruptedException {
         synchronized (commitSemaphore) {
+            long appendVersion = -1;
             // open new memory index and mark existing for flush
             commitSemaphore.acquire(Short.MAX_VALUE);
             try {
@@ -591,6 +575,9 @@ public class LAB implements ValueIndex<byte[]> {
                     stats.fsyncedCommit.increment();
                 } else {
                     stats.commit.increment();
+                }
+                if (wal != null) {
+                    appendVersion = walAppendVersion.incrementAndGet();
                 }
                 flushingMemoryIndex = memoryIndex;
                 LABIndex labIndex = indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo());
@@ -615,7 +602,7 @@ public class LAB implements ValueIndex<byte[]> {
 
             // commit to WAL
             if (wal != null) {
-                wal.commit(walId, walAppendVersion.incrementAndGet(), fsync);
+                wal.commit(walId, appendVersion, fsync);
             }
             lastCommitTimestamp = System.currentTimeMillis();
 

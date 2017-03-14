@@ -110,7 +110,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 do {
                     freeAddress = freeNode.get();
                     nodesArray.set(address, freeAddress);
-                } while (!freeNode.compareAndSet(freeAddress, address));
+                }
+                while (!freeNode.compareAndSet(freeAddress, address));
             } finally {
                 growSemaphore.release(ALL);
             }
@@ -281,7 +282,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 do {
                     freeAddress = freeIndex.get();
                     indexsArray.set(address, freeAddress);
-                } while (!freeIndex.compareAndSet(freeAddress, address));
+                }
+                while (!freeIndex.compareAndSet(freeAddress, address));
             } finally {
                 growSemaphore.release(ALL);
             }
@@ -333,11 +335,13 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
     }
 
     /* ---------------- Traversal -------------- */
+
     /**
      * Returns a base-level node with key strictly less than given key,
      * or the base-level header if there is no such node.  Also
      * unlinks indexes to deleted nodes found along the way.  Callers
      * rely on this side-effect of clearing indices to deleted nodes.
+     *
      * @param key the key
      * @return a predecessor of key
      */
@@ -345,8 +349,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         if (key == null || key.length == -1) {
             throw new NullPointerException(); // don't postpone errors
         }
-        for (;;) {
-            for (int q = head, r = indexRight(q), d;;) {
+        for (; ; ) {
+            for (int q = head, r = indexRight(q), d; ; ) {
                 if (r != NIL) {
                     int n = indexNode(r);
                     long k = nodeKey(n);
@@ -379,33 +383,33 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
      * from findPredecessor, processing base-level deletions as
      * encountered. Some callers rely on this side-effect of clearing
      * deleted nodes.
-     *
+     * <p>
      * Restarts occur, at traversal step centered on node n, if:
-     *
-     *   (1) After reading n's next field, n is no longer assumed
-     *       predecessor b's current successor, which means that
-     *       we don't have a consistent 3-node snapshot and so cannot
-     *       unlink any subsequent deleted nodes encountered.
-     *
-     *   (2) n's value field is null, indicating n is deleted, in
-     *       which case we help out an ongoing structural deletion
-     *       before retrying.  Even though there are cases where such
-     *       unlinking doesn't require restart, they aren't sorted out
-     *       here because doing so would not usually outweigh cost of
-     *       restarting.
-     *
-     *   (3) n is a marker or n's predecessor's value field is null,
-     *       indicating (among other possibilities) that
-     *       findPredecessor returned a deleted node. We can't unlink
-     *       the node because we don't know its predecessor, so rely
-     *       on another call to findPredecessor to notice and return
-     *       some earlier predecessor, which it will do. This check is
-     *       only strictly needed at beginning of loop, (and the
-     *       b.value check isn't strictly needed at all) but is done
-     *       each iteration to help avoid contention with other
-     *       threads by callers that will fail to be able to change
-     *       links, and so will retry anyway.
-     *
+     * <p>
+     * (1) After reading n's next field, n is no longer assumed
+     * predecessor b's current successor, which means that
+     * we don't have a consistent 3-node snapshot and so cannot
+     * unlink any subsequent deleted nodes encountered.
+     * <p>
+     * (2) n's value field is null, indicating n is deleted, in
+     * which case we help out an ongoing structural deletion
+     * before retrying.  Even though there are cases where such
+     * unlinking doesn't require restart, they aren't sorted out
+     * here because doing so would not usually outweigh cost of
+     * restarting.
+     * <p>
+     * (3) n is a marker or n's predecessor's value field is null,
+     * indicating (among other possibilities) that
+     * findPredecessor returned a deleted node. We can't unlink
+     * the node because we don't know its predecessor, so rely
+     * on another call to findPredecessor to notice and return
+     * some earlier predecessor, which it will do. This check is
+     * only strictly needed at beginning of loop, (and the
+     * b.value check isn't strictly needed at all) but is done
+     * each iteration to help avoid contention with other
+     * threads by callers that will fail to be able to change
+     * links, and so will retry anyway.
+     * <p>
      * The traversal loops in doPut, doRemove, and findNear all
      * include the same three kinds of checks. And specialized
      * versions appear in findFirst, and findLast and their
@@ -421,8 +425,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             throw new NullPointerException(); // don't postpone errors
         }
         outer:
-        for (;;) {
-            for (int b = findPredecessor(key), n = nodeNext(b);;) {
+        for (; ; ) {
+            for (int b = findPredecessor(key), n = nodeNext(b); ; ) {
                 long v;
                 int c;
                 if (n == NIL) {
@@ -466,11 +470,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             throw new NullPointerException();
         }
         outer:
-        for (;;) {
+        for (; ; ) {
 
             int b = findPredecessor(key);
             int n = nodeNext(b);
-            for (;;) {
+            for (; ; ) {
                 long v;
                 int c;
                 if (n == NIL) {
@@ -504,12 +508,14 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
     }
 
     /* ---------------- Finding and removing first element -------------- */
+
     /**
      * Specialized variant of findNode to get first valid node.
+     *
      * @return first node or null if empty
      */
     final int findFirst() throws InterruptedException {
-        for (int b, n;;) {
+        for (int b, n; ; ) {
             b = indexNode(head);
             n = nodeNext(b);
             if (n == NIL) {
@@ -524,8 +530,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
 
     /* ---------------- Finding and removing last element -------------- */
+
     /**
      * Specialized version of find to get last valid node.
+     *
      * @return last node or null if empty
      */
     final int findLast() throws InterruptedException {
@@ -535,7 +543,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
          * both levels are folded together.
          */
         int q = head;
-        for (;;) {
+        for (; ; ) {
             int d, r;
             if ((r = indexRight(q)) != NIL) {
                 if (indexesDeletedNode(r)) {
@@ -547,7 +555,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             } else if ((d = indexDown(q)) != NIL) {
                 q = d;
             } else {
-                for (int b = indexNode(q), n = nodeNext(b);;) {
+                for (int b = indexNode(q), n = nodeNext(b); ; ) {
                     if (n == NIL) {
                         return isBaseHeader(b) ? null : b;
                     }
@@ -580,6 +588,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
     /**
      * Utility for ceiling, floor, lower, higher methods.
+     *
      * @param key the key
      * @param rel the relation -- OR'ed combination of EQ, LT, GT
      * @return nearest node fitting relation, or null if no such
@@ -588,11 +597,11 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         if (key == null || key.length == -1) {
             throw new NullPointerException();
         }
-        for (;;) {
+        for (; ; ) {
 
             int b = findPredecessor(key);
             int n = nodeNext(b);
-            for (;;) {
+            for (; ; ) {
                 long v;
                 if (n == NIL) {
                     return ((rel & LT) == 0 || isBaseHeader(b)) ? (int) NIL : b;
@@ -700,7 +709,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         synchronized (bolBufferLocks.lock(keyBytes, seed)) {
             growSemaphore.acquire();
             try {
-                for (;;) {
+                for (; ; ) {
                     int n;
                     long v;
                     BolBuffer r;
@@ -757,10 +766,10 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         long vid = NIL;
 
         outer:
-        for (;;) {
+        for (; ; ) {
             int b = findPredecessor(keyBytes);
             int n = nodeNext(b);
-            for (;;) {
+            for (; ; ) {
                 if (n != NIL) {
                     long v;
                     int c;
@@ -866,7 +875,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                 for (int i = 1; i <= level; ++i) {
                     idxs[i] = idx = allocateIndex(z, idx, (int) NIL, (int) NIL);
                 }
-                for (;;) {
+                for (; ; ) {
                     h = head;
                     int oldLevel = indexLevel(h);
                     if (level <= oldLevel) // lost race to add level
@@ -893,9 +902,9 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             }
             // find insertion points and splice in
             splice:
-            for (int insertionLevel = level;;) {
+            for (int insertionLevel = level; ; ) {
                 int j = indexLevel(h);
-                for (int q = h, r = indexRight(q), t = idx;;) {
+                for (int q = h, r = indexRight(q), t = idx; ; ) {
                     if (q == NIL || t == NIL) {
                         break splice;
                     }
@@ -1074,6 +1083,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
 
 
     /* ---------------- View Classes -------------- */
+
     /**
      * Submaps returned by {@link LABConcurrentSkipListMap} submap operations
      * represent a subrange of mappings of their underlying
@@ -1127,7 +1137,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             BolBuffer keyBolBuffer = new BolBuffer(); // Grr
             map.growSemaphore.acquire();
             try {
-                for (;;) {
+                for (; ; ) {
                     next = loNode();
                     if (next == NIL) {
                         break;
@@ -1189,7 +1199,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             }
             lastReturned = next;
             m.releaseValue(lastReturned);
-            for (;;) {
+            for (; ; ) {
                 next = m.nodeNext(next);
                 if (next == NIL) {
                     break;
@@ -1323,8 +1333,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             m.growSemaphore.acquire();
             try {
                 for (int n = loNode();
-                    isBeforeEnd(n);
-                    n = m.nodeNext(n)) {
+                     isBeforeEnd(n);
+                     n = m.nodeNext(n)) {
                     int v = (int) m.nodeValue(n);
                     if (v != NIL && v != SELF) {
                         ++count;
@@ -1402,7 +1412,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         };
     }
 
-    static public interface EntryStream {
+    public interface EntryStream {
 
         boolean hasNext();
 

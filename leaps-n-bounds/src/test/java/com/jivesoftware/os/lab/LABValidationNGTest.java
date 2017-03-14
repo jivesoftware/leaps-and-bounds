@@ -319,8 +319,12 @@ public class LABValidationNGTest {
                     int overRun = 25;
                     while (running.get() > 0 || overRun > 0) {
                         long maxId = nextId.get();
+                        if (maxId == 0) {
+                            Thread.yield();
+                            continue;
+                        }
                         Set<Long> found = new HashSet<>();
-                        for (int i = 0; i < maxId; i++) {
+                        for (int i = 1; i <= maxId; i++) {
                             int ii = i;
                             lab.get(
                                 (keyStream) -> {
@@ -343,15 +347,13 @@ public class LABValidationNGTest {
                         } else {
                             failed.incrementAndGet();
                             List<Long> missing = new ArrayList<>();
-                            for (long i = 0; i < maxId; i++) {
+                            for (long i = 1; i <= maxId; i++) {
                                 if (!found.contains(i)) {
                                     missing.add(i);
                                 }
-
                             }
                             System.out.println("FAILED: " + found.size() + "  vs " + maxId + " missing=" + missing + " " + missing.size());
                             log.add("FAILED: " + found.size() + "  vs " + maxId + " missing=" + missing + " " + missing.size());
-
                         }
                         if (running.get() <= 0) {
                             overRun--;

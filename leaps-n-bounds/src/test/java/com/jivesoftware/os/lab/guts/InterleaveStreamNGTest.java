@@ -11,7 +11,6 @@ import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
@@ -104,11 +103,6 @@ public class InterleaveStreamNGTest {
             }
 
             @Override
-            public GetRaw get(ActiveScan activeScan) throws Exception {
-                throw new UnsupportedOperationException("Not supported.");
-            }
-
-            @Override
             public Scanner rangeScan(ActiveScan activeScan, byte[] from, byte[] to, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 throw new UnsupportedOperationException("Not supported.");
             }
@@ -116,6 +110,11 @@ public class InterleaveStreamNGTest {
             @Override
             public Scanner rowScan(ActiveScan activeScan, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
                 return nextEntrySequence(keys, values);
+            }
+
+            @Override
+            public Scanner pointScan(ActiveScan activeScen, byte[] key, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+                throw new UnsupportedOperationException("Not supported.");
             }
 
             @Override

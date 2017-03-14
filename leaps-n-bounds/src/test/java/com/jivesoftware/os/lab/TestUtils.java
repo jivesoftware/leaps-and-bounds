@@ -8,11 +8,11 @@ import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.CompactableIndexes;
 import com.jivesoftware.os.lab.guts.InterleaveStream;
 import com.jivesoftware.os.lab.guts.LABHashIndexType;
-import com.jivesoftware.os.lab.guts.PointGetRaw;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
+import com.jivesoftware.os.lab.guts.PointInterleave;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
+import com.jivesoftware.os.lab.guts.api.Scanner.Next;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
@@ -140,7 +140,7 @@ public class TestUtils {
         indexes.tx(-1, null, null, (index1, fromKey, toKey, acquired, hydrateValues) -> {
             for (int i = 0; i < count * step; i++) {
                 long k = i;
-                GetRaw getRaw = new PointGetRaw(acquired, true);
+                PointInterleave pointInterleave = new PointInterleave(acquired, UIO.longBytes(k, new byte[8], 0), LABRawhide.SINGLETON, true);
                 RawEntryStream stream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     byte[] expectedFP = desired.get(UIO.longBytes(key(rawEntry), new byte[8], 0));
                     if (expectedFP == null) {
@@ -151,7 +151,7 @@ public class TestUtils {
                     return true;
                 };
 
-                while (getRaw.get(UIO.longBytes(k, new byte[8], 0), new BolBuffer(), new BolBuffer(), stream)) {
+                while (pointInterleave.next(stream) == Next.more) {
                 }
             }
             System.out.println("gets PASSED");

@@ -171,7 +171,7 @@ public class LABStress {
             MemoryRawEntryFormat.NAME,
             24,
             indexType,
-            hashIndexLoadFactor, false));
+            hashIndexLoadFactor, true));
         return index;
     }
 

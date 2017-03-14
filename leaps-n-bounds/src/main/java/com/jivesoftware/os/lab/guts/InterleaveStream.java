@@ -22,6 +22,7 @@ public class InterleaveStream implements Scanner {
     private Feed active;
     private Feed until;
 
+
     public InterleaveStream(ReadIndex[] indexs, byte[] from, byte[] to, Rawhide rawhide) throws Exception {
         this.rawhide = rawhide;
         boolean rowScan = from == null && to == null;
@@ -33,9 +34,11 @@ public class InterleaveStream implements Scanner {
                 } else {
                     scanner = indexs[i].rangeScan(new ActiveScan(false), from, to, new BolBuffer(), new BolBuffer());
                 }
-                Feed feed = new Feed(i, scanner, rawhide);
-                feed.feedNext();
-                feeds.add(feed);
+                if (scanner != null) {
+                    Feed feed = new Feed(i, scanner, rawhide);
+                    feed.feedNext();
+                    feeds.add(feed);
+                }
             } catch (Throwable t) {
                 if (scanner != null) {
                     scanner.close();
@@ -43,7 +46,6 @@ public class InterleaveStream implements Scanner {
                 throw t;
             }
         }
-        LOG.inc((rowScan ? "rowScan>" : "rangeScan>") + indexs.length);
     }
 
     @Override

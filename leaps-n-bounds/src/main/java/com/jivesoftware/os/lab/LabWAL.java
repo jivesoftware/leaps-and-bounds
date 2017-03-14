@@ -322,17 +322,15 @@ public class LabWAL {
 
     public void commit(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
         List<ActiveWAL> removeable = null;
-        semaphore.acquire();
+        semaphore.acquire(); // Keep somebody else from closing the WAL
         try {
             if (closed.get()) {
                 throw new LABClosedException("Trying to write to a Lab WAL that has been closed.");
             }
-            ActiveWAL wal = activeWAL();
-            wal.commit(valueIndexId, appendVersion, fsync);
             if (!oldWALs.isEmpty()) {
                 removeable = Lists.newArrayList();
                 for (ActiveWAL oldWAL : oldWALs) {
-                    if (oldWAL.commit(valueIndexId, appendVersion, fsync)) {
+                    if (oldWAL.commit(valueIndexId, appendVersion)) {
                         removeable.add(oldWAL);
                     }
                 }
@@ -436,7 +434,7 @@ public class LabWAL {
             appendableHeap.appendLong(appendVersion);
         }
 
-        private boolean commit(byte[] valueIndexId, long appendVersion, boolean fsync) throws Exception {
+        private boolean commit(byte[] valueIndexId, long appendVersion) throws Exception {
             synchronized (oneWriteAtTimeLock) {
                 Long lastAppendVersion = appendVersions.get(valueIndexId, 0, valueIndexId.length);
                 if (lastAppendVersion != null && lastAppendVersion < appendVersion) {
