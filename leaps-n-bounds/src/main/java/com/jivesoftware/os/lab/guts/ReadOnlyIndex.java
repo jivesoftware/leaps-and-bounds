@@ -284,7 +284,7 @@ public class ReadOnlyIndex implements ReadIndex {
     @Override
     public Scanner rowScan(ActiveScan activeScan, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
         ActiveScan scan = setup(activeScan);
-        scan.setupRowScan(entryBuffer, entryKeyBuffer);
+        scan.setupRowScan(entryBuffer);
         return scan;
     }
 
@@ -295,7 +295,7 @@ public class ReadOnlyIndex implements ReadIndex {
         if (fp < 0) {
             return null;
         }
-        pointScan.setupPointScan(fp, entryBuffer, entryKeyBuffer);
+        pointScan.setupPointScan(fp, entryBuffer);
         return pointScan;
     }
 

@@ -268,16 +268,14 @@ public class ActiveScan implements Scanner {
         this.bbTo = bbTo;
     }
 
-    public void setupRowScan(BolBuffer entryBuffer, BolBuffer entryKeyBuffer) {
+    public void setupRowScan(BolBuffer entryBuffer) {
         this.scanType = ScanType.row;
         this.entryBuffer = entryBuffer;
-        this.entryKeyBuffer = entryKeyBuffer;
     }
 
-    public void setupPointScan(long fp, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
+    public void setupPointScan(long fp, BolBuffer entryBuffer) throws Exception {
         this.scanType = ScanType.point;
         this.entryBuffer = entryBuffer;
-        this.entryKeyBuffer = entryKeyBuffer;
         this.fp = fp;
     }
 

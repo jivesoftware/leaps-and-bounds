@@ -25,11 +25,11 @@ public class PointInterleave implements Scanner, RawEntryStream {
 
     public PointInterleave(ReadIndex[] indexs, byte[] key, Rawhide rawhide, boolean hashIndexEnabled) throws Exception {
         this.rawhide = rawhide;
-        BolBuffer entryBuffer = new BolBuffer();
         BolBuffer entryKeyBuffer = new BolBuffer();
         for (int i = 0; i < indexs.length; i++) {
             Scanner scanner = null;
             try {
+                BolBuffer entryBuffer = new BolBuffer(); // must be new since we retain a reference
                 scanner = indexs[i].pointScan(new ActiveScan(hashIndexEnabled), key, entryBuffer, entryKeyBuffer);
                 if (scanner != null) {
                     scanner.next(this);
