@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import static org.testng.Assert.assertEquals;
+
 /**
  * @author jonathan.colt
  */
@@ -102,7 +104,7 @@ public class LABNGTest {
         }
 
         System.out.println("fails:" + fails.get());
-        Assert.assertEquals(fails.get(), 0);
+        assertEquals(fails.get(), 0);
     }
 
     private void assertRangeScan(long c, ValueIndex index, AtomicLong fails) throws Exception {
@@ -123,10 +125,10 @@ public class LABNGTest {
                         //Assert.assertTrue(scanned.add(UIO.bytesLong(key)), "Already contained " + UIO.bytesLong(key));
                         if (!added) {
                             fails.incrementAndGet();
-                            ((LAB)index).auditRanges(new KeyToString() {
+                            ((LAB) index).auditRanges(new KeyToString() {
                                 @Override
                                 public String keyToString(byte[] key) {
-                                    return ""+UIO.bytesLong(key);
+                                    return "" + UIO.bytesLong(key);
                                 }
                             });
                             System.out.println("RANGE FAILED: from:" + ff + " to:" + tt + " already contained " + got);
@@ -137,10 +139,10 @@ public class LABNGTest {
 
                 if (rangeScan.size() != t - f) {
                     fails.incrementAndGet();
-                    ((LAB)index).auditRanges(new KeyToString() {
+                    ((LAB) index).auditRanges(new KeyToString() {
                         @Override
                         public String keyToString(byte[] key) {
-                            return ""+UIO.bytesLong(key);
+                            return "" + UIO.bytesLong(key);
                         }
                     });
                     System.out.print("RANGE FAILED: from:" + f + " to:" + t + " result:" + rangeScan);
@@ -315,12 +317,93 @@ public class LABNGTest {
             return true;
         }, (index1, key, timestamp, tombstoned, version, payload) -> {
             System.out.println(IndexUtil.toString(key) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
-            Assert.assertEquals(UIO.bytesLong(payload.copy()), expectedValues[index1]);
+            assertEquals(UIO.bytesLong(payload.copy()), expectedValues[index1]);
             return true;
         }, true);
 
         env.shutdown();
 
+    }
+
+    @Test
+    public void testBackwards() throws Exception {
+
+        boolean fsync = false;
+        File root = Files.createTempDir();
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            1024 * 1024 * 10,
+            1024 * 1024 * 10,
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
+        LABEnvironment env = new LABEnvironment(new LABStats(),
+            LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            null,
+            root,
+            labHeapPressure,
+            1, 2,
+            leapsCache,
+            new StripingBolBufferLocks(1024),
+            true,
+            false);
+
+        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo",
+            4096,
+            1024 * 1024 * 10,
+            16,
+            -1,
+            -1,
+            NoOpFormatTransformerProvider.NAME,
+            LABRawhide.NAME,
+            MemoryRawEntryFormat.NAME,
+            2,
+            TestUtils.indexType,
+            0.75d,
+            false);
+
+        ValueIndex<byte[]> index = env.open(valueIndexConfig);
+        BolBuffer rawEntryBuffer = new BolBuffer();
+        BolBuffer keyBuffer = new BolBuffer();
+
+        byte[] key = UIO.longBytes(1234, new byte[8], 0);
+        for (int i = 0; i < 10; i++) {
+            long timestamp = Integer.MAX_VALUE - i;
+            long version = timestamp + 1;
+            index.append((stream) -> {
+                System.out.println("wrote timestamp:" + timestamp + " version:" + version);
+                stream.stream(-1, key, timestamp, false, version, UIO.longBytes(timestamp, new byte[8], 0));
+                return true;
+            }, fsync, rawEntryBuffer, keyBuffer);
+        }
+
+        commitAndWait(index, fsync);
+
+        for (int i = 10; i < 20; i++) {
+            long timestamp = Integer.MAX_VALUE - i;
+            long version = timestamp + 1;
+            index.append((stream) -> {
+                System.out.println("wrote timestamp:" + timestamp + " version:" + version);
+                stream.stream(-1, key, timestamp, false, version, UIO.longBytes(timestamp, new byte[8], 0));
+                return true;
+            }, fsync, rawEntryBuffer, keyBuffer);
+        }
+
+        long[] gotTimestamp = { -1 };
+        index.get((keyStream) -> {
+            keyStream.key(0, UIO.longBytes(1234), 0, 8);
+            return true;
+        }, (index1, key1, timestamp, tombstoned, version, payload) -> {
+            gotTimestamp[0] = timestamp;
+            System.out.println(IndexUtil.toString(key1) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
+            return true;
+        }, true);
+
+        env.shutdown();
+        assertEquals(gotTimestamp[0], Integer.MAX_VALUE);
     }
 
     private void commitAndWait(ValueIndex index, boolean fsync) throws Exception, ExecutionException, InterruptedException {
@@ -337,7 +420,7 @@ public class LABNGTest {
             }
             return true;
         }, (index1, key, timestamp, tombstoned, version, payload) -> {
-            Assert.assertEquals(payload.getLong(0), expected[index1]);
+            assertEquals(payload.getLong(0), expected[index1]);
             return true;
         }, true);
     }
@@ -353,7 +436,7 @@ public class LABNGTest {
                     return true;
                 },
                 (index1, key, timestamp, tombstoned, version, payload) -> {
-                    Assert.assertEquals(payload.getLong(0), e);
+                    assertEquals(payload.getLong(0), e);
                     return true;
                 }, true);
         }
@@ -401,10 +484,10 @@ public class LABNGTest {
             }
             return true;
         }, true);
-        Assert.assertEquals(scanned.size(), expected.length);
+        assertEquals(scanned.size(), expected.length);
         for (int i = 0; i < expected.length; i++) {
             System.out.println((long) scanned.get(i) + " vs " + expected[i]);
-            Assert.assertEquals((long) scanned.get(i), expected[i]);
+            assertEquals((long) scanned.get(i), expected[i]);
         }
     }
 
@@ -419,10 +502,10 @@ public class LABNGTest {
             }
             return true;
         }, true);
-        Assert.assertEquals(scanned.size(), expected.length);
+        assertEquals(scanned.size(), expected.length);
         for (int i = 0; i < expected.length; i++) {
             System.out.println((long) scanned.get(i) + " vs " + expected[i]);
-            Assert.assertEquals((long) scanned.get(i), expected[i]);
+            assertEquals((long) scanned.get(i), expected[i]);
         }
     }
 

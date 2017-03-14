@@ -1,5 +1,7 @@
 package com.jivesoftware.os.lab;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.LABEnvironmentNGTest.IdProvider;
@@ -13,9 +15,16 @@ import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
+import java.util.List;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 /**
@@ -23,11 +32,196 @@ import org.testng.annotations.Test;
  */
 public class LABWalTest {
 
-    @Test
+
+    @Test(enabled = false, description = "Slightly obnoxious")
+    public void testConcurrency() throws Exception {
+        long maxWALSizeInBytes = 1024L;
+        long maxEntriesPerWAL = 1_000L;
+        long maxEntrySizeInBytes = 128L;
+
+        LABStats labStats = new LABStats(1, 0, 1000L);
+        File envRoot = Files.createTempDir();
+        LabHeapPressure labHeapPressure1 = new LabHeapPressure(labStats,
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            1024 * 10,
+            1024 * 10,
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LABEnvironment env = new LABEnvironment(labStats,
+            LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            new LabWALConfig("wal",
+                "meta",
+                maxWALSizeInBytes,
+                maxEntriesPerWAL,
+                maxEntrySizeInBytes,
+                -1),
+            envRoot,
+            labHeapPressure1,
+            4,
+            8,
+            leapsCache,
+            new StripingBolBufferLocks(1024),
+            true,
+            false);
+
+        System.out.println("Opening...");
+        env.open();
+
+        int numValueIndexes = 1;
+        @SuppressWarnings("unchecked")
+        ValueIndex<byte[]>[] valueIndexes = new ValueIndex[numValueIndexes];
+        //byte[][] valueIndexIds = new byte[numValueIndexes][];
+        for (int i = 0; i < numValueIndexes; i++) {
+            String name = "index-" + i;
+            ValueIndexConfig valueIndexConfig = new ValueIndexConfig(name, 4096, 1024 * 1024 * 10, -1, -1, -1,
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d, false);
+            valueIndexes[i] = env.open(valueIndexConfig);
+            //valueIndexIds[i] = name.getBytes(StandardCharsets.UTF_8);
+        }
+
+        int concurrencyLevel = 8;
+        int numKeys = 100;
+        int maxWrites = 10_000;
+
+        AtomicBoolean running = new AtomicBoolean(true);
+        ConcurrentMap<Long, Long>[] keyTimestamps = new ConcurrentMap[numValueIndexes];
+        AtomicLong[] payloads = new AtomicLong[numValueIndexes];
+        for (int i = 0; i < numValueIndexes; i++) {
+            payloads[i] = new AtomicLong(0);
+            keyTimestamps[i] = Maps.newConcurrentMap();
+        }
+
+
+        System.out.println("Running...");
+        ExecutorService executorService = Executors.newFixedThreadPool(concurrencyLevel);
+        List<Future<?>> futures = Lists.newArrayList();
+        for (int i = 0; i < concurrencyLevel; i++) {
+            int index = i;
+            futures.add(executorService.submit(() -> {
+                int count = 0;
+                while ((running.get() || count < numKeys) && count < maxWrites) {
+                    if (count % 1_000 == 0) {
+                        System.out.println("Thread:" + index + " count:" + count);
+                    }
+                    count++;
+
+                    for (int vi = 0; vi < numValueIndexes; vi++) {
+                        ValueIndex<byte[]> valueIndex = valueIndexes[vi];
+                        payloads[vi].incrementAndGet();
+                        long key = (count % numKeys);
+                        byte[] bytes = UIO.longBytes(key, new byte[8], 0);
+                        long timestamp = Integer.MAX_VALUE - count;
+                        long version = timestamp + 1;
+                        keyTimestamps[vi].merge(key, timestamp, Math::max);
+                        valueIndex.append(stream -> {
+                            return stream.stream(0, bytes, timestamp, false, version, bytes);
+                        }, false, new BolBuffer(), new BolBuffer());
+                    }
+                    Thread.yield();
+                }
+                return true;
+            }));
+        }
+
+        Thread.sleep(5_000L);
+        running.set(false);
+
+        System.out.println("Stopping...");
+        for (Future<?> future : futures) {
+            future.get();
+        }
+
+        System.out.println("Closing...");
+        for (ValueIndex<byte[]> valueIndex : valueIndexes) {
+            valueIndex.close(true, false);
+        }
+        env.close();
+        executorService.shutdownNow();
+
+        System.out.println("Waiting...");
+        Thread.sleep(2_000L);
+
+        System.out.println("Reopening...");
+        env = new LABEnvironment(labStats,
+            LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            new LabWALConfig("wal",
+                "meta",
+                maxWALSizeInBytes,
+                maxEntriesPerWAL,
+                maxEntrySizeInBytes,
+                -1),
+            envRoot,
+            labHeapPressure1,
+            4,
+            8,
+            leapsCache,
+            new StripingBolBufferLocks(1024),
+            true,
+            false);
+        env.open((valueIndexId, key, timestamp, tombstoned, version, payload) -> {
+            System.out.println("Applied");
+            return true;
+        });
+        for (int i = 0; i < numValueIndexes; i++) {
+            String name = "index-" + i;
+            ValueIndexConfig valueIndexConfig = new ValueIndexConfig(name, 4096, 1024 * 1024 * 10, -1, -1, -1,
+                NoOpFormatTransformerProvider.NAME, LABRawhide.NAME, MemoryRawEntryFormat.NAME, 2, TestUtils.indexType, 0.75d, false);
+            valueIndexes[i] = env.open(valueIndexConfig);
+            //valueIndexIds[i] = name.getBytes(StandardCharsets.UTF_8);
+        }
+
+        System.out.println("Validating...");
+        AtomicLong[] journalCount = new AtomicLong[numValueIndexes];
+        for (int i = 0; i < numValueIndexes; i++) {
+            journalCount[i] = new AtomicLong(0);
+        }
+        for (int i = 0; i < numValueIndexes; i++) {
+            int index = i;
+            AtomicLong count = new AtomicLong(0);
+            AtomicLong missed = new AtomicLong(0);
+            valueIndexes[i].get(
+                keyStream -> {
+                    for (int j = 0; j < numKeys; j++) {
+                        byte[] bytes = UIO.longBytes(j, new byte[8], 0);
+                        keyStream.key(j, bytes, 0, 8);
+                    }
+                    return true;
+                },
+                (index1, key, timestamp, tombstoned, version, payload) -> {
+                    if (key != null && timestamp >= 0) {
+                        count.incrementAndGet();
+                        Long expected = keyTimestamps[index].get(key.getLong(0));
+                        if (expected == null || expected != timestamp) {
+                            System.out.println("Index:" + index + " expected:" + expected + " found:" + timestamp);
+                        }
+                    } else {
+                        System.out.println("Index:" + index + " missed");
+                        missed.incrementAndGet();
+                    }
+                    return true;
+                },
+                false);
+            System.out.println("Index:" + index + " count:" + count + " missed:" + missed);
+        }
+    }
+
+    private File testEnvRoot;
+
+    @BeforeTest
+    public void beforeTest() {
+        testEnvRoot = Files.createTempDir();
+    }
+
+    @Test(invocationCount = 2, singleThreaded = true)
     public void testEnvWithWALAndMemMap() throws Exception {
 
-        File root = new File(Files.createTempDir().getParentFile(), "labWal");
-        root.mkdirs();
+        File root = testEnvRoot;
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
         LabHeapPressure labHeapPressure1 = new LabHeapPressure(new LABStats(),

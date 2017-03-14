@@ -62,16 +62,16 @@ public class PointInterleave implements Scanner, RawEntryStream {
     @Override
     public boolean stream(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, BolBuffer rawEntry) throws Exception {
         if (nextRawEntry != null) {
-            int c = rawhide.mergeCompare(nextReadKeyFormatTransformer,
-                nextReadValueFormatTransformer,
-                nextRawEntry,
-                leftKeyBuffer,
-                readKeyFormatTransformer,
-                readValueFormatTransformer,
-                rawEntry,
-                rightKeyBuffer);
-            if (c > 0) {
+            long leftTimestamp = rawhide.timestamp(nextReadKeyFormatTransformer, nextReadValueFormatTransformer, nextRawEntry);
+            long rightTimestamp = rawhide.timestamp(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
+            if (leftTimestamp > rightTimestamp) {
                 return true;
+            } else if (leftTimestamp == rightTimestamp) {
+                long leftVersion = rawhide.version(nextReadKeyFormatTransformer, nextReadValueFormatTransformer, nextRawEntry);
+                long rightVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
+                if (leftVersion > rightVersion) {
+                    return true;
+                }
             }
         }
         nextRawEntry = rawEntry;
