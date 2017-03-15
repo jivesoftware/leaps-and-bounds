@@ -22,8 +22,8 @@ public class KeyValueRawhide implements Rawhide {
 
     @Override
     public boolean streamRawEntry(int index,
-        FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+        FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry,
         BolBuffer keyBuffer,
         BolBuffer valueBuffer,
@@ -61,19 +61,19 @@ public class KeyValueRawhide implements Rawhide {
     }
 
     @Override
-    public void writeRawEntry(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+    public void writeRawEntry(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntryBuffer,
-        FormatTransformer writeKeyFormatTransormer,
-        FormatTransformer writeValueFormatTransormer,
+        FormatTransformer writeKeyFormatTransformer,
+        FormatTransformer writeValueFormatTransformer,
         IAppendOnly appendOnly) throws Exception {
         appendOnly.appendInt(rawEntryBuffer.length);
         appendOnly.append(rawEntryBuffer);
     }
 
     @Override
-    public BolBuffer key(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+    public BolBuffer key(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry,
         BolBuffer keyBuffer) {
         rawEntry.sliceInto(4, rawEntry.getInt(0), keyBuffer);
@@ -86,12 +86,12 @@ public class KeyValueRawhide implements Rawhide {
     }
 
     @Override
-    public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {
+    public long timestamp(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, BolBuffer rawEntry) {
         return 0;
     }
 
     @Override
-    public long version(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {
+    public long version(FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, BolBuffer rawEntry) {
         return 0;
     }
 

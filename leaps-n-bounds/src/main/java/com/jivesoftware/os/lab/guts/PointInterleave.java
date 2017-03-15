@@ -9,9 +9,6 @@ import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 
-/**
- * Created by jonathan.colt on 3/14/17.
- */
 public class PointInterleave implements Scanner, RawEntryStream {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
@@ -26,11 +23,11 @@ public class PointInterleave implements Scanner, RawEntryStream {
     public PointInterleave(ReadIndex[] indexs, byte[] key, Rawhide rawhide, boolean hashIndexEnabled) throws Exception {
         this.rawhide = rawhide;
         BolBuffer entryKeyBuffer = new BolBuffer();
-        for (int i = 0; i < indexs.length; i++) {
+        for (ReadIndex index : indexs) {
             Scanner scanner = null;
             try {
                 BolBuffer entryBuffer = new BolBuffer(); // must be new since we retain a reference
-                scanner = indexs[i].pointScan(new ActiveScan(hashIndexEnabled), key, entryBuffer, entryKeyBuffer);
+                scanner = index.pointScan(new ActiveScan(hashIndexEnabled), key, entryBuffer, entryKeyBuffer);
                 if (scanner != null) {
                     scanner.next(this);
                     scanner.close();

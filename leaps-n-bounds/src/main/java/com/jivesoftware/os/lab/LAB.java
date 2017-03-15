@@ -78,7 +78,6 @@ public class LAB implements ValueIndex<byte[]> {
     private final LABStats stats;
     private final String rawhideName;
     private final Rawhide rawhide;
-    private final AtomicReference<RawEntryFormat> rawEntryFormat;
     private final LABIndexProvider indexProvider;
     private final boolean hashIndexEnabled;
 
@@ -125,7 +124,6 @@ public class LAB implements ValueIndex<byte[]> {
         this.labHeapPressure = labHeapPressure;
         this.maxHeapPressureInBytes = maxHeapPressureInBytes;
         this.memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, indexProvider.create(rawhide, -1));
-        this.rawEntryFormat = new AtomicReference<>(rawEntryFormat);
         this.primaryName = primaryName;
         this.rangeStripedCompactableIndexes = new RangeStripedCompactableIndexes(stats,
             destroy,
@@ -137,7 +135,7 @@ public class LAB implements ValueIndex<byte[]> {
             splitWhenValuesAndKeysTotalExceedsNBytes,
             formatTransformerProvider,
             rawhide,
-            this.rawEntryFormat,
+            new AtomicReference<>(rawEntryFormat),
             leapsCache,
             fsyncFileRenames,
             hashIndexType,
@@ -556,9 +554,9 @@ public class LAB implements ValueIndex<byte[]> {
             return Collections.emptyList();
         }
         if (waitIfToFarBehind) {
-            return compact(fsync, minDebt, maxDebt, waitIfToFarBehind);
+            return compact(fsync, minDebt, maxDebt, true);
         } else {
-            return Collections.singletonList(schedule.submit(() -> compact(fsync, minDebt, maxDebt, waitIfToFarBehind)));
+            return Collections.singletonList(schedule.submit(() -> compact(fsync, minDebt, maxDebt, false)));
         }
     }
 

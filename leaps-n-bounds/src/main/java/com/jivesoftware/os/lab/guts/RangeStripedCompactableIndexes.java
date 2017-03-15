@@ -132,8 +132,7 @@ public class RangeStripedCompactableIndexes {
                 }
             }
 
-            for (int i = 0; i < entries.length; i++) {
-                Map.Entry<File, Stripe> entry = entries[i];
+            for (Entry<File, Stripe> entry : entries) {
                 if (entry != null) {
                     long stripeId = Long.parseLong(entry.getKey().getName());
                     if (largestStripeId.get() < stripeId) {

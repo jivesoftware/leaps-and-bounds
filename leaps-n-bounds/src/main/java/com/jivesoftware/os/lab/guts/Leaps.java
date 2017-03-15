@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.base.Preconditions;
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
 import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.io.IOException;

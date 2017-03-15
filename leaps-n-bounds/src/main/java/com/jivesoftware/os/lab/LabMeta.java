@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.io.FileUtils;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LabMeta {
@@ -52,7 +51,7 @@ public class LabMeta {
         meta.set(m);
     }
 
-    public static interface GetMeta<R> {
+    public interface GetMeta<R> {
 
         R metaValue(BolBuffer metaValue) throws Exception;
     }
@@ -132,7 +131,7 @@ public class LabMeta {
         }
     }
 
-    public static interface MetaKeys {
+    public interface MetaKeys {
 
         boolean metaKey(byte[] metaKey);
     }
@@ -200,7 +199,7 @@ public class LabMeta {
                     }
                 }
             } catch (Exception x) {
-                LOG.error("Failed to full load labMeta: {} fp:{} length:{}", new Object[]{metaFile, o, metaFile.length()}, x);
+                LOG.error("Failed to full load labMeta: {} fp:{} length:{}", new Object[] { metaFile, o, metaFile.length() }, x);
             }
             return collisions;
         }
@@ -241,7 +240,6 @@ public class LabMeta {
 
         public boolean append(byte[] key, byte[] value, boolean flush) throws Exception {
 
-            long keyPointer = appender.getFilePointer();
             appender.appendInt(key.length);
             appender.append(key, 0, key.length);
             long valuePointer = appender.getFilePointer();

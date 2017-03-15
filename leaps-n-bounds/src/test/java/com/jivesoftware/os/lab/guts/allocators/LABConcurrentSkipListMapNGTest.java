@@ -19,7 +19,7 @@ public class LABConcurrentSkipListMapNGTest {
     public void batTest() throws Exception {
 
         LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator("test",2);
-        LABIndexableMemory labIndexableMemory = new LABIndexableMemory("test", allocator);
+        LABIndexableMemory labIndexableMemory = new LABIndexableMemory(allocator);
         FixedWidthRawhide rawhide = new FixedWidthRawhide(8, 8);
 
         LABConcurrentSkipListMap map = new LABConcurrentSkipListMap(new LABStats(), new LABConcurrentSkipListMemory(rawhide, labIndexableMemory),

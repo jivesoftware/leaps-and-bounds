@@ -164,7 +164,7 @@ public class AppendableHeap implements IAppendOnly {
     public void flush(boolean fsync) throws IOException {
     }
 
-    static final public byte[] grow(byte[] src, int amount) {
+    static public byte[] grow(byte[] src, int amount) {
         if (src == null) {
             return new byte[amount];
         }

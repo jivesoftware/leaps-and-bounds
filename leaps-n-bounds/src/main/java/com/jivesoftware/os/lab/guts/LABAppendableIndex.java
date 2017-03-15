@@ -36,8 +36,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
     private final int updatesBetweenLeaps;
     private final Rawhide rawhide;
     private final FormatTransformerProvider formatTransformerProvider;
-    private final FormatTransformer writeKeyFormatTransormer;
-    private final FormatTransformer writeValueFormatTransormer;
+    private final FormatTransformer writeKeyFormatTransformer;
+    private final FormatTransformer writeValueFormatTransformer;
     private final RawEntryFormat rawhideFormat;
     private final LABHashIndexType hashIndexType;
     private final double hashIndexLoadFactor;
@@ -80,8 +80,8 @@ public class LABAppendableIndex implements RawAppendableIndex {
         this.hashIndexType = hashIndexType;
         this.hashIndexLoadFactor = hashIndexLoadFactor;
 
-        this.writeKeyFormatTransormer = formatTransformerProvider.write(rawhideFormat.getKeyFormat());
-        this.writeValueFormatTransormer = formatTransformerProvider.write(rawhideFormat.getValueFormat());
+        this.writeKeyFormatTransformer = formatTransformerProvider.write(rawhideFormat.getKeyFormat());
+        this.writeValueFormatTransformer = formatTransformerProvider.write(rawhideFormat.getValueFormat());
         this.startOfEntryIndex = new long[updatesBetweenLeaps];
     }
 
@@ -99,7 +99,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
             appendableHeap.appendByte(ENTRY);
 
             rawhide.writeRawEntry(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer,
-                writeKeyFormatTransormer, writeValueFormatTransormer, appendableHeap);
+                writeKeyFormatTransformer, writeValueFormatTransformer, appendableHeap);
 
             BolBuffer key = rawhide.key(readKeyFormatTransformer, readValueFormatTransformer, rawEntryBuffer, keyBuffer);
             int keyLength = key.length;
@@ -266,7 +266,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 long inserted = 0;
                 long activeOffset = 0;
 
-                NEXT_ENTRY:
                 while (true) {
                     int type = c.read(activeOffset);
                     activeOffset++;
@@ -296,7 +295,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
                                 continue CUCKOO_EXTINCTION_LEVEL_EVENT;
                             }
                         }
-                        continue NEXT_ENTRY;
                     } else if (type == FOOTER) {
                         break;
                     } else if (type == LEAP) {
@@ -409,7 +407,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
             long[] hashIndexes = new long[batchSize];
             long[] startOfEntryOffsets = new long[batchSize];
 
-            NEXT_ENTRY:
             while (true) {
                 int type = c.read(activeOffset);
                 activeOffset++;
@@ -431,7 +428,6 @@ public class LABAppendableIndex implements RawAppendableIndex {
                         worstRun = Math.max(maxRun, worstRun);
                         batchCount = 0;
                     }
-                    continue NEXT_ENTRY;
                 } else if (type == FOOTER) {
                     break;
                 } else if (type == LEAP) {
@@ -541,7 +537,7 @@ public class LABAppendableIndex implements RawAppendableIndex {
         Leaps nextLeaps = LeapFrog.computeNextLeaps(index, key, latest, maxLeaps, startOfEntryIndex);
         appendableHeap.appendByte(LEAP);
         long startOfLeapFp = appendableHeap.getFilePointer() + writeIndex.getFilePointer();
-        nextLeaps.write(writeKeyFormatTransormer, appendableHeap);
+        nextLeaps.write(writeKeyFormatTransformer, appendableHeap);
         return new LeapFrog(startOfLeapFp, nextLeaps);
     }
 

@@ -71,7 +71,7 @@ public class ReadOnlyIndex implements ReadIndex {
         long seekTo = indexLength - 4;
         seekToBoundsCheck(seekTo, indexLength);
         int footerLength = readable.readInt(seekTo);
-        long hashIndexSizeInBytes = 0;
+        long hashIndexSizeInBytes;
         if (footerLength == -1) { // linearProbe has hash index tacked onto the end.
             seekTo = indexLength - (1 + 8 + 4);
             seekToBoundsCheck(seekTo, indexLength);
@@ -158,7 +158,7 @@ public class ReadOnlyIndex implements ReadIndex {
                 } else if (footerLength == -2) { // cuckoo hash index tacked onto the end.
                     seekTo = indexLength - (1 + 1 + 8 + 4);
                     seekToBoundsCheck(seekTo, indexLength);
-                    byte hashIndexHashFunctionCount = (byte) readableIndex.read(seekTo);
+                    //byte hashIndexHashFunctionCount = (byte) readableIndex.read(seekTo);
                     byte hashIndexLongPrecision = (byte) readableIndex.read(seekTo + 1);
                     long hashIndexMaxCapacity = readableIndex.readLong(seekTo + 1 + 1);
                     hashIndexSizeInBytes = (hashIndexMaxCapacity * hashIndexLongPrecision) + 1 + 1 + 8 + 4;
@@ -204,17 +204,14 @@ public class ReadOnlyIndex implements ReadIndex {
                 try {
                     readOnlyFile.close();
                     readOnlyFile.delete();
-                    //LOG.info("Destroyed {} {}", id, index.getFile());
                 } finally {
                     hideABone.release(Short.MAX_VALUE);
                 }
                 return null;
             });
         } else {
-            throw new UnsupportedOperationException("This was constructed such that destroy isn't supporte");
+            throw new UnsupportedOperationException("This was constructed such that destroy isn't supported");
         }
-
-
     }
 
     public void fsync() throws Exception {
@@ -240,8 +237,8 @@ public class ReadOnlyIndex implements ReadIndex {
     private ActiveScan setup(ActiveScan activeScan) throws IOException {
         activeScan.name = readOnlyFile.getFileName();
         activeScan.rawhide = rawhide;
-        activeScan.readKeyFormatTransormer = readKeyFormatTransformer;
-        activeScan.readValueFormatTransormer = readValueFormatTransformer;
+        activeScan.readKeyFormatTransformer = readKeyFormatTransformer;
+        activeScan.readValueFormatTransformer = readValueFormatTransformer;
         activeScan.leaps = leaps;
         activeScan.cacheKey = cacheKey;
         activeScan.leapsCache = leapsCache;

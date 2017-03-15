@@ -77,9 +77,8 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
                     if (address + NODE_SIZE_IN_LONGS >= nodesArray.length()) {
 
                         int newSize = Math.max(nodesArray.length() + NODE_SIZE_IN_LONGS, nodesArray.length() * 2);
-//
-                        long[] newNodesArray = null;
-                        newNodesArray = new long[newSize];
+
+                        long[] newNodesArray = new long[newSize];
                         for (int i = 0; i < nodesArray.length(); i++) { // LAME!!!
                             newNodesArray[i] = nodesArray.get(i);
                         }

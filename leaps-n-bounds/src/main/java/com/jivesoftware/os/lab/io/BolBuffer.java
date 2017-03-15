@@ -45,9 +45,9 @@ public class BolBuffer {
         this(bytes, 0, bytes == null ? -1 : bytes.length);
     }
 
-    public BolBuffer(byte[] bytes, int offet, int length) {
+    public BolBuffer(byte[] bytes, int offset, int length) {
         this.bytes = bytes;
-        this.offset = offet;
+        this.offset = offset;
         this.length = length;
     }
 

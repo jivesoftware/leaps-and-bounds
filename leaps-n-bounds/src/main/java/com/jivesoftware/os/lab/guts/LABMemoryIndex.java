@@ -33,7 +33,6 @@ public class LABMemoryIndex implements RawAppendableIndex {
 
     private final ExecutorService destroy;
     private final LabHeapPressure labHeapPressure;
-    private final LABStats stats;
     private final AtomicLong costInBytes = new AtomicLong();
 
     private final Rawhide rawhide;
@@ -53,8 +52,6 @@ public class LABMemoryIndex implements RawAppendableIndex {
         LABStats stats,
         Rawhide rawhide,
         LABIndex<BolBuffer, BolBuffer> index) throws InterruptedException {
-
-        this.stats = stats;
 
         this.costChangeInBytes = (allocated, resued) -> {
             costInBytes.addAndGet(allocated);

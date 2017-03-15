@@ -31,8 +31,7 @@ public class LABIndexNGTest {
     public void testGet() throws Exception {
         LABIndex<BolBuffer, BolBuffer> map = new LABConcurrentSkipListMap(new LABStats(),
             new LABConcurrentSkipListMemory(
-                LABRawhide.SINGLETON, new LABIndexableMemory("bla", new LABAppendOnlyAllocator("test", 2)
-                )
+                LABRawhide.SINGLETON, new LABIndexableMemory( new LABAppendOnlyAllocator("test", 2))
             ),
             new StripingBolBufferLocks(1024)
         );

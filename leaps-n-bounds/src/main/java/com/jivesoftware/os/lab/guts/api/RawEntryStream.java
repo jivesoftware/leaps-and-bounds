@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts.api;
 
-import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.api.FormatTransformer;
+import com.jivesoftware.os.lab.io.BolBuffer;
 
 /**
  *

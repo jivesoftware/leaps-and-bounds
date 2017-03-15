@@ -269,7 +269,7 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             bbs[bbIndex].putShort(bbSeek, v);
         } else {
             write(position, (byte) (v >>> 8));
-            write(position + 1, (byte) (v >>> 0));
+            write(position + 1, (byte) (v));
         }
     }
 
@@ -283,7 +283,7 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             write(position, (byte) (v >>> 24));
             write(position + 1, (byte) (v >>> 16));
             write(position + 2, (byte) (v >>> 8));
-            write(position + 3, (byte) (v >>> 0));
+            write(position + 3, (byte) (v));
         }
     }
 
@@ -301,7 +301,7 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
             write(position + 4, (byte) (v >>> 24));
             write(position + 5, (byte) (v >>> 16));
             write(position + 6, (byte) (v >>> 8));
-            write(position + 7, (byte) (v >>> 0));
+            write(position + 7, (byte) (v));
         }
     }
 

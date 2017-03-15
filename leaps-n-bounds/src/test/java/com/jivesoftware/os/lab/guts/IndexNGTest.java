@@ -99,9 +99,7 @@ public class IndexNGTest {
             rawhide,
             new LABConcurrentSkipListMap(labStats,
                 new LABConcurrentSkipListMemory(rawhide,
-                    new LABIndexableMemory("memory",
-                        new LABAppendOnlyAllocator("test", 2)
-                    )
+                    new LABIndexableMemory(new LABAppendOnlyAllocator("test", 2))
                 ),
                 new StripingBolBufferLocks(1024)
             ));
@@ -131,9 +129,7 @@ public class IndexNGTest {
             labHeapPressure, labStats, rawhide,
             new LABConcurrentSkipListMap(labStats,
                 new LABConcurrentSkipListMemory(rawhide,
-                    new LABIndexableMemory("memory",
-                        new LABAppendOnlyAllocator("test", 2)
-                    )
+                    new LABIndexableMemory(new LABAppendOnlyAllocator("test", 2))
                 ),
                 new StripingBolBufferLocks(1024)
             ));

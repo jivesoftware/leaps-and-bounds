@@ -159,9 +159,7 @@ public class InterleaveStreamNGTest {
                     rawhide,
                     new LABConcurrentSkipListMap(labStats,
                         new LABConcurrentSkipListMemory(rawhide,
-                            new LABIndexableMemory("memory",
-                                new LABAppendOnlyAllocator("test", 2)
-                            )
+                            new LABIndexableMemory(new LABAppendOnlyAllocator("test", 2))
                         ),
                         new StripingBolBufferLocks(1024)
                     ));

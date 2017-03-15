@@ -30,10 +30,10 @@ public class TieredCompaction {
 
         if (minimumRun < 3 && mergingCopy.length > 1) {
             long g = 0;
-            for (int i = 0; i < generations.length; i++) {
-                g = Math.max(g, generations[i]);
+            for (long generation : generations) {
+                g = Math.max(g, generation);
             }
-            return new MergeRange(g, 0, mergingCopy.length, null, null);
+            return new MergeRange(g, 0, mergingCopy.length);
         }
 
         int maxMergedAtOnce = 10;
@@ -57,7 +57,7 @@ public class TieredCompaction {
                 g = Math.max(g, generations[j]);
 
                 if ((l >= minimumRun || j == 0) && youngSum > (oldSum * 1.20d)) {
-                    return new MergeRange(g, j, l, null, null);
+                    return new MergeRange(g, j, l);
                 }
             }
         }

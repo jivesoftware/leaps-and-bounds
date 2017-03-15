@@ -54,7 +54,7 @@ public class UIO {
     }
 
     public static byte[] intBytes(int v, byte[] _bytes, int _offset) {
-        _bytes[_offset + 0] = (byte) (v >>> 24);
+        _bytes[_offset] = (byte) (v >>> 24);
         _bytes[_offset + 1] = (byte) (v >>> 16);
         _bytes[_offset + 2] = (byte) (v >>> 8);
         _bytes[_offset + 3] = (byte) v;
@@ -66,7 +66,7 @@ public class UIO {
     }
 
     public static byte[] shortBytes(short v, byte[] _bytes, int _offset) {
-        _bytes[_offset + 0] = (byte) (v >>> 8);
+        _bytes[_offset] = (byte) (v >>> 8);
         _bytes[_offset + 1] = (byte) v;
         return _bytes;
     }
@@ -89,7 +89,7 @@ public class UIO {
 
     public static int bytesInt(byte[] bytes, int offset) {
         int v = 0;
-        v |= (bytes[offset + 0] & 0xFF);
+        v |= (bytes[offset] & 0xFF);
         v <<= 8;
         v |= (bytes[offset + 1] & 0xFF);
         v <<= 8;
@@ -101,7 +101,7 @@ public class UIO {
 
     public static short bytesShort(byte[] bytes, int offset) {
         short v = 0;
-        v |= (bytes[offset + 0] & 0xFF);
+        v |= (bytes[offset] & 0xFF);
         v <<= 8;
         v |= (bytes[offset + 1] & 0xFF);
         return v;
@@ -109,7 +109,7 @@ public class UIO {
 
     public static int bytesUnsignedShort(byte[] bytes, int offset) {
         int v = 0;
-        v |= (bytes[offset + 0] & 0xFF);
+        v |= (bytes[offset] & 0xFF);
         v <<= 8;
         v |= (bytes[offset + 1] & 0xFF);
         return v;
@@ -117,7 +117,7 @@ public class UIO {
 
     public static char bytesChar(byte[] bytes, int offset) {
         char v = 0;
-        v |= (bytes[offset + 0] & 0xFF);
+        v |= (bytes[offset] & 0xFF);
         v <<= 8;
         v |= (bytes[offset + 1] & 0xFF);
         return v;
@@ -137,7 +137,7 @@ public class UIO {
     }
 
     public static byte[] longBytes(long v, byte[] _bytes, int _offset) {
-        _bytes[_offset + 0] = (byte) (v >>> 56);
+        _bytes[_offset] = (byte) (v >>> 56);
         _bytes[_offset + 1] = (byte) (v >>> 48);
         _bytes[_offset + 2] = (byte) (v >>> 40);
         _bytes[_offset + 3] = (byte) (v >>> 32);
@@ -169,7 +169,7 @@ public class UIO {
             return 0;
         }
         long v = 0;
-        v |= (bytes[_offset + 0] & 0xFF);
+        v |= (bytes[_offset] & 0xFF);
         v <<= 8;
         v |= (bytes[_offset + 1] & 0xFF);
         v <<= 8;

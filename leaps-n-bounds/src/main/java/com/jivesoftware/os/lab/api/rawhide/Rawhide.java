@@ -9,29 +9,28 @@ import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.util.Comparator;
 
 /**
- *
  * @author jonathan.colt
  */
 public interface Rawhide {
 
-    BolBuffer key(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+    BolBuffer key(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry,
         BolBuffer keyBuffer) throws Exception;
 
     boolean hasTimestampVersion();
 
-    long timestamp(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+    long timestamp(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry);
 
-    long version(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+    long version(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry);
 
     boolean streamRawEntry(int index,
-        FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+        FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry,
         BolBuffer keyBuffer,
         BolBuffer valueBuffer,
@@ -46,53 +45,53 @@ public interface Rawhide {
 
     int rawEntryToBuffer(IPointerReadable readable, long offset, BolBuffer entryBuffer) throws Exception;
 
-    void writeRawEntry(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+    void writeRawEntry(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntryBuffer,
-        FormatTransformer writeKeyFormatTransormer,
-        FormatTransformer writeValueFormatTransormer,
+        FormatTransformer writeKeyFormatTransformer,
+        FormatTransformer writeValueFormatTransformer,
         IAppendOnly appendOnly) throws Exception;
 
     // Default impls from here on out
-    default BolBuffer merge(FormatTransformer currentReadKeyFormatTransormer,
-        FormatTransformer currentReadValueFormatTransormer,
+    default BolBuffer merge(FormatTransformer currentReadKeyFormatTransformer,
+        FormatTransformer currentReadValueFormatTransformer,
         BolBuffer currentRawEntry,
-        FormatTransformer addingReadKeyFormatTransormer,
-        FormatTransformer addingReadValueFormatTransormer,
+        FormatTransformer addingReadKeyFormatTransformer,
+        FormatTransformer addingReadValueFormatTransformer,
         BolBuffer addingRawEntry,
-        FormatTransformer mergedReadKeyFormatTransormer,
-        FormatTransformer mergedReadValueFormatTransormer) {
+        FormatTransformer mergedReadKeyFormatTransformer,
+        FormatTransformer mergedReadValueFormatTransformer) {
         return addingRawEntry;
     }
 
-    default int mergeCompare(FormatTransformer aReadKeyFormatTransormer,
-        FormatTransformer aReadValueFormatTransormer,
+    default int mergeCompare(FormatTransformer aReadKeyFormatTransformer,
+        FormatTransformer aReadValueFormatTransformer,
         BolBuffer aRawEntry,
         BolBuffer aKeyBuffer,
-        FormatTransformer bReadKeyFormatTransormer,
-        FormatTransformer bReadValueFormatTransormer,
+        FormatTransformer bReadKeyFormatTransformer,
+        FormatTransformer bReadValueFormatTransformer,
         BolBuffer bRawEntry,
         BolBuffer bKeyBuffer) throws Exception {
 
-        return compareKey(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, aKeyBuffer,
-            bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry, bKeyBuffer);
+        return compareKey(aReadKeyFormatTransformer, aReadValueFormatTransformer, aRawEntry, aKeyBuffer,
+            bReadKeyFormatTransformer, bReadValueFormatTransformer, bRawEntry, bKeyBuffer);
     }
 
-    default int compareKey(FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+    default int compareKey(FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         BolBuffer rawEntry,
         BolBuffer keyBuffer,
         BolBuffer compareKey
     ) throws Exception {
-        return IndexUtil.compare(key(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, keyBuffer), compareKey);
+        return IndexUtil.compare(key(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, keyBuffer), compareKey);
     }
 
-    default int compareKey(FormatTransformer aReadKeyFormatTransormer,
-        FormatTransformer aReadValueFormatTransormer,
+    default int compareKey(FormatTransformer aReadKeyFormatTransformer,
+        FormatTransformer aReadValueFormatTransformer,
         BolBuffer aRawEntry,
         BolBuffer aKeyBuffer,
-        FormatTransformer bReadKeyFormatTransormer,
-        FormatTransformer bReadValueFormatTransormer,
+        FormatTransformer bReadKeyFormatTransformer,
+        FormatTransformer bReadValueFormatTransformer,
         BolBuffer bRawEntry,
         BolBuffer bKeyBuffer) throws Exception {
 
@@ -104,19 +103,19 @@ public interface Rawhide {
             return aRawEntry.length;
         } else {
             return IndexUtil.compare(
-                key(aReadKeyFormatTransormer, aReadValueFormatTransormer, aRawEntry, aKeyBuffer),
-                key(bReadKeyFormatTransormer, bReadValueFormatTransormer, bRawEntry, bKeyBuffer)
+                key(aReadKeyFormatTransformer, aReadValueFormatTransformer, aRawEntry, aKeyBuffer),
+                key(bReadKeyFormatTransformer, bReadValueFormatTransformer, bRawEntry, bKeyBuffer)
             );
         }
     }
 
-    final Comparator<BolBuffer> bolBufferKeyComparator = IndexUtil::compare;
+    Comparator<BolBuffer> bolBufferKeyComparator = IndexUtil::compare;
 
     default Comparator<BolBuffer> getBolBufferKeyComparator() {
         return bolBufferKeyComparator;
     }
 
-    final Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
+    Comparator<byte[]> keyComparator = (byte[] o1, byte[] o2) -> IndexUtil.compare(o1, 0, o1.length, o2, 0, o2.length);
 
     default Comparator<byte[]> getKeyComparator() {
         return keyComparator;

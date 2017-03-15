@@ -14,7 +14,6 @@ import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
-import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.api.rawhide.KeyValueRawhide;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
@@ -250,7 +249,7 @@ public class LABEnvironment {
 
     ValueIndexConfig valueIndexConfig(byte[] valueIndexId) throws Exception {
         if (meta == null) {
-            throw new IllegalStateException("This enviromnet doesn't support journaled appends");
+            throw new IllegalStateException("This environment doesn't support journaled appends");
         }
         ValueIndexConfig config = meta.get(valueIndexId, (metaValue) -> {
             if (metaValue != null) {
@@ -321,7 +320,7 @@ public class LABEnvironment {
                 LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(config.primaryName,
                     Math.max(config.entryLengthPower, (poweredUpToHint - config.entryLengthPower) / 2)
                 );
-                LABIndexableMemory memory = new LABIndexableMemory(config.rawhideName, allocator);
+                LABIndexableMemory memory = new LABIndexableMemory(allocator);
                 LABConcurrentSkipListMemory skipListMemory = new LABConcurrentSkipListMemory(rawhide1, memory);
                 return new LABConcurrentSkipListMap(stats, skipListMemory, stripingBolBufferLocks);
             } else {

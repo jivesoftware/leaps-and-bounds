@@ -30,8 +30,8 @@ public class ActiveScan implements Scanner {
 
     String name;
     Rawhide rawhide;
-    FormatTransformer readKeyFormatTransormer;
-    FormatTransformer readValueFormatTransormer;
+    FormatTransformer readKeyFormatTransformer;
+    FormatTransformer readValueFormatTransformer;
     Leaps leaps;
     long cacheKey;
     LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
@@ -50,7 +50,7 @@ public class ActiveScan implements Scanner {
 
 
     private enum ScanType {
-        memoryPoint, point, range, row;
+        memoryPoint, point, range, row
     }
 
     private ScanType scanType;
@@ -90,12 +90,12 @@ public class ActiveScan implements Scanner {
 
         if (exact && hashIndexEnabled && hashIndexMaxCapacity > 0) {
             if (hashIndexType == LABHashIndexType.linearProbe) {
-                long exactRowIndex = getLinearProbe(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
+                long exactRowIndex = getLinearProbe(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransformer, readValueFormatTransformer, rawhide);
                 if (exactRowIndex >= -1) {
                     return exactRowIndex > -1 ? exactRowIndex - 1 : -1;
                 }
             } else if (hashIndexType == LABHashIndexType.cuckoo) {
-                long exactRowIndex = getCuckoo(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransormer, readValueFormatTransormer, rawhide);
+                long exactRowIndex = getCuckoo(bbKey, entryBuffer, entryKeyBuffer, readKeyFormatTransformer, readValueFormatTransformer, rawhide);
                 if (exactRowIndex >= -1) {
                     return exactRowIndex > -1 ? exactRowIndex - 1 : -1;
                 }
@@ -110,8 +110,8 @@ public class ActiveScan implements Scanner {
             int index = Arrays.binarySearch(l.keys, bbKey, byteBufferKeyComparator);
             if (index == -(l.fps.length + 1)) {
                 rowIndex = binarySearchClosestFP(rawhide,
-                    readKeyFormatTransormer,
-                    readValueFormatTransormer,
+                    readKeyFormatTransformer,
+                    readValueFormatTransformer,
                     readable,
                     l,
                     bbKey,
@@ -129,7 +129,7 @@ public class ActiveScan implements Scanner {
 
                 next = leapsCache.get(cacheKeyBuffer);
                 if (next == null) {
-                    next = Leaps.read(readKeyFormatTransormer, readable, l.fps[index]);
+                    next = Leaps.read(readKeyFormatTransformer, readable, l.fps[index]);
                     leapsCache.put(Arrays.copyOf(cacheKeyBuffer, 16), next);
                     cacheMisses++;
                 } else {
@@ -152,8 +152,8 @@ public class ActiveScan implements Scanner {
     }
 
     private static long binarySearchClosestFP(Rawhide rawhide,
-        FormatTransformer readKeyFormatTransormer,
-        FormatTransformer readValueFormatTransormer,
+        FormatTransformer readKeyFormatTransformer,
+        FormatTransformer readValueFormatTransformer,
         IPointerReadable readable,
         Leaps leaps,
         BolBuffer key,
@@ -171,7 +171,7 @@ public class ActiveScan implements Scanner {
             long fp = startOfEntryBuffer.get(mid);
 
             rawhide.rawEntryToBuffer(readable, fp + 1, entryBuffer);
-            int cmp = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer, entryKeyBuffer, key);
+            int cmp = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer, entryKeyBuffer, key);
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {
@@ -183,11 +183,7 @@ public class ActiveScan implements Scanner {
         if (exact) {
             return -1;
         } else {
-            try {
-                return startOfEntryBuffer.get(low);
-            } catch (Exception x) {
-                throw x;
-            }
+            return startOfEntryBuffer.get(low);
         }
     }
 
@@ -299,14 +295,14 @@ public class ActiveScan implements Scanner {
             while (!once[0] && more) {
                 more = this.next(fp,
                     entryBuffer,
-                    (readKeyFormatTransormer, readValueFormatTransormer, rawEntry) -> {
-                        int c = rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, entryKeyBuffer, bbFrom);
+                    (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
+                        int c = rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, entryKeyBuffer, bbFrom);
                         if (c >= 0) {
-                            c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransormer, readValueFormatTransormer, rawEntry, entryKeyBuffer, bbTo);
+                            c = to == null ? -1 : rawhide.compareKey(readKeyFormatTransformer, readValueFormatTransformer, rawEntry, entryKeyBuffer, bbTo);
                             if (c < 0) {
                                 once[0] = true;
                             }
-                            return c < 0 && stream.stream(readKeyFormatTransormer, readValueFormatTransormer, rawEntry);
+                            return c < 0 && stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
                         } else {
                             return true;
                         }
@@ -340,7 +336,7 @@ public class ActiveScan implements Scanner {
             activeOffset++;
             if (type == ENTRY) {
                 activeOffset += rawhide.rawEntryToBuffer(readable, activeOffset, entryBuffer);
-                activeResult = stream.stream(readKeyFormatTransormer, readValueFormatTransormer, entryBuffer);
+                activeResult = stream.stream(readKeyFormatTransformer, readValueFormatTransformer, entryBuffer);
                 return false;
             } else if (type == LEAP) {
                 int length = readable.readInt(activeOffset); // entryLength

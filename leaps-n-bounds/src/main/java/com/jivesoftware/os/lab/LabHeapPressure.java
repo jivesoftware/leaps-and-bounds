@@ -78,7 +78,7 @@ public class LabHeapPressure {
             stats.pressureCommit.increment();
         } else {
             commitableLabs.compute(lab, (LAB t, Boolean u) -> {
-                return u == null ? fsyncOnFlush : (boolean) u || fsyncOnFlush;
+                return u == null ? fsyncOnFlush : u || fsyncOnFlush;
             });
         }
         long globalHeap = globalHeapCostInBytes.get();
@@ -148,7 +148,7 @@ public class LabHeapPressure {
 
     public void freeHeap() {
         synchronized (globalHeapCostInBytes) {
-            if (running != true) {
+            if (!running) {
                 running = true;
                 schedule.submit(() -> {
                     while (true) {

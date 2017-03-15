@@ -7,7 +7,7 @@ package com.jivesoftware.os.lab.guts.api;
 public interface Scanner {
 
     enum Next {
-        eos, more, stopped;
+        eos, more, stopped
     }
 
     Next next(RawEntryStream stream) throws Exception;
