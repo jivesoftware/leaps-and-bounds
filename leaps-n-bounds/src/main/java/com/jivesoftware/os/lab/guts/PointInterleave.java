@@ -35,6 +35,10 @@ public class PointInterleave implements Scanner, RawEntryStream {
                     scanner.next(this);
                     scanner.close();
                 }
+                if (!rawhide.hasTimestampVersion() && nextRawEntry != null) {
+                    // this rawhide doesn't support timestamps, so as soon as we find one, we win!
+                    break;
+                }
             } catch (Throwable t) {
                 if (scanner != null) {
                     scanner.close();
@@ -69,7 +73,7 @@ public class PointInterleave implements Scanner, RawEntryStream {
             } else if (leftTimestamp == rightTimestamp) {
                 long leftVersion = rawhide.version(nextReadKeyFormatTransformer, nextReadValueFormatTransformer, nextRawEntry);
                 long rightVersion = rawhide.version(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
-                if (leftVersion > rightVersion) {
+                if (leftVersion >= rightVersion) {
                     return true;
                 }
             }

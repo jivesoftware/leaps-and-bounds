@@ -99,6 +99,11 @@ public class LABRawhide implements Rawhide {
     }
 
     @Override
+    public boolean hasTimestampVersion() {
+        return true;
+    }
+
+    @Override
     public long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntrys) {

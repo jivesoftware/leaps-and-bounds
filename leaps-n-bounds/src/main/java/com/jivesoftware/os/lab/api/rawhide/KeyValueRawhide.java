@@ -79,7 +79,11 @@ public class KeyValueRawhide implements Rawhide {
         rawEntry.sliceInto(4, rawEntry.getInt(0), keyBuffer);
         return keyBuffer;
     }
-    
+
+    @Override
+    public boolean hasTimestampVersion() {
+        return false;
+    }
 
     @Override
     public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {

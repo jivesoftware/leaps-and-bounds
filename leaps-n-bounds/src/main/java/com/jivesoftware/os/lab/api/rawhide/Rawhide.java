@@ -19,6 +19,8 @@ public interface Rawhide {
         BolBuffer rawEntry,
         BolBuffer keyBuffer) throws Exception;
 
+    boolean hasTimestampVersion();
+
     long timestamp(FormatTransformer readKeyFormatTransormer,
         FormatTransformer readValueFormatTransormer,
         BolBuffer rawEntry);

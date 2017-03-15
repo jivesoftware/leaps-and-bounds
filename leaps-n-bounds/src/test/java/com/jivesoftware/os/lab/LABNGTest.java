@@ -7,6 +7,7 @@ import com.jivesoftware.os.lab.api.MemoryRawEntryFormat;
 import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.ValueIndex;
 import com.jivesoftware.os.lab.api.ValueIndexConfig;
+import com.jivesoftware.os.lab.api.rawhide.KeyValueRawhide;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.guts.Leaps;
@@ -404,6 +405,85 @@ public class LABNGTest {
 
         env.shutdown();
         assertEquals(gotTimestamp[0], Integer.MAX_VALUE);
+    }
+
+    @Test
+    public void testKeyValue() throws Exception {
+
+        boolean fsync = false;
+        File root = Files.createTempDir();
+        LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100, 8);
+        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+            LABEnvironment.buildLABHeapSchedulerThreadPool(1),
+            "default",
+            1024 * 1024 * 10,
+            1024 * 1024 * 10,
+            new AtomicLong(),
+            LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
+        LABEnvironment env = new LABEnvironment(new LABStats(),
+            LABEnvironment.buildLABSchedulerThreadPool(1),
+            LABEnvironment.buildLABCompactorThreadPool(4),
+            LABEnvironment.buildLABDestroyThreadPool(1),
+            null,
+            root,
+            labHeapPressure,
+            1, 2,
+            leapsCache,
+            new StripingBolBufferLocks(1024),
+            true,
+            false);
+
+        ValueIndexConfig valueIndexConfig = new ValueIndexConfig("foo",
+            4096,
+            1024 * 1024 * 10,
+            16,
+            -1,
+            -1,
+            NoOpFormatTransformerProvider.NAME,
+            KeyValueRawhide.NAME,
+            MemoryRawEntryFormat.NAME,
+            2,
+            TestUtils.indexType,
+            0.75d,
+            false);
+
+        ValueIndex<byte[]> index = env.open(valueIndexConfig);
+        BolBuffer rawEntryBuffer = new BolBuffer();
+        BolBuffer keyBuffer = new BolBuffer();
+
+        byte[] key = UIO.longBytes(1234, new byte[8], 0);
+        for (int i = 0; i < 10; i++) {
+            long timestamp = i;
+            index.append((stream) -> {
+                System.out.println("wrote timestamp:" + timestamp);
+                stream.stream(-1, key, 0, false, 0, UIO.longBytes(timestamp, new byte[8], 0));
+                return true;
+            }, fsync, rawEntryBuffer, keyBuffer);
+        }
+
+        commitAndWait(index, fsync);
+
+        for (int i = 10; i < 20; i++) {
+            long timestamp = i;
+            index.append((stream) -> {
+                System.out.println("wrote timestamp:" + timestamp);
+                stream.stream(-1, key, 0, false, 0, UIO.longBytes(timestamp, new byte[8], 0));
+                return true;
+            }, fsync, rawEntryBuffer, keyBuffer);
+        }
+
+        long[] gotTimestamp = { -1 };
+        index.get((keyStream) -> {
+            keyStream.key(0, UIO.longBytes(1234), 0, 8);
+            return true;
+        }, (index1, key1, timestamp, tombstoned, version, payload) -> {
+            gotTimestamp[0] = payload.getLong(0);
+            System.out.println(IndexUtil.toString(key1) + " " + timestamp + " " + tombstoned + " " + version + " " + IndexUtil.toString(payload));
+            return true;
+        }, true);
+
+        env.shutdown();
+        assertEquals(gotTimestamp[0], 19);
     }
 
     private void commitAndWait(ValueIndex index, boolean fsync) throws Exception, ExecutionException, InterruptedException {

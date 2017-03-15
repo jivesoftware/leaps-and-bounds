@@ -78,6 +78,10 @@ public class FixedWidthRawhide implements Rawhide {
         return keyBuffer;
     }
 
+    @Override
+    public boolean hasTimestampVersion() {
+        return false;
+    }
 
     @Override
     public long timestamp(FormatTransformer readKeyFormatTransormer, FormatTransformer readValueFormatTransormer, BolBuffer rawEntry) {
