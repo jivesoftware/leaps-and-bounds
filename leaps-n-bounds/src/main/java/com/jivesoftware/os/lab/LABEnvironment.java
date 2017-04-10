@@ -77,28 +77,28 @@ public class LABEnvironment {
     private final StripingBolBufferLocks stripingBolBufferLocks;
 
     public static ExecutorService buildLABHeapSchedulerThreadPool(int count) {
-        return new ThreadPoolExecutor(0, count,
+        return new ThreadPoolExecutor(count, count,
             60L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lap-heap-%d").build());
     }
 
     public static ExecutorService buildLABSchedulerThreadPool(int count) {
-        return new ThreadPoolExecutor(0, count,
+        return new ThreadPoolExecutor(count, count,
             60L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lab-scheduler-%d").build());
     }
 
     public static ExecutorService buildLABCompactorThreadPool(int count) {
-        return new ThreadPoolExecutor(0, count,
+        return new ThreadPoolExecutor(count, count,
             60L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build());
     }
 
     public static ExecutorService buildLABDestroyThreadPool(int count) {
-        return new ThreadPoolExecutor(0, count,
+        return new ThreadPoolExecutor(count, count,
             60L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
