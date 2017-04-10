@@ -36,6 +36,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -79,28 +80,28 @@ public class LABEnvironment {
     public static ExecutorService buildLABHeapSchedulerThreadPool(int count) {
         return new ThreadPoolExecutor(0, count,
             60L, TimeUnit.SECONDS,
-            new SynchronousQueue<>(),
+            new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lap-heap-%d").build());
     }
 
     public static ExecutorService buildLABSchedulerThreadPool(int count) {
         return new ThreadPoolExecutor(0, count,
             60L, TimeUnit.SECONDS,
-            new SynchronousQueue<>(),
+            new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lab-scheduler-%d").build());
     }
 
     public static ExecutorService buildLABCompactorThreadPool(int count) {
         return new ThreadPoolExecutor(0, count,
             60L, TimeUnit.SECONDS,
-            new SynchronousQueue<>(),
+            new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build());
     }
 
     public static ExecutorService buildLABDestroyThreadPool(int count) {
         return new ThreadPoolExecutor(0, count,
             60L, TimeUnit.SECONDS,
-            new SynchronousQueue<>(),
+            new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
     }
 
