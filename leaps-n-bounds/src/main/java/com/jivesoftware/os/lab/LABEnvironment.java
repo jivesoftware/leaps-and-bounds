@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.jivesoftware.os.jive.utils.collections.bah.LRUConcurrentBAHLinkedHash;
 import com.jivesoftware.os.lab.api.FormatTransformerProvider;
 import com.jivesoftware.os.lab.api.JournalStream;
@@ -36,8 +35,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 
@@ -77,31 +74,19 @@ public class LABEnvironment {
     private final StripingBolBufferLocks stripingBolBufferLocks;
 
     public static ExecutorService buildLABHeapSchedulerThreadPool(int count) {
-        return new ThreadPoolExecutor(count, count,
-            60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
-            new ThreadFactoryBuilder().setNameFormat("lap-heap-%d").build());
+        return LABBoundedExecutor.newBoundedExecutor(count, "lap-heap");
     }
 
     public static ExecutorService buildLABSchedulerThreadPool(int count) {
-        return new ThreadPoolExecutor(count, count,
-            60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
-            new ThreadFactoryBuilder().setNameFormat("lab-scheduler-%d").build());
+        return LABBoundedExecutor.newBoundedExecutor(count, "lap-scheduler");
     }
 
     public static ExecutorService buildLABCompactorThreadPool(int count) {
-        return new ThreadPoolExecutor(count, count,
-            60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
-            new ThreadFactoryBuilder().setNameFormat("lab-compact-%d").build());
+        return LABBoundedExecutor.newBoundedExecutor(count, "lap-compact");
     }
 
     public static ExecutorService buildLABDestroyThreadPool(int count) {
-        return new ThreadPoolExecutor(count, count,
-            60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
-            new ThreadFactoryBuilder().setNameFormat("lab-destroy-%d").build());
+        return LABBoundedExecutor.newBoundedExecutor(count, "lap-destroy");
     }
 
     public static LRUConcurrentBAHLinkedHash<Leaps> buildLeapsCache(int maxCapacity, int concurrency) {
@@ -109,21 +94,20 @@ public class LABEnvironment {
     }
 
     /**
-
-    @param stats
-    @param scheduler
-    @param compact
-    @param destroy
-    @param walConfig Optional
-    @param labRoot
-    @param labHeapPressure
-    @param minMergeDebt
-    @param maxMergeDebt
-    @param leapsCache
-    @param bolBufferLocks
-    @param useIndexableMemory
-    @param fsyncFileRenames
-    @throws Exception
+     * @param stats
+     * @param scheduler
+     * @param compact
+     * @param destroy
+     * @param walConfig          Optional
+     * @param labRoot
+     * @param labHeapPressure
+     * @param minMergeDebt
+     * @param maxMergeDebt
+     * @param leapsCache
+     * @param bolBufferLocks
+     * @param useIndexableMemory
+     * @param fsyncFileRenames
+     * @throws Exception
      */
     public LABEnvironment(LABStats stats,
         ExecutorService scheduler,
