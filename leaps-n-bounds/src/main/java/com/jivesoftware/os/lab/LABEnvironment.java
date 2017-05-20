@@ -25,8 +25,6 @@ import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
 import com.jivesoftware.os.lab.io.BolBuffer;
-import com.jivesoftware.os.mlogger.core.MetricLogger;
-import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -43,7 +41,6 @@ import org.apache.commons.io.FileUtils;
  */
 public class LABEnvironment {
 
-    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     static {
@@ -93,22 +90,6 @@ public class LABEnvironment {
         return new LRUConcurrentBAHLinkedHash<>(10, maxCapacity, 0.5f, true, concurrency);
     }
 
-    /**
-     * @param stats
-     * @param scheduler
-     * @param compact
-     * @param destroy
-     * @param walConfig          Optional
-     * @param labRoot
-     * @param labHeapPressure
-     * @param minMergeDebt
-     * @param maxMergeDebt
-     * @param leapsCache
-     * @param bolBufferLocks
-     * @param useIndexableMemory
-     * @param fsyncFileRenames
-     * @throws Exception
-     */
     public LABEnvironment(LABStats stats,
         ExecutorService scheduler,
         ExecutorService compact,
@@ -308,7 +289,7 @@ public class LABEnvironment {
             }
         }
 
-        LABIndexProvider indexProvider = (rawhide1, poweredUpToHint) -> {
+        LABIndexProvider<BolBuffer, BolBuffer> indexProvider = (rawhide1, poweredUpToHint) -> {
             if (useIndexableMemory && config.entryLengthPower > 0) {
                 LABAppendOnlyAllocator allocator = new LABAppendOnlyAllocator(config.primaryName,
                     Math.max(config.entryLengthPower, (poweredUpToHint - config.entryLengthPower) / 2)

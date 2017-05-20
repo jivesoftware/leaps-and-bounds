@@ -38,8 +38,12 @@ public class UIO {
         writeByteArray(_filer, array, 0, array == null ? -1 : array.length, fieldName);
     }
 
-    public static void writeByteArray(IAppendOnly _filer, byte[] array,
-        int _start, int _len, String fieldName) throws IOException {
+    public static void writeByteArray(IAppendOnly _filer,
+        byte[] array,
+        int _start,
+        int _len,
+        String fieldName) throws IOException {
+
         int len;
         if (array == null) {
             len = -1;
@@ -230,7 +234,7 @@ public class UIO {
         if (num <= 0) {
             throw new IllegalArgumentException("num cannot be <= 0");
         }
-        byte[] prependHeader = {1, 0};
+        byte[] prependHeader = { 1, 0 };
         BigInteger startBI = new BigInteger(add(prependHeader, aPadded));
         BigInteger stopBI = new BigInteger(add(prependHeader, bPadded));
         BigInteger diffBI = stopBI.subtract(startBI);
@@ -295,7 +299,7 @@ public class UIO {
     }
 
     /**
-     * @param a array
+     * @param a      array
      * @param length new array size
      * @return Value in <code>a</code> plus <code>length</code> appended 0 bytes
      */
@@ -320,7 +324,7 @@ public class UIO {
     }
 
     /**
-     * @param a array
+     * @param a      array
      * @param length amount of bytes to snarf
      * @return Last <code>length</code> bytes from <code>a</code>
      */

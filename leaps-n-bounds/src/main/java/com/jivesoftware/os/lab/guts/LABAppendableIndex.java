@@ -133,8 +133,9 @@ public class LABAppendableIndex implements RawAppendableIndex {
                 updatesSinceLeap = 0;
                 leapCount++;
 
-                appendOnly.append(appendableHeap.leakBytes(), 0, (int) appendableHeap.length());
-                appendedStat.add(appendableHeap.length());
+                long length = appendableHeap.length();
+                appendOnly.append(appendableHeap.leakBytes(), 0, (int) length);
+                appendedStat.add(length);
                 appendableHeap.reset();
             }
             return true;

@@ -8,7 +8,7 @@ import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -66,7 +66,7 @@ public class ReadOnlyIndex implements ReadIndex {
         this.leapsCache = leapsCache;
     }
 
-    private Footer readFooter(IPointerReadable readable) throws IOException, LABCorruptedException {
+    private Footer readFooter(PointerReadableByteBufferFile readable) throws IOException, LABCorruptedException {
         long indexLength = readable.length();
         long seekTo = indexLength - 4;
         seekToBoundsCheck(seekTo, indexLength);
@@ -138,7 +138,7 @@ public class ReadOnlyIndex implements ReadIndex {
 
         try {
             if (leaps == null) {
-                IPointerReadable readableIndex = readOnlyFile.pointerReadable(-1);
+                PointerReadableByteBufferFile readableIndex = readOnlyFile.pointerReadable(-1);
                 long indexLength = readableIndex.length();
 
                 long seekTo = indexLength - 4;
@@ -235,14 +235,12 @@ public class ReadOnlyIndex implements ReadIndex {
     }
 
     private ActiveScan setup(ActiveScan activeScan) throws IOException {
-        activeScan.name = readOnlyFile.getFileName();
         activeScan.rawhide = rawhide;
         activeScan.readKeyFormatTransformer = readKeyFormatTransformer;
         activeScan.readValueFormatTransformer = readValueFormatTransformer;
         activeScan.leaps = leaps;
         activeScan.cacheKey = cacheKey;
         activeScan.leapsCache = leapsCache;
-        activeScan.footer = footer;
         activeScan.readable = readOnlyFile.pointerReadable(-1);
         activeScan.cacheKeyBuffer = new byte[16];
 

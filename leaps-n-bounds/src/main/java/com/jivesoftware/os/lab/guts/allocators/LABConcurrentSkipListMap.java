@@ -652,9 +652,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             if (address == -1) {
                 return null;
             } else {
-                BolBuffer acquired = memory.acquireBytes(address, valueBuffer);
-                //memory.release(address);
-                return acquired;
+                return memory.acquireBytes(address, valueBuffer);
             }
         } finally {
             growSemaphore.release();
@@ -698,7 +696,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         BolBuffer rawEntry,
         BolBuffer keyBytes,
         BolBuffer valueBuffer,
-        LABIndex.Compute remappingFunction,
+        LABIndex.Compute<BolBuffer, BolBuffer> remappingFunction,
         LABCostChangeInBytes changeInBytes) throws Exception {
 
         if (keyBytes == null || keyBytes.length == -1 || remappingFunction == null) {
@@ -1057,8 +1055,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             } finally {
                 growSemaphore.release();
             }
-            boolean more = entryStream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, acquired);
-            return more;
+            return entryStream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, acquired);
         }
 
         void advance() throws InterruptedException {
@@ -1180,7 +1177,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             //m.memory.release(nextValue);
             m.growSemaphore.acquire();
             try {
-                advance(keyBuffer); // Grr
+                advance(); // Grr
             } finally {
                 m.growSemaphore.release();
             }
@@ -1192,7 +1189,7 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
             return next != NIL;
         }
 
-        void advance(BolBuffer keyBolBuffer) throws InterruptedException {
+        void advance() throws InterruptedException {
             if (next == NIL) {
                 throw new NoSuchElementException();
             }

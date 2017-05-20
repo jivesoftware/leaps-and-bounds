@@ -206,10 +206,7 @@ public class LABAppendOnlyAllocator {
         return rawhide.compareBB(leftBytes, leftOffset, leftBytes == null ? -1 : leftLength, rightBytes, rightOffset, rightBytes == null ? -1 : rightLength);
     }
 
-    public void freeAll() throws InterruptedException {
-//        synchronized (this) {
-//            memory = null;
-//            allocateNext = 0;
-//        }
+    public void freeAll() {
+
     }
 }

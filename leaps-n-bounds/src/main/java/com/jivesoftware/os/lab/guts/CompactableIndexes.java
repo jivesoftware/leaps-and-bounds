@@ -779,14 +779,14 @@ public class CompactableIndexes {
         }
     }
 
-    public boolean isEmpty() throws Exception {
+    /*public boolean isEmpty() throws Exception {
         for (ReadOnlyIndex g : grab()) {
             if (g.count() > 0) {
                 return false;
             }
         }
         return true;
-    }
+    }*/
 
     private ReadOnlyIndex[] grab() {
         ReadOnlyIndex[] copy;
@@ -796,7 +796,7 @@ public class CompactableIndexes {
         return copy;
     }
 
-    void auditRanges(String prefix, KeyToString keyToString) throws Exception {
+    void auditRanges(String prefix, KeyToString keyToString) {
         ReadOnlyIndex[] copy;
         synchronized (indexesLock) {
             copy = indexes;

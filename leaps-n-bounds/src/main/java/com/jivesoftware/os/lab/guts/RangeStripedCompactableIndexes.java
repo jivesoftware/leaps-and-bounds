@@ -474,7 +474,7 @@ public class RangeStripedCompactableIndexes {
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         AppendOnlyFile appendOnlyFile = new AppendOnlyFile(splittingIndexFile);
-                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(stats.bytesWrittenAsSplit,
+                        return new LABAppendableIndex(stats.bytesWrittenAsSplit,
                             id,
                             appendOnlyFile,
                             maxLeaps,
@@ -484,7 +484,6 @@ public class RangeStripedCompactableIndexes {
                             formatTransformerProvider,
                             hashIndexType,
                             hashIndexLoadFactor);
-                        return writeLeapsAndBoundsIndex;
                     }, (IndexRangeId id, long worstCaseCount) -> {
                         int maxLeaps = calculateIdealMaxLeaps(worstCaseCount, entriesBetweenLeaps);
                         File splitIntoDir = new File(splittingRoot, String.valueOf(nextStripeIdRight));
@@ -493,7 +492,7 @@ public class RangeStripedCompactableIndexes {
                         File splittingIndexFile = id.toFile(splitIntoDir);
                         LOG.debug("Creating new index for split: {}", splittingIndexFile);
                         AppendOnlyFile appendOnlyFile = new AppendOnlyFile(splittingIndexFile);
-                        LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(stats.bytesWrittenAsSplit,
+                        return new LABAppendableIndex(stats.bytesWrittenAsSplit,
                             id,
                             appendOnlyFile,
                             maxLeaps,
@@ -503,7 +502,6 @@ public class RangeStripedCompactableIndexes {
                             formatTransformerProvider,
                             hashIndexType,
                             hashIndexLoadFactor);
-                        return writeLeapsAndBoundsIndex;
                     }, (ids) -> {
                         File left = new File(indexRoot, String.valueOf(nextStripeIdLeft));
                         File leftActive = new File(left, "active");
@@ -588,7 +586,7 @@ public class RangeStripedCompactableIndexes {
                 File mergingIndexFile = id.toFile(mergingRoot);
                 FileUtils.deleteQuietly(mergingIndexFile);
                 AppendOnlyFile appendOnlyFile = new AppendOnlyFile(mergingIndexFile);
-                LABAppendableIndex writeLeapsAndBoundsIndex = new LABAppendableIndex(stats.bytesWrittenAsMerge,
+                return new LABAppendableIndex(stats.bytesWrittenAsMerge,
                     id,
                     appendOnlyFile,
                     maxLeaps,
@@ -597,7 +595,6 @@ public class RangeStripedCompactableIndexes {
                     format,
                     formatTransformerProvider,
                     hashIndexType, hashIndexLoadFactor);
-                return writeLeapsAndBoundsIndex;
             }, (ids) -> {
                 File mergedIndexFile = ids.get(0).toFile(mergingRoot);
                 File file = ids.get(0).toFile(activeRoot);
@@ -614,8 +611,8 @@ public class RangeStripedCompactableIndexes {
 
     private static class Stripe {
 
-        KeyRange keyRange;
-        CompactableIndexes mergeableIndexes;
+        final KeyRange keyRange;
+        final CompactableIndexes mergeableIndexes;
 
         public Stripe(KeyRange keyRange, CompactableIndexes mergeableIndexes) {
             this.keyRange = keyRange;

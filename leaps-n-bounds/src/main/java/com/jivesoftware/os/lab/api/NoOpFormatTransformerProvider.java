@@ -6,9 +6,9 @@ package com.jivesoftware.os.lab.api;
  */
 public class NoOpFormatTransformerProvider implements FormatTransformerProvider {
 
-    public static String NAME = "noOpFormatTransformerProvider";
+    public static final String NAME = "noOpFormatTransformerProvider";
 
-    public static NoOpFormatTransformerProvider NO_OP = new NoOpFormatTransformerProvider();
+    public static final NoOpFormatTransformerProvider NO_OP = new NoOpFormatTransformerProvider();
 
     private NoOpFormatTransformerProvider() {
     }

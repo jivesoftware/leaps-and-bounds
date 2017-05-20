@@ -4,7 +4,6 @@ import com.google.common.io.Files;
 import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import org.testng.Assert;
@@ -30,7 +29,7 @@ public class PointerReadableByteBufferFileNGTest {
         appendOnlyFile.close();
 
         ReadOnlyFile readOnlyFile = new ReadOnlyFile(file);
-        IPointerReadable pointerReadable = readOnlyFile.pointerReadable(33);
+        PointerReadableByteBufferFile pointerReadable = readOnlyFile.pointerReadable(33);
 
         int offset = 0;
         for (int i = 0; i < 1_000; i++) {

@@ -21,8 +21,8 @@ import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.io.IOException;
@@ -81,7 +81,7 @@ public class KeyValueRawhideNGTest {
         System.out.println(file.length());
 
         ReadOnlyFile readOnlyFile = new ReadOnlyFile(file);
-        IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+        PointerReadableByteBufferFile pointerReadable = readOnlyFile.pointerReadable(-1);
 
         BolBuffer readRawEntry = new BolBuffer();
         int offset = rawhide.rawEntryToBuffer(pointerReadable, 0, readRawEntry);

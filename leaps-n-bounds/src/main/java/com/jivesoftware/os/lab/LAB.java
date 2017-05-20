@@ -21,7 +21,6 @@ import com.jivesoftware.os.lab.guts.Leaps;
 import com.jivesoftware.os.lab.guts.PointInterleave;
 import com.jivesoftware.os.lab.guts.RangeStripedCompactableIndexes;
 import com.jivesoftware.os.lab.guts.ReaderTx;
-import com.jivesoftware.os.lab.guts.api.GetRaw;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
@@ -78,7 +77,7 @@ public class LAB implements ValueIndex<byte[]> {
     private final LABStats stats;
     private final String rawhideName;
     private final Rawhide rawhide;
-    private final LABIndexProvider indexProvider;
+    private final LABIndexProvider<BolBuffer, BolBuffer> indexProvider;
     private final boolean hashIndexEnabled;
 
     private volatile long lastAppendTimestamp = 0;
@@ -105,7 +104,7 @@ public class LAB implements ValueIndex<byte[]> {
         long splitWhenValuesTotalExceedsNBytes,
         long splitWhenValuesAndKeysTotalExceedsNBytes,
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache,
-        LABIndexProvider indexProvider,
+        LABIndexProvider<BolBuffer, BolBuffer> indexProvider,
         boolean fsyncFileRenames,
         LABHashIndexType hashIndexType,
         double hashIndexLoadFactor,
@@ -473,7 +472,7 @@ public class LAB implements ValueIndex<byte[]> {
         long overrideMaxHeapPressureInBytes,
         BolBuffer rawEntryBuffer,
         BolBuffer keyBuffer,
-        boolean journal) throws Exception, InterruptedException {
+        boolean journal) throws Exception {
 
         if (values == null) {
             return false;
@@ -560,7 +559,7 @@ public class LAB implements ValueIndex<byte[]> {
         }
     }
 
-    private boolean internalCommit(boolean fsync, BolBuffer keyBuffer, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception, InterruptedException {
+    private boolean internalCommit(boolean fsync, BolBuffer keyBuffer, BolBuffer entryBuffer, BolBuffer entryKeyBuffer) throws Exception {
         synchronized (commitSemaphore) {
             long appendVersion = -1;
             // open new memory index and mark existing for flush
@@ -578,7 +577,7 @@ public class LAB implements ValueIndex<byte[]> {
                     appendVersion = walAppendVersion.incrementAndGet();
                 }
                 flushingMemoryIndex = memoryIndex;
-                LABIndex labIndex = indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo());
+                LABIndex<BolBuffer, BolBuffer> labIndex = indexProvider.create(rawhide, flushingMemoryIndex.poweredUpTo());
                 memoryIndex = new LABMemoryIndex(destroy, labHeapPressure, stats, rawhide, labIndex);
             } finally {
                 commitSemaphore.release(Short.MAX_VALUE);
@@ -710,30 +709,6 @@ public class LAB implements ValueIndex<byte[]> {
             + ", corrupt=" + corrupt
             + ", rawhide=" + rawhide
             + '}';
-    }
-
-    private boolean rawToReal(int index,
-        byte[] key,
-        GetRaw getRaw,
-        BolBuffer entryBuffer,
-        BolBuffer entryKeyBuffer,
-        BolBuffer streamKeyBuffer,
-        BolBuffer streamValueBuffer,
-        ValueStream valueStream) throws Exception {
-
-        return getRaw.get(key,
-            entryBuffer,
-            entryKeyBuffer,
-            (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
-                return rawhide.streamRawEntry(index,
-                    readKeyFormatTransformer,
-                    readValueFormatTransformer,
-                    rawEntry,
-                    streamKeyBuffer,
-                    streamValueBuffer,
-                    valueStream);
-            }
-        );
     }
 
     private boolean rawToReal(int index,

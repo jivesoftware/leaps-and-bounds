@@ -2,8 +2,6 @@ package com.jivesoftware.os.lab;
 
 import com.google.common.collect.Maps;
 import com.jivesoftware.os.lab.guts.LABSparseCircularMetricBuffer;
-import com.jivesoftware.os.mlogger.core.MetricLogger;
-import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -12,8 +10,6 @@ import java.util.concurrent.atomic.LongAdder;
  * @author jonathan.colt
  */
 public class LABStats {
-
-    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     public final LongAdder debt = new LongAdder();
     public final LongAdder open = new LongAdder();

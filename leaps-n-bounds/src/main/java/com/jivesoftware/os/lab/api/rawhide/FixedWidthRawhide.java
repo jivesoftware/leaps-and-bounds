@@ -3,8 +3,8 @@ package com.jivesoftware.os.lab.api.rawhide;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 
 /**
  *
@@ -54,7 +54,7 @@ public class FixedWidthRawhide implements Rawhide {
     }
 
     @Override
-    public int rawEntryToBuffer(IPointerReadable readable, long offset, BolBuffer entryBuffer) throws Exception {
+    public int rawEntryToBuffer(PointerReadableByteBufferFile readable, long offset, BolBuffer entryBuffer) throws Exception {
         readable.sliceIntoBuffer(offset, keyLength + payloadLength, entryBuffer);
         return keyLength + payloadLength;
     }

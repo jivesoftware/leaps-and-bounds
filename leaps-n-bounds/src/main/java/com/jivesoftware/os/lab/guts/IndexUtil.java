@@ -48,11 +48,8 @@ public class IndexUtil {
             try {
                 return (Unsafe) AccessController.doPrivileged((PrivilegedExceptionAction) () -> {
                     Class k = Unsafe.class;
-                    Field[] arr$ = k.getDeclaredFields();
-                    int len$ = arr$.length;
-
-                    for (int i$ = 0; i$ < len$; ++i$) {
-                        Field f = arr$[i$];
+                    Field[] arr = k.getDeclaredFields();
+                    for (Field f : arr) {
                         f.setAccessible(true);
                         Object x = f.get(null);
                         if (k.isInstance(x)) {

@@ -7,7 +7,6 @@ import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -28,14 +27,12 @@ public class ActiveScan implements Scanner {
 
     private final boolean hashIndexEnabled;
 
-    String name;
     Rawhide rawhide;
     FormatTransformer readKeyFormatTransformer;
     FormatTransformer readValueFormatTransformer;
     Leaps leaps;
     long cacheKey;
     LRUConcurrentBAHLinkedHash<Leaps> leapsCache;
-    Footer footer;
     PointerReadableByteBufferFile readable;
     byte[] cacheKeyBuffer;
 
@@ -50,7 +47,7 @@ public class ActiveScan implements Scanner {
 
 
     private enum ScanType {
-        memoryPoint, point, range, row
+        point, range, row
     }
 
     private ScanType scanType;
@@ -64,20 +61,6 @@ public class ActiveScan implements Scanner {
 
     public ActiveScan(boolean hashIndexEnabled) {
         this.hashIndexEnabled = hashIndexEnabled;
-    }
-
-
-    public void reset() {
-        scanType = null;
-        fp = -1;
-        to = null;
-        entryBuffer = null;
-        entryKeyBuffer = null;
-        bbFrom = null;
-        bbTo = null;
-        activeFp = Long.MAX_VALUE;
-        activeOffset = -1;
-        activeResult = false;
     }
 
     public long getInclusiveStartOfRow(BolBuffer bbKey, BolBuffer entryBuffer, BolBuffer entryKeyBuffer, boolean exact) throws Exception {
@@ -154,7 +137,7 @@ public class ActiveScan implements Scanner {
     private static long binarySearchClosestFP(Rawhide rawhide,
         FormatTransformer readKeyFormatTransformer,
         FormatTransformer readValueFormatTransformer,
-        IPointerReadable readable,
+        PointerReadableByteBufferFile readable,
         Leaps leaps,
         BolBuffer key,
         BolBuffer entryBuffer,
@@ -269,7 +252,7 @@ public class ActiveScan implements Scanner {
         this.entryBuffer = entryBuffer;
     }
 
-    public void setupPointScan(long fp, BolBuffer entryBuffer) throws Exception {
+    public void setupPointScan(long fp, BolBuffer entryBuffer) {
         this.scanType = ScanType.point;
         this.entryBuffer = entryBuffer;
         this.fp = fp;
@@ -324,7 +307,7 @@ public class ActiveScan implements Scanner {
     }
 
 
-    public boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
+    private boolean next(long fp, BolBuffer entryBuffer, RawEntryStream stream) throws Exception {
 
         if (activeFp == Long.MAX_VALUE || activeFp != fp) {
             activeFp = fp;

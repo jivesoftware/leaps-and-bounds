@@ -3,8 +3,8 @@ package com.jivesoftware.os.lab.guts;
 import com.google.common.io.Files;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -36,7 +36,7 @@ public class LeapsNGTest {
         appendOnlyFile.close();
 
         ReadOnlyFile indexFile = new ReadOnlyFile(file);
-        IPointerReadable pointerReadable = indexFile.pointerReadable(-1);
+        PointerReadableByteBufferFile pointerReadable = indexFile.pointerReadable(-1);
         Leaps read = Leaps.read(FormatTransformer.NO_OP, pointerReadable, 0);
 
         System.out.println("write:" + write.toString(null));

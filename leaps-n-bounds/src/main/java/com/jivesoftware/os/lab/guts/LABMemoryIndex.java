@@ -27,7 +27,7 @@ public class LABMemoryIndex implements RawAppendableIndex {
 
     private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
-    private final LABIndex index;
+    private final LABIndex<BolBuffer, BolBuffer> index;
     private final AtomicLong approximateCount = new AtomicLong();
     private final AtomicBoolean disposed = new AtomicBoolean(false);
 

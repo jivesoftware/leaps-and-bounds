@@ -4,8 +4,8 @@ import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.ValueStream;
 import com.jivesoftware.os.lab.guts.IndexUtil;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.util.Comparator;
 
 /**
@@ -43,7 +43,7 @@ public interface Rawhide {
         byte[] value,
         BolBuffer rawEntryBuffer) throws Exception;
 
-    int rawEntryToBuffer(IPointerReadable readable, long offset, BolBuffer entryBuffer) throws Exception;
+    int rawEntryToBuffer(PointerReadableByteBufferFile readable, long offset, BolBuffer entryBuffer) throws Exception;
 
     void writeRawEntry(FormatTransformer readKeyFormatTransformer,
         FormatTransformer readValueFormatTransformer,

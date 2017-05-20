@@ -1,9 +1,6 @@
 package com.jivesoftware.os.lab.io;
 
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
-import com.jivesoftware.os.mlogger.core.MetricLogger;
-import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
@@ -16,9 +13,8 @@ import java.util.Arrays;
 /**
  *
  */
-public class PointerReadableByteBufferFile implements IPointerReadable {
+public class PointerReadableByteBufferFile {
 
-    public static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     public static final long MAX_BUFFER_SEGMENT_SIZE = UIO.chunkLength(30);
     public static final long MAX_POSITION = MAX_BUFFER_SEGMENT_SIZE * 100;
@@ -65,7 +61,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         bbs = newFilers;
     }
 
-    @Override
     public long length() {
         return length;
     }
@@ -94,7 +89,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         return b & 0xFF;
     }
 
-    @Override
     public int read(long position) throws IOException {
         int bbIndex = (int) (position >> fShift);
         int bbSeek = (int) (position & fseekMask);
@@ -121,7 +115,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         return bbs[bbIndex].limit() - bbSeek >= length;
     }
 
-    @Override
     public int readInt(long position) throws IOException {
         int bbIndex = (int) (position >> fShift);
         int bbSeek = (int) (position & fseekMask);
@@ -146,7 +139,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         }
     }
 
-    @Override
     public long readLong(long position) throws IOException {
         int bbIndex = (int) (position >> fShift);
         int bbSeek = (int) (position & fseekMask);
@@ -197,7 +189,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         return count;
     }
 
-    @Override
     public int read(long position, byte[] b, int offset, int len) throws IOException {
         if (len == 0) {
             return 0;
@@ -229,7 +220,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         return offset;
     }
 
-    @Override
     public BolBuffer sliceIntoBuffer(long offset, int length, BolBuffer entryBuffer) throws IOException {
 
         int bbIndex = (int) (offset >> fShift);
@@ -244,7 +234,6 @@ public class PointerReadableByteBufferFile implements IPointerReadable {
         return entryBuffer;
     }
 
-    @Override
     public void close() throws IOException {
         if (bbs.length > 0) {
             ByteBuffer bb = bbs[0];

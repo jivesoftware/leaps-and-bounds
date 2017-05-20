@@ -4,13 +4,12 @@ import com.jivesoftware.os.jive.utils.collections.bah.ConcurrentBAHash;
 import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
@@ -84,7 +83,7 @@ public class LabMeta {
         }
     }
 
-    private Meta compact(Meta active, long collisions, long total) throws Exception, IOException {
+    private Meta compact(Meta active, long collisions, long total) throws Exception {
         active.flush();
         File activeMeta = new File(metaRoot, "active.meta");
         File compactingMeta = new File(metaRoot, "compacting.meta");
@@ -155,7 +154,7 @@ public class LabMeta {
         }
 
         public void metaKeys(MetaKeys keys) throws Exception {
-            IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+            PointerReadableByteBufferFile pointerReadable = readOnlyFile.pointerReadable(-1);
             offsetKeyOffsetValueCache.stream((key, valueOffset) -> {
                 long offset = UIO.bytesLong(valueOffset);
                 int length = pointerReadable.readInt(offset);
@@ -174,7 +173,7 @@ public class LabMeta {
 
         public int load() throws Exception {
             int collisions = 0;
-            IPointerReadable readable = readOnlyFile.pointerReadable(-1);
+            PointerReadableByteBufferFile readable = readOnlyFile.pointerReadable(-1);
             long o = 0;
             try {
                 while (o < readable.length()) {
@@ -205,7 +204,7 @@ public class LabMeta {
         }
 
         public void copyTo(Meta to) throws Exception {
-            IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+            PointerReadableByteBufferFile pointerReadable = readOnlyFile.pointerReadable(-1);
             offsetKeyOffsetValueCache.stream((key, valueOffset) -> {
                 long offset = UIO.bytesLong(valueOffset);
                 int length = pointerReadable.readInt(offset);
@@ -228,7 +227,7 @@ public class LabMeta {
             int length = -1;
             try {
                 offset = UIO.bytesLong(offsetBytes);
-                IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+                PointerReadableByteBufferFile pointerReadable = readOnlyFile.pointerReadable(-1);
                 length = pointerReadable.readInt(offset);
                 pointerReadable.sliceIntoBuffer(offset + 4, length, valueBolBuffer);
                 return valueBolBuffer;

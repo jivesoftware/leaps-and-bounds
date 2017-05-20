@@ -6,19 +6,14 @@ import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
-import com.jivesoftware.os.mlogger.core.MetricLogger;
-import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 
 public class PointInterleave implements Scanner, RawEntryStream {
-
-    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final Rawhide rawhide;
     private FormatTransformer nextReadKeyFormatTransformer;
     private FormatTransformer nextReadValueFormatTransformer;
     private boolean once;
     private BolBuffer nextRawEntry;
-
 
     public PointInterleave(ReadIndex[] indexs, byte[] key, Rawhide rawhide, boolean hashIndexEnabled) throws Exception {
         this.rawhide = rawhide;

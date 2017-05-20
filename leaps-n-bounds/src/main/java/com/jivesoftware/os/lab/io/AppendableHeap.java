@@ -57,12 +57,6 @@ public class AppendableHeap implements IAppendOnly {
         maxLength = 0;
     }
 
-    public void clear() {
-        bytes = new byte[initialSize];
-        fp = 0;
-        maxLength = 0;
-    }
-
     @Override
     public void appendByte(byte b) throws IOException {
         if (fp + 1 > bytes.length) {
@@ -164,7 +158,7 @@ public class AppendableHeap implements IAppendOnly {
     public void flush(boolean fsync) throws IOException {
     }
 
-    static public byte[] grow(byte[] src, int amount) {
+    static private byte[] grow(byte[] src, int amount) {
         if (src == null) {
             return new byte[amount];
         }

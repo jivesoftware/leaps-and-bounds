@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 /**
  *
  */
-public class DirectBufferCleaner {
+class DirectBufferCleaner {
 
     private static final Class<?> directBufferClass;
     private static final Method directBufferCleanerMethod;

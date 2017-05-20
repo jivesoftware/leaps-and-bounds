@@ -1,7 +1,7 @@
 package com.jivesoftware.os.lab.guts;
 
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
 import java.util.Arrays;
@@ -79,7 +79,7 @@ public class Footer {
         writeable.appendInt(entryLength);
     }
 
-    static Footer read(IPointerReadable readable, long offset) throws IOException {
+    static Footer read(PointerReadableByteBufferFile readable, long offset) throws IOException {
         long initialOffset = offset;
         int entryLength = readable.readInt(offset);
         offset += 4;

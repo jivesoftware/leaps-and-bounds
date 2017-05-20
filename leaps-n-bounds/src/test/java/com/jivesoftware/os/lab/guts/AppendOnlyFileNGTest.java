@@ -1,11 +1,11 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
-import org.junit.Assert;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
@@ -27,7 +27,7 @@ public class AppendOnlyFileNGTest {
         appendOnlyFile.close();
 
         ReadOnlyFile readOnlyFile = new ReadOnlyFile(f);
-        IPointerReadable pointerReadable = readOnlyFile.pointerReadable(-1);
+        PointerReadableByteBufferFile pointerReadable = readOnlyFile.pointerReadable(-1);
         long offset = 0;
         for (int i = 0; i < 1_000; i++) {
             long a = pointerReadable.readLong(offset);
@@ -37,7 +37,7 @@ public class AppendOnlyFileNGTest {
             long c = pointerReadable.readLong(offset);
             offset += 8;
 
-            Assert.assertArrayEquals(new long[]{i + 1, i + 2, i + 3}, new long[]{a, b, c});
+            Assert.assertEquals(new long[]{i + 1, i + 2, i + 3}, new long[]{a, b, c});
 
         }
 

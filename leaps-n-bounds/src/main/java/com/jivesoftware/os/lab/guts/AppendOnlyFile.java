@@ -3,8 +3,6 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.lab.api.exceptions.LABClosedException;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.mlogger.core.MetricLogger;
-import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -17,8 +15,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author jonathan.colt
  */
 public class AppendOnlyFile {
-
-    private final static MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final File file;
     private RandomAccessFile randomAccessFile;
@@ -119,7 +115,7 @@ public class AppendOnlyFile {
         }
     }
 
-    public long length() throws IOException {
+    public long length() {
         return size.get();
     }
 

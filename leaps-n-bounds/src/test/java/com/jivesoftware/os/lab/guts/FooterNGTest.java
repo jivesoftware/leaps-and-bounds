@@ -1,8 +1,8 @@
 package com.jivesoftware.os.lab.guts;
 
 import com.google.common.io.Files;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.File;
 import org.testng.Assert;
@@ -29,7 +29,7 @@ public class FooterNGTest {
         appendOnly.close();
 
         ReadOnlyFile indexFile = new ReadOnlyFile(file);
-        IPointerReadable pointerReadable = indexFile.pointerReadable(-1);
+        PointerReadableByteBufferFile pointerReadable = indexFile.pointerReadable(-1);
         Footer read = Footer.read(pointerReadable, 0);
 
         System.out.println("write:" + write.toString());

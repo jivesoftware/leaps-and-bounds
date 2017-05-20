@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
- *
  * @author jonathan.colt
  */
 public class LABCSLMIndex implements LABIndex<BolBuffer, BolBuffer> {
@@ -47,7 +46,7 @@ public class LABCSLMIndex implements LABIndex<BolBuffer, BolBuffer> {
         BolBuffer rawEntry,
         BolBuffer keyBytes,
         BolBuffer valueBuffer,
-        Compute remappingFunction,
+        Compute<BolBuffer, BolBuffer> remappingFunction,
         LABCostChangeInBytes changeInBytes) {
 
         synchronized (bolBufferLocks.lock(keyBytes, seed)) {

@@ -40,20 +40,24 @@ public class LABStress {
         double hashIndexLoadFactor = 2d;
         File root = Files.createTempDir();
         System.out.println(root.getAbsolutePath());
-        ValueIndex index = createIndex(root, indexType, hashIndexLoadFactor);
+        AtomicLong globalHeapCostInBytes = new AtomicLong();
+        LABStats stats = new LABStats();
+        ValueIndex index = createIndex(root, indexType, hashIndexLoadFactor, stats, globalHeapCostInBytes);
 
         int totalCardinality = 100_000_000;
 
-        System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
+        printLabels();
 
         String write = stress("warm:jit",
+            stats,
             index,
             totalCardinality,
             800_000, // writesPerSecond
             1_000_000, //writeCount
             1, //readForNSeconds
             1_000_000, // readCount
-            false); // removes
+            false,
+            globalHeapCostInBytes); // removes
 
         List<Future<Object>> futures = index.commit(true, false);
         for (Future<Object> future : futures) {
@@ -72,22 +76,26 @@ public class LABStress {
 
         System.out.println("-------------------------------");
 
+        stats = new LABStats();
+        globalHeapCostInBytes = new AtomicLong();
         root = Files.createTempDir();
-        index = createIndex(root, indexType, hashIndexLoadFactor);
+        index = createIndex(root, indexType, hashIndexLoadFactor, stats, globalHeapCostInBytes);
 
         // ---
-        System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
+        printLabels();
 
-        totalCardinality = 3_000_000;
+        totalCardinality = 100_000_000;
 
         write = stress("stress:RW",
+            stats,
             index,
             totalCardinality,
-            800_000, // writesPerSecond
-            10_000_000, //writeCount
-            0, //readForNSeconds
-            0, // readCount
-            false); // removes
+            250_000, // writesPerSecond
+            1_000, //writeCount
+            1, //readForNSeconds
+            1_000, // readCount
+            false,
+            globalHeapCostInBytes); // removes
 
         System.out.println("\n\n");
         ((LAB) index).auditRanges((key) -> "" + UIO.bytesLong(key));
@@ -111,16 +119,18 @@ public class LABStress {
         }
         System.out.println("COMPACTED ALL");
 
-        System.out.println("Sample, Writes, Writes/Sec, WriteElapse, Reads, Reads/Sec, ReadElapse, Hits, Miss, Merged, Split, ReadAmplification");
+        printLabels();
 
         write = stress("stress:R",
+            stats,
             index,
             totalCardinality,
             0, // writesPerSecond
             0, //writeCount
             10, //readForNSeconds
-            120_000_000, // readCount
-            false); // removes
+            1_000, // readCount
+            false,
+            globalHeapCostInBytes); // removes
 
         System.out.println("\n\n");
         ((LAB) index).auditRanges((key) -> "" + UIO.bytesLong(key));
@@ -132,18 +142,30 @@ public class LABStress {
 
     }
 
-    private ValueIndex createIndex(File root, LABHashIndexType indexType, double hashIndexLoadFactor) throws Exception {
+    private void printLabels() {
+
+        System.out.println("sample, writes, writes/sec, writeElapse, reads, reads/sec, readElapse, hits, miss, merged, split, readAmplification, approxCount, "
+            + "debt, open, closed, append, journaledAppend, merging, merged, spliting, splits, slabbed, allocationed, released, freed, gc, gcCommit, "
+            + "pressureCommit, commit, fsyncedCommit, bytesWrittenToWAL, bytesWrittenAsIndex, bytesWrittenAsSplit, bytesWrittenAsMerge");
+
+    }
+
+    private ValueIndex createIndex(File root,
+        LABHashIndexType indexType,
+        double hashIndexLoadFactor,
+        LABStats stats,
+        AtomicLong globalHeapCostInBytes) throws Exception {
         System.out.println("Created root " + root);
         LRUConcurrentBAHLinkedHash<Leaps> leapsCache = LABEnvironment.buildLeapsCache(100_000, 8);
-        LabHeapPressure labHeapPressure = new LabHeapPressure(new LABStats(),
+        LabHeapPressure labHeapPressure = new LabHeapPressure(stats,
             LABEnvironment.buildLABHeapSchedulerThreadPool(1),
             "default",
             1024 * 1024 * 20,
             1024 * 1024 * 40,
-            new AtomicLong(),
+            globalHeapCostInBytes,
             LabHeapPressure.FreeHeapStrategy.mostBytesFirst);
 
-        LABEnvironment env = new LABEnvironment(new LABStats(),
+        LABEnvironment env = new LABEnvironment(stats,
             LABEnvironment.buildLABSchedulerThreadPool(1),
             LABEnvironment.buildLABCompactorThreadPool(4), // compact
             LABEnvironment.buildLABDestroyThreadPool(1), // destroy
@@ -162,7 +184,7 @@ public class LABStress {
         System.out.println("Created env");
         ValueIndex index = env.open(new ValueIndexConfig("foo",
             1024 * 4, // entriesBetweenLeaps
-            1024 * 1024, // maxHeapPressureInBytes
+            1024 * 1024 * 10, // maxHeapPressureInBytes
             -1, // splitWhenKeysTotalExceedsNBytes
             -1, // splitWhenValuesTotalExceedsNBytes
             1024 * 1024 * 100, // splitWhenValuesAndKeysTotalExceedsNBytes
@@ -176,13 +198,15 @@ public class LABStress {
     }
 
     private String stress(String name,
+        LABStats stats,
         ValueIndex index,
         int totalCardinality,
         int writesPerSecond,
         int writeCount,
         int readForNSeconds,
         int readCount,
-        boolean removes) throws Exception {
+        boolean removes,
+        AtomicLong globalHeapCostInBytes) throws Exception {
 
         AtomicLong version = new AtomicLong();
         AtomicLong value = new AtomicLong();
@@ -198,7 +222,6 @@ public class LABStress {
         long totalMiss = 0;
 
         Random rand = new Random(12345);
-        AtomicLong monotonic = new AtomicLong();
 
         int c = 0;
         byte[] keyBytes = new byte[8];
@@ -303,7 +326,31 @@ public class LABStress {
                 + ", " + RangeStripedCompactableIndexes.mergeCount.get()
                 + ", " + RangeStripedCompactableIndexes.splitCount.get()
                 + ", " + formatter.format((LAB.pointTxIndexCount.get() / (double) LAB.pointTxCalled.get()))
+                + ", " + index.count()
+                + ", " + stats.debt.longValue()
+                + ", " + stats.open.longValue()
+                + ", " + stats.closed.longValue()
+                + ", " + stats.append.longValue()
+                + ", " + stats.journaledAppend.longValue()
+                + ", " + stats.merging.longValue()
+                + ", " + stats.merged.longValue()
+                + ", " + stats.spliting.longValue()
+                + ", " + stats.splits.longValue()
+                + ", " + stats.slabbed.longValue()
+                + ", " + stats.allocationed.longValue()
+                + ", " + stats.released.longValue()
+                + ", " + stats.freed.longValue()
+                + ", " + stats.gc.longValue()
+                + ", " + stats.gcCommit.longValue()
+                + ", " + stats.pressureCommit.longValue()
+                + ", " + stats.commit.longValue()
+                + ", " + stats.fsyncedCommit.longValue()
+                + ", " + stats.bytesWrittenToWAL.longValue()
+                + ", " + stats.bytesWrittenAsIndex.longValue()
+                + ", " + stats.bytesWrittenAsSplit.longValue()
+                + ", " + stats.bytesWrittenAsMerge.longValue()
             );
+
 
         }
 

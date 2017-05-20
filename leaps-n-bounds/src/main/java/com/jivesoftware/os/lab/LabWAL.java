@@ -23,8 +23,8 @@ import com.jivesoftware.os.lab.guts.AppendOnlyFile;
 import com.jivesoftware.os.lab.guts.ReadOnlyFile;
 import com.jivesoftware.os.lab.io.AppendableHeap;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.io.EOFException;
@@ -128,7 +128,7 @@ public class LabWAL {
                 readOnlyFile = new ReadOnlyFile(walFile);
                 deleteableIndexFiles.add(readOnlyFile);
 
-                IPointerReadable reader = readOnlyFile.pointerReadable(-1);
+                PointerReadableByteBufferFile reader = readOnlyFile.pointerReadable(-1);
 
                 long offset = 0;
                 try {

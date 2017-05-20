@@ -3,8 +3,8 @@ package com.jivesoftware.os.lab.guts;
 import com.google.common.base.Preconditions;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.io.BolBuffer;
+import com.jivesoftware.os.lab.io.PointerReadableByteBufferFile;
 import com.jivesoftware.os.lab.io.api.IAppendOnly;
-import com.jivesoftware.os.lab.io.api.IPointerReadable;
 import java.io.IOException;
 import java.nio.LongBuffer;
 import java.util.Arrays;
@@ -23,7 +23,7 @@ public class Leaps {
 
     public interface StartOfEntry {
 
-        LongBuffer get(IPointerReadable readable) throws IOException;
+        LongBuffer get(PointerReadableByteBufferFile readable) throws IOException;
     }
 
     public Leaps(int index, BolBuffer lastKey, long[] fpIndex, BolBuffer[] keys, StartOfEntry startOfEntry) {
@@ -35,7 +35,7 @@ public class Leaps {
         this.startOfEntry = startOfEntry;
     }
 
-    public String toString(IPointerReadable pointerReadable) throws IOException {
+    public String toString(PointerReadableByteBufferFile pointerReadable) throws IOException {
         StringBuilder startOfEntryString = new StringBuilder();
         LongBuffer longBuffer = startOfEntry.get(pointerReadable);
         for (int i = 0; i < fps.length; i++) {
@@ -94,7 +94,7 @@ public class Leaps {
         writeable.appendInt(entryLength);
     }
 
-    static Leaps read(FormatTransformer keyFormatTransformer, IPointerReadable readable, long offset) throws Exception {
+    static Leaps read(FormatTransformer keyFormatTransformer, PointerReadableByteBufferFile readable, long offset) throws Exception {
         int entryLength = readable.readInt(offset);
         offset += 4;
         int index = readable.readInt(offset);

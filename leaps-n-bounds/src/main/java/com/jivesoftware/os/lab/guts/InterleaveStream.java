@@ -6,16 +6,12 @@ import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
-import com.jivesoftware.os.mlogger.core.MetricLogger;
-import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
 import java.util.PriorityQueue;
 
 /**
  * @author jonathan.colt
  */
 public class InterleaveStream implements Scanner {
-
-    private static final MetricLogger LOG = MetricLoggerFactory.getLogger();
 
     private final Rawhide rawhide;
     private final PriorityQueue<Feed> feeds = new PriorityQueue<>();
