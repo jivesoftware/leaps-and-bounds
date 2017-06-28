@@ -13,6 +13,7 @@ import com.jivesoftware.os.lab.api.NoOpFormatTransformerProvider;
 import com.jivesoftware.os.lab.api.RawEntryFormat;
 import com.jivesoftware.os.lab.api.rawhide.LABRawhide;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
@@ -249,7 +250,7 @@ public class CompactableIndexsNGTest {
                 System.out.println(" Dump:" + TestUtils.toString(rawEntry));
                 return true;
             };
-            while (scanner.next(stream) == Scanner.Next.more) {
+            while (scanner.next(stream) == Next.more) {
             }
             readIndex.release();
             indexs.append(readOnlyIndex);
@@ -263,7 +264,7 @@ public class CompactableIndexsNGTest {
                     System.out.println(" Found:" + TestUtils.toString(rawEntry));
                     return true;
                 };
-                while (rowScan.next(stream) == Scanner.Next.more) {
+                while (rowScan.next(stream) == Next.more) {
                 }
             }
             return true;
@@ -308,7 +309,7 @@ public class CompactableIndexsNGTest {
                     System.out.println(" Found:" + TestUtils.toString(rawEntry));
                     return true;
                 };
-                while (rowScan.next(stream) == Scanner.Next.more) {
+                while (rowScan.next(stream) == Next.more) {
                 }
             }
             return true;
@@ -344,7 +345,7 @@ public class CompactableIndexsNGTest {
                     index[0]++;
                     return true;
                 };
-                while (rowScan.next(stream) == Scanner.Next.more) {
+                while (rowScan.next(stream) == Next.more) {
                 }
             } finally {
                 rowScan.close();
@@ -402,7 +403,7 @@ public class CompactableIndexsNGTest {
                 System.out.println("Asked index:" + _i + " key:" + UIO.bytesLong(keys.get(_i)) + " to:" + UIO.bytesLong(keys.get(_i + 3)));
                 Scanner rangeScan = new InterleaveStream(acquired, keys.get(_i), keys.get(_i + 3), rawhide);
                 try {
-                    while (rangeScan.next(stream) == Scanner.Next.more) {
+                    while (rangeScan.next(stream) == Next.more) {
                     }
                 } finally {
                     rangeScan.close();
@@ -427,7 +428,7 @@ public class CompactableIndexsNGTest {
                 Scanner rangeScan = new InterleaveStream(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),
                     rawhide);
                 try {
-                    while (rangeScan.next(stream) == Scanner.Next.more) {
+                    while (rangeScan.next(stream) == Next.more) {
                     }
                 } finally {
                     rangeScan.close();

@@ -13,6 +13,7 @@ import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
@@ -158,7 +159,7 @@ public class IndexNGTest {
                     byte[] bytes = rawEntry.copy();
                     return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, new BolBuffer(bytes));
                 };
-                while (rowScan.next(rawStream) == Scanner.Next.more) {
+                while (rowScan.next(rawStream) == Next.more) {
                 }
             } finally {
                 reader.release();
@@ -188,7 +189,7 @@ public class IndexNGTest {
                 index[0]++;
                 return true;
             };
-            while (rowScan.next(stream) == Scanner.Next.more) {
+            while (rowScan.next(stream) == Next.more) {
             }
         } finally {
             reader.release();
@@ -245,7 +246,7 @@ public class IndexNGTest {
             reader = memoryIndex.acquireReader();
             try {
                 Scanner rangeScan = reader.rangeScan(new ActiveScan(false), keys.get(_i), keys.get(_i + 3), new BolBuffer(), new BolBuffer());
-                while (rangeScan != null && rangeScan.next(stream) == Scanner.Next.more) {
+                while (rangeScan != null && rangeScan.next(stream) == Next.more) {
                 }
                 Assert.assertEquals(3, streamed[0]);
             } finally {
@@ -268,7 +269,7 @@ public class IndexNGTest {
                 Scanner rangeScan = reader.rangeScan(new ActiveScan(false), UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),
                     new BolBuffer(),
                     new BolBuffer());
-                while (rangeScan != null && rangeScan.next(stream) == Scanner.Next.more) {
+                while (rangeScan != null && rangeScan.next(stream) == Next.more) {
                 }
                 Assert.assertEquals(2, streamed[0]);
             } finally {
@@ -292,7 +293,7 @@ public class IndexNGTest {
                 index[0]++;
                 return true;
             };
-            while (rowScan.next(stream) == Scanner.Next.more) {
+            while (rowScan.next(stream) == Next.more) {
             }
         } finally {
             reader.release();
@@ -349,7 +350,7 @@ public class IndexNGTest {
             reader = walIndex.acquireReader();
             try {
                 Scanner rangeScan = reader.rangeScan(new ActiveScan(false), keys.get(_i), keys.get(_i + 3), new BolBuffer(), new BolBuffer());
-                while (rangeScan != null && rangeScan.next(stream) == Scanner.Next.more) {
+                while (rangeScan != null && rangeScan.next(stream) == Next.more) {
                 }
                 Assert.assertEquals(3, streamed[0]);
             } finally {
@@ -372,7 +373,7 @@ public class IndexNGTest {
                 Scanner rangeScan = reader.rangeScan(new ActiveScan(false), UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),
                     new BolBuffer(),
                     new BolBuffer());
-                while (rangeScan != null && rangeScan.next(stream) == Scanner.Next.more) {
+                while (rangeScan != null && rangeScan.next(stream) == Next.more) {
                 }
                 Assert.assertEquals(2, streamed[0]);
             } finally {

@@ -4,6 +4,7 @@ import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.rawhide.FixedWidthRawhide;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
@@ -42,7 +43,7 @@ public class LABConcurrentSkipListMapNGTest {
         while (scanner.next((FormatTransformer readKeyFormatTransformer, FormatTransformer readValueFormatTransformer, BolBuffer rawEntry) -> {
             System.out.println("Keys:" + UIO.bytesLong(rawEntry.copy()));
             return true;
-        }) == Scanner.Next.more) {
+        }) == Next.more) {
         }
 
     }

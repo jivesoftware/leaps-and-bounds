@@ -8,6 +8,7 @@ import com.jivesoftware.os.lab.guts.LABIndex.Compute;
 import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
 import com.jivesoftware.os.lab.guts.api.AppendEntries;
 import com.jivesoftware.os.lab.guts.api.AppendEntryStream;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;

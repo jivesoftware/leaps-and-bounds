@@ -11,6 +11,7 @@ import com.jivesoftware.os.lab.guts.allocators.LABAppendOnlyAllocator;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMap;
 import com.jivesoftware.os.lab.guts.allocators.LABConcurrentSkipListMemory;
 import com.jivesoftware.os.lab.guts.allocators.LABIndexableMemory;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
@@ -171,7 +172,7 @@ public class InterleaveStreamNGTest {
                 while (nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                     System.out.println(TestUtils.toString(rawEntry));
                     return true;
-                }) == Scanner.Next.more) {
+                }) == Next.more) {
                 }
                 System.out.println("\n");
 
@@ -215,7 +216,7 @@ public class InterleaveStreamNGTest {
                 passed[0] = false;
             }
             return true;
-        }) == Scanner.Next.more) {
+        }) == Next.more) {
         }
         Assert.assertTrue(passed[0], "key or value miss match");
         Assert.assertTrue(expected.isEmpty(), "failed to remove all");

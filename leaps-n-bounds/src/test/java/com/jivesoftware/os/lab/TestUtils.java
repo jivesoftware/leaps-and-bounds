@@ -12,7 +12,7 @@ import com.jivesoftware.os.lab.guts.PointInterleave;
 import com.jivesoftware.os.lab.guts.api.RawAppendableIndex;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
-import com.jivesoftware.os.lab.guts.api.Scanner.Next;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.lab.io.api.UIO;
 import java.io.IOException;
@@ -128,7 +128,7 @@ public class TestUtils {
                     index[0]++;
                     return true;
                 };
-                while (rowScan.next(stream) == Scanner.Next.more) {
+                while (rowScan.next(stream) == Next.more) {
                 }
             } finally {
                 rowScan.close();
@@ -174,7 +174,7 @@ public class TestUtils {
                 System.out.println("Asked:" + UIO.bytesLong(keys.get(_i)) + " to " + UIO.bytesLong(keys.get(_i + 3)));
                 Scanner rangeScan = new InterleaveStream(acquired, keys.get(_i), keys.get(_i + 3), LABRawhide.SINGLETON);
                 try {
-                    while (rangeScan.next(stream) == Scanner.Next.more) {
+                    while (rangeScan.next(stream) == Next.more) {
                     }
                 } finally {
                     rangeScan.close();
@@ -199,7 +199,7 @@ public class TestUtils {
                 Scanner rangeScan = new InterleaveStream(acquired, UIO.longBytes(UIO.bytesLong(keys.get(_i)) + 1, new byte[8], 0), keys.get(_i + 3),
                     LABRawhide.SINGLETON);
                 try {
-                    while (rangeScan.next(stream) == Scanner.Next.more) {
+                    while (rangeScan.next(stream) == Next.more) {
                     }
                 } finally {
                     rangeScan.close();

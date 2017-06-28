@@ -24,7 +24,7 @@ import com.jivesoftware.os.lab.guts.ReaderTx;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
-import com.jivesoftware.os.lab.guts.api.Scanner.Next;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.io.BolBuffer;
 import com.jivesoftware.os.mlogger.core.MetricLogger;
 import com.jivesoftware.os.mlogger.core.MetricLoggerFactory;
@@ -716,6 +716,7 @@ public class LAB implements ValueIndex<byte[]> {
         BolBuffer streamKeyBuffer,
         BolBuffer streamValueBuffer,
         ValueStream valueStream) throws Exception {
+
         while (true) {
             Next next = nextRawEntry.next((readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                 return rawhide.streamRawEntry(index,

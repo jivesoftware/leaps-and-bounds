@@ -4,6 +4,7 @@ import com.jivesoftware.os.lab.LABStats;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.guts.LABIndex;
 import com.jivesoftware.os.lab.guts.StripingBolBufferLocks;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -1393,12 +1394,12 @@ public class LABConcurrentSkipListMap implements LABIndex<BolBuffer, BolBuffer> 
         BolBuffer keyBuffer = new BolBuffer();
         return new Scanner() {
             @Override
-            public Scanner.Next next(RawEntryStream stream) throws Exception {
+            public Next next(RawEntryStream stream) throws Exception {
                 if (entryStream.hasNext()) {
                     boolean more = entryStream.next(stream, keyBuffer, entryBuffer);
-                    return more ? Scanner.Next.more : Scanner.Next.stopped;
+                    return more ? Next.more : Next.stopped;
                 }
-                return Scanner.Next.eos;
+                return Next.eos;
             }
 
             @Override

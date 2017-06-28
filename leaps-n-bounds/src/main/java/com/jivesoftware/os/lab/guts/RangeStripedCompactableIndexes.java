@@ -9,6 +9,7 @@ import com.jivesoftware.os.lab.api.exceptions.LABConcurrentSplitException;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.api.KeyToString;
 import com.jivesoftware.os.lab.guts.api.MergerBuilder;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.ReadIndex;
 import com.jivesoftware.os.lab.guts.api.Scanner;
@@ -366,7 +367,7 @@ public class RangeStripedCompactableIndexes {
                                 RawEntryStream rawEntryStream = (readKeyFormatTransformer, readValueFormatTransformer, rawEntry) -> {
                                     return stream.stream(readKeyFormatTransformer, readValueFormatTransformer, rawEntry);
                                 };
-                                while (scanner.next(rawEntryStream) == Scanner.Next.more) {
+                                while (scanner.next(rawEntryStream) == Next.more) {
                                 }
                             } finally {
                                 scanner.close();

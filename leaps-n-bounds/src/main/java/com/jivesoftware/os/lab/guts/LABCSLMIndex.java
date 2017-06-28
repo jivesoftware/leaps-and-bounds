@@ -18,6 +18,7 @@ package com.jivesoftware.os.lab.guts;
 import com.jivesoftware.os.lab.api.FormatTransformer;
 import com.jivesoftware.os.lab.api.rawhide.Rawhide;
 import com.jivesoftware.os.lab.guts.allocators.LABCostChangeInBytes;
+import com.jivesoftware.os.lab.guts.api.Next;
 import com.jivesoftware.os.lab.guts.api.RawEntryStream;
 import com.jivesoftware.os.lab.guts.api.Scanner;
 import com.jivesoftware.os.lab.io.BolBuffer;
@@ -111,15 +112,15 @@ public class LABCSLMIndex implements LABIndex<BolBuffer, BolBuffer> {
             .iterator();
         return new Scanner() {
             @Override
-            public Scanner.Next next(RawEntryStream stream) throws Exception {
+            public Next next(RawEntryStream stream) throws Exception {
                 if (iterator.hasNext()) {
                     Map.Entry<byte[], byte[]> next = iterator.next();
                     byte[] value = next.getValue();
                     entryBuffer.force(value, 0, value.length);
                     boolean more = stream.stream(FormatTransformer.NO_OP, FormatTransformer.NO_OP, entryBuffer);
-                    return more ? Scanner.Next.more : Scanner.Next.stopped;
+                    return more ? Next.more : Next.stopped;
                 }
-                return Scanner.Next.eos;
+                return Next.eos;
             }
 
             @Override
