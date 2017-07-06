@@ -55,11 +55,11 @@ public class LABBitmapIndexes<BM extends IBM, IBM> {
 
     public void flush() throws Exception {
         for (ValueIndex<byte[]> bitmapIndex : bitmapIndexes) {
-            bitmapIndex.commit(true,true);
+            bitmapIndex.commit(true, true);
         }
 
         for (ValueIndex<byte[]> termIndex : termIndexes) {
-            termIndex.commit(true,true);
+            termIndex.commit(true, true);
         }
 
         for (ValueIndex<byte[]> cardinality : cardinalities) {

@@ -15,5 +15,6 @@
     <modules>
         <module>inheritance-poms</module>
         <module>leaps-n-bounds</module>
+        <module>leaps-n-bounds-roaring</module>
     </modules>
 </project>
